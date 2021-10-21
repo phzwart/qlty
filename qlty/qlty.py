@@ -129,7 +129,6 @@ class NCYXQuilt(object):
         times = self.nY*self.nX
         M_images = N//times
         assert N%times==0
-        print(M_images)
         result = torch.zeros( (M_images, C, self.Y, self.X) )
         norma = torch.zeros( (self.Y, self.X) )
         count = 0
@@ -146,13 +145,12 @@ class NCYXQuilt(object):
                     stop_x = start_x + self.window[1]
 
                     tmp = ml_tensor[here_and_now,...]
-                    result[this_image,:,start_y:stop_y, start_x:stop_x] += tmp
+                    result[this_image,:,start_y:stop_y, start_x:stop_x] += tmp*self.weight
                     count += 1
-
-                    # get the weight matrix
+                    # get the weight matrix, only compute once
                     if m==0:
                         norma[start_y:stop_y, start_x:stop_x]+=self.weight
 
             this_image+=1
         result = result/(norma)
-        return result
+        return result, norma
