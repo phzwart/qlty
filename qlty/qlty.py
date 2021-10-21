@@ -154,5 +154,5 @@ class NCYXQuilt(object):
                         norma[start_y:stop_y, start_x:stop_x]+=self.weight
 
             this_image+=1
-        result = result/(norma+1e-3)
+        result = result/(norma)
         return result
