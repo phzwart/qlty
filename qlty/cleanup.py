@@ -11,7 +11,7 @@ def weed_sparse_classification_training_pairs_2D(tensor_in, tensor_out, missing_
 
     Parameters
     ----------
-    tensor_in: inpuit tensor
+    tensor_in: input tensor
     tensor_out: output tensor
     missing_label: missing label flag (typically -1)
     border_tensor: the border tensor, obtained from the NCXYQuilt or NCZYXQuilt class
@@ -24,10 +24,6 @@ def weed_sparse_classification_training_pairs_2D(tensor_in, tensor_out, missing_
     tmp = torch.clone(tensor_out)
     sel = tmp==missing_label
     sel = sel*border_tensor
-    import plotly.express as px
-    px.imshow(border_tensor.numpy()).show()
-    px.imshow( sel.numpy()[0,...]).show()
-    px.imshow( sel.numpy()[1,...]).show()
 
     if len(border_tensor.shape)==2:
         sel = einops.reduce( sel, "N Y X -> N", reduction='sum')
@@ -37,5 +33,5 @@ def weed_sparse_classification_training_pairs_2D(tensor_in, tensor_out, missing_
     sel = sel.type(torch.bool)
     newin = tensor_in[~sel,...]
     newout = tensor_out[~sel,...]
-    return newin,newout
+    return newin, newout
 
