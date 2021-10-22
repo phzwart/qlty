@@ -32,15 +32,15 @@ class NCZYXQuilt(object):
         self.nZ, self.nY, self.nX = self.get_times()
 
         self.weight = torch.zeros(self.window) + border_weight
-        self.weight[border[0]:-(border[0] - 1),
-                    border[1]:-(border[1] - 1),
-                    border[2]:-(border[2] - 1)] = 1.0 - border_weight
+        self.weight[border[0]:-(border[0]),
+                    border[1]:-(border[1]),
+                    border[2]:-(border[2])] = 1.0 - border_weight
 
     def border_tensor(self):
         result = torch.zeros( self.window )
-        result[border[0]:-(border[0] - 1),
-               border[1]:-(border[1] - 1),
-               border[2]:-(border[2] - 1)] = 1.0
+        result[self.border[0]:-(self.border[0]),
+               self.border[1]:-(self.border[1]),
+               self.border[2]:-(self.border[2])] = 1.0
         return result
 
     def get_times(self):
