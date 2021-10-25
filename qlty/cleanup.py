@@ -22,13 +22,13 @@ def weed_sparse_classification_training_pairs_2D(tensor_in, tensor_out, missing_
     """
 
     tmp = torch.clone(tensor_out)
-    sel = tmp==missing_label
+    sel = (tmp!=missing_label).type(torch.int)
     sel = sel*border_tensor
     if len(border_tensor.shape)==2:
         sel = einops.reduce( sel, "N Y X -> N", reduction='sum')
     if len(border_tensor.shape)==3:
         sel = einops.reduce( sel, "N C Y X -> N", reduction='sum')
-    sel = sel.type(torch.bool)
+    sel = sel == 0
     newin = tensor_in[~sel,...]
     newout = tensor_out[~sel,...]
     return newin, newout
