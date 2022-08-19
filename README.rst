@@ -26,7 +26,7 @@ Unstitch and stich back pytorch tensors
 Features
 --------
 
-* TODO
+
 
 Credits
 -------
