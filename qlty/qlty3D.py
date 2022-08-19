@@ -15,6 +15,7 @@ class NCZYXQuilt(object):
 
         Parameters
         ----------
+        Z : number of elements in the Z direction
         Y : number of elements in the Y direction
         X : number of elements in the X direction
         window: The size of the sliding window, a tuple (Zsub, Ysub, Xsub)
