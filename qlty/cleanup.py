@@ -31,5 +31,5 @@ def weed_sparse_classification_training_pairs_2D(tensor_in, tensor_out, missing_
     sel = sel == 0
     newin = tensor_in[~sel,...]
     newout = tensor_out[~sel,...]
-    return newin, newout
+    return newin, newout, sel
 
