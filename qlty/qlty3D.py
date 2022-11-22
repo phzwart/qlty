@@ -1,6 +1,7 @@
 import torch
 import einops
 
+
 class NCZYXQuilt(object):
     """
     This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
@@ -34,14 +35,14 @@ class NCZYXQuilt(object):
 
         self.weight = torch.zeros(self.window) + border_weight
         self.weight[border[0]:-(border[0]),
-                    border[1]:-(border[1]),
-                    border[2]:-(border[2])] = 1.0 - border_weight
+        border[1]:-(border[1]),
+        border[2]:-(border[2])] = 1.0 - border_weight
 
     def border_tensor(self):
-        result = torch.zeros( self.window )
+        result = torch.zeros(self.window)
         result[self.border[0]:-(self.border[0]),
-               self.border[1]:-(self.border[1]),
-               self.border[2]:-(self.border[2])] = 1.0
+        self.border[1]:-(self.border[1]),
+        self.border[2]:-(self.border[2])] = 1.0
         return result
 
     def get_times(self):
@@ -150,7 +151,7 @@ class NCZYXQuilt(object):
         assert N % times == 0
         result = torch.zeros((M_images, C, self.Z, self.Y, self.X))
         norma = torch.zeros((self.Z, self.Y, self.X))
-        count = 0
+
         this_image = 0
         for m in range(M_images):
             count = 0
@@ -168,16 +169,12 @@ class NCZYXQuilt(object):
                         stop_x = start_x + self.window[2]
 
                         tmp = ml_tensor[here_and_now, ...]
-                        result[this_image,
-                        :,
-                        start_z:stop_z,
-                        start_y:stop_y,
-                        start_x:stop_x] += tmp * self.weight
+                        result[this_image, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += tmp * self.weight
                         count += 1
                         # get the weight matrix, only compute once
                         if m == 0:
                             norma[start_z:stop_z, start_y:stop_y, start_x:stop_x] += self.weight
 
             this_image += 1
-        result = result / (norma)
+        result = result / norma
         return result, norma

@@ -1,13 +1,15 @@
 import torch
 import einops
 
+
 class NCYXQuilt(object):
     """
     This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
     This class is aimed at handling tensors of type (N,C,Y,X)
 
     """
-    def __init__(self,Y,X,window,step,border, border_weight=0.1):
+
+    def __init__(self, Y, X, window, step, border, border_weight=0.1):
         """
         This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
         This class is aimed at handling tensors of type (N,C,Y,X).
@@ -29,11 +31,11 @@ class NCYXQuilt(object):
         self.border = border
         self.nY, self.nX = self.get_times()
 
-        self.weight = torch.zeros( self.window ) + border_weight
+        self.weight = torch.zeros(self.window) + border_weight
         self.weight[border[0]:-(border[0]), border[1]:-(border[1])] = 1.0 - border_weight
 
     def border_tensor(self):
-        result = torch.zeros( self.window )
+        result = torch.zeros(self.window)
         result[self.border[0]:-(self.border[0]), self.border[1]:-(self.border[1])] = 1.0
         return result
 
@@ -45,8 +47,8 @@ class NCYXQuilt(object):
         -------
         Y_step, X_step: steps along the Y and X direction
         """
-        Y_times = (self.Y - self.window[0])//self.step[0] + 1
-        X_times = (self.X - self.window[1])//self.step[1] + 1
+        Y_times = (self.Y - self.window[0]) // self.step[0] + 1
+        X_times = (self.X - self.window[1]) // self.step[1] + 1
         return Y_times, X_times
 
     def unstitch_data_pair(self, tensor_in, tensor_out):
@@ -63,8 +65,8 @@ class NCYXQuilt(object):
         -------
         Tensor patches.
         """
-        rearranged=False
-        if len(tensor_out.shape)==3:
+        rearranged = False
+        if len(tensor_out.shape) == 3:
             tensor_out = einops.rearrange(tensor_out, "N Y X -> N () Y X")
             rearranged = True
         assert len(tensor_out.shape) == 4
@@ -74,7 +76,7 @@ class NCYXQuilt(object):
         unstitched_in = self.unstitch(tensor_in)
         unstitched_out = self.unstitch(tensor_out)
         if rearranged:
-            assert unstitched_out.shape[1]==1
+            assert unstitched_out.shape[1] == 1
             unstitched_out = unstitched_out.squeeze(dim=1)
         return unstitched_in, unstitched_out
 
@@ -90,14 +92,14 @@ class NCYXQuilt(object):
         -------
         A patched tensor
         """
-        N,C,Y,X = tensor.shape
+        N, C, Y, X = tensor.shape
         result = []
         for n in range(N):
-            tmp = tensor[n,...]
+            tmp = tensor[n, ...]
             for yy in range(self.nY):
                 for xx in range(self.nX):
-                    start_y = yy*self.step[0]
-                    start_x = xx*self.step[1]
+                    start_y = yy * self.step[0]
+                    start_x = xx * self.step[1]
                     stop_y = start_y + self.window[0]
                     stop_x = start_x + self.window[1]
                     patch = tmp[:, start_y:stop_y, start_x:stop_x]
@@ -105,7 +107,7 @@ class NCYXQuilt(object):
         result = einops.rearrange(result, "M C Y X -> M C Y X")
         return result
 
-    def stitch(self,ml_tensor):
+    def stitch(self, ml_tensor):
         """
         The assumption here is that we have done the following:
 
@@ -131,31 +133,30 @@ class NCYXQuilt(object):
         """
         N, C, Y, X = ml_tensor.shape
         # we now need to figure out how to sticth this back into what dimension
-        times = self.nY*self.nX
-        M_images = N//times
-        assert N%times==0
-        result = torch.zeros( (M_images, C, self.Y, self.X) )
-        norma = torch.zeros( (self.Y, self.X) )
-        count = 0
+        times = self.nY * self.nX
+        M_images = N // times
+        assert N % times == 0
+        result = torch.zeros((M_images, C, self.Y, self.X))
+        norma = torch.zeros((self.Y, self.X))
         this_image = 0
         for m in range(M_images):
             count = 0
             for yy in range(self.nY):
                 for xx in range(self.nX):
 
-                    here_and_now = times*this_image+count
-                    start_y = yy*self.step[0]
-                    start_x = xx*self.step[1]
+                    here_and_now = times * this_image + count
+                    start_y = yy * self.step[0]
+                    start_x = xx * self.step[1]
                     stop_y = start_y + self.window[0]
                     stop_x = start_x + self.window[1]
 
-                    tmp = ml_tensor[here_and_now,...]
-                    result[this_image,:,start_y:stop_y, start_x:stop_x] += tmp*self.weight
+                    tmp = ml_tensor[here_and_now, ...]
+                    result[this_image, :, start_y:stop_y, start_x:stop_x] += tmp * self.weight
                     count += 1
                     # get the weight matrix, only compute once
-                    if m==0:
-                        norma[start_y:stop_y, start_x:stop_x]+=self.weight
+                    if m == 0:
+                        norma[start_y:stop_y, start_x:stop_x] += self.weight
 
-            this_image+=1
-        result = result/(norma)
+            this_image += 1
+        result = result / norma
         return result, norma

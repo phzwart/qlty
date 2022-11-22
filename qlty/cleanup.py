@@ -1,6 +1,7 @@
 import torch
 import einops
 
+
 def weed_sparse_classification_training_pairs_2D(tensor_in, tensor_out, missing_label, border_tensor):
     """
     After tensors have been unstitched, we want want to be able to remove patches that have no data.
@@ -22,15 +23,15 @@ def weed_sparse_classification_training_pairs_2D(tensor_in, tensor_out, missing_
     """
 
     tmp = torch.clone(tensor_out)
-    sel = (tmp!=missing_label).type(torch.int)
-    sel = sel*border_tensor
-    if len(border_tensor.shape)==2:
-        sel = einops.reduce( sel, "N Y X -> N", reduction='sum')
-    if len(border_tensor.shape)==3:
-        sel = einops.reduce( sel, "N C Y X -> N", reduction='sum')
+    sel = (tmp != missing_label).type(torch.int)
+    sel = sel * border_tensor
+    if len(border_tensor.shape) == 2:
+        sel = einops.reduce(sel, "N Y X -> N", reduction='sum')
+    if len(border_tensor.shape) == 3:
+        sel = einops.reduce(sel, "N C Y X -> N", reduction='sum')
     sel = sel == 0
-    newin = tensor_in[~sel,...]
-    newout = tensor_out[~sel,...]
+    newin = tensor_in[~sel, ...]
+    newout = tensor_out[~sel, ...]
     return newin, newout, sel
 
 
@@ -55,14 +56,13 @@ def weed_sparse_classification_training_pairs_3D(tensor_in, tensor_out, missing_
     """
 
     tmp = torch.clone(tensor_out)
-    sel = (tmp!=missing_label).type(torch.int)
-    sel = sel*border_tensor
-    if len(border_tensor.shape)==4:
-        sel = einops.reduce( sel, "N Z Y X -> N", reduction='sum')
-    if len(border_tensor.shape)==5:
-        sel = einops.reduce( sel, "N C Z Y X -> N", reduction='sum')
+    sel = (tmp != missing_label).type(torch.int)
+    sel = sel * border_tensor
+    if len(border_tensor.shape) == 4:
+        sel = einops.reduce(sel, "N Z Y X -> N", reduction='sum')
+    if len(border_tensor.shape) == 5:
+        sel = einops.reduce(sel, "N C Z Y X -> N", reduction='sum')
     sel = sel == 0
-    newin = tensor_in[~sel,...]
-    newout = tensor_out[~sel,...]
+    newin = tensor_in[~sel, ...]
+    newout = tensor_out[~sel, ...]
     return newin, newout, sel
-
