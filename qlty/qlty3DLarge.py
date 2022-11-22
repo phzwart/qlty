@@ -243,7 +243,7 @@ def tst():
     for ii in range(qobj.N_chunks):
         ind, tmp = qobj.unstich_next(Tdata)
         neural_network_result = tmp
-        qobj.stitch(tmp, neural_network_result)
+        qobj.stitch(neural_network_result,ii)
     mean = qobj.return_mean()
     assert np.max(np.abs(mean - data)) < 1e-4
     return True
