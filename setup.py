@@ -17,7 +17,7 @@ test_requirements = [ ]
 setup(
     author="Petrus H. Zwart",
     author_email='PHZart@lbl.gov',
-    python_requires='>=3.6',
+    python_requires='>=3.9',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
@@ -39,6 +39,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/phzwart/qlty',
-    version='0.1.1',
+    version='0.1.3',
     zip_safe=False,
 )
