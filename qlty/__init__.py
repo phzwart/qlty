@@ -2,4 +2,4 @@
 
 __author__ = """Petrus H. Zwart"""
 __email__ = 'PHZart@lbl.gov'
-__version__ = '0.1.3'
+__version__ = '0.1.4'
