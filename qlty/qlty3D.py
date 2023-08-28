@@ -30,13 +30,22 @@ class NCZYXQuilt(object):
         self.X = X
         self.window = window
         self.step = step
-        self.border = border
         self.nZ, self.nY, self.nX = self.get_times()
 
-        self.weight = torch.zeros(self.window) + border_weight
-        self.weight[border[0]:-(border[0]),
-        border[1]:-(border[1]),
-        border[2]:-(border[2])] = 1.0 - border_weight
+        self.border = border
+        self.border_weight = border_weight
+        if border == 0:
+            self.border = None
+        assert self.border_weight <= 1.0
+        assert self.border_weight >= 0.0
+        self.weight = torch.ones(self.window)
+        if self.border is not None:
+            self.weight = torch.zeros(self.window) + border_weight
+            self.weight[border[0]:-(border[0]),
+                        border[1]:-(border[1]),
+                        border[2]:-(border[2])
+                        ] = 1.0
+
 
     def border_tensor(self):
         result = torch.zeros(self.window)
