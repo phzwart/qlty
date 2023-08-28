@@ -43,13 +43,23 @@ class LargeNCZYXQuilt(object):
         self.X = X
         self.window = window
         self.step = step
+
         self.border = border
+        self.border_weight = border_weight
+        if border == 0:
+            self.border = None
+        assert self.border_weight <= 1.0
+        assert self.border_weight >= 0.0
+
         self.nZ, self.nY, self.nX = self.get_times()
 
-        self.weight = np.zeros(self.window) + border_weight
-        self.weight[border[0]:-(border[0]),
-        border[1]:-(border[1]),
-        border[2]:-(border[2])] = 1.0 - border_weight
+        self.weight = torch.ones(self.window)
+        if self.border is not None:
+            self.weight = torch.zeros(self.window) + border_weight
+            self.weight[border[0]:-(border[0]),
+                        border[1]:-(border[1]),
+                        border[2]:-(border[2])
+                        ] = 1.0
 
         self.N_chunks = self.N * self.nZ * self.nY * self.nX
         self.mean = None
@@ -155,7 +165,7 @@ class LargeNCZYXQuilt(object):
 
         return patch
 
-    def stitch(self, patch, index_flat):
+    def stitch(self, patch, index_flat, patch_var=None):
         """
         Stitch overlapping chunks back together.
 
@@ -172,13 +182,19 @@ class LargeNCZYXQuilt(object):
 
         """
         # build the zarr arrays where we need to store things if they are not there yet
-        C = patch.shape[0]
+        C = patch.shape[1]
 
         if self.mean is None:
             self.mean = zarr.open(self.filename + "_mean.zarr",
                                   shape=(self.N, C, self.Z, self.Y, self.X),
                                   chunks=(1, C, self.window[0], self.window[1], self.window[2]),
                                   mode='w', fill_value=0, )
+
+            self.std = zarr.open(self.filename + "_std.zarr",
+                                  shape=(self.N, C, self.Z, self.Y, self.X),
+                                  chunks=(1, C, self.window[0], self.window[1], self.window[2]),
+                                  mode='w', fill_value=0, )
+
             self.norma = zarr.open(self.filename + "_norma.zarr",
                                    shape=(self.Z, self.Y, self.X),
                                    chunks=self.window,
@@ -194,7 +210,9 @@ class LargeNCZYXQuilt(object):
         stop_y = start_y + self.window[1]
         stop_x = start_x + self.window[2]
 
-        self.mean[n, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += patch.numpy() * self.weight
+        self.mean[n:n+1, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += patch.numpy() * self.weight
+        if patch_var is not None:
+            self.std[n:n+1, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += patch_var.numpy() * self.weight
 
         if n == 0:
             self.norma[start_z:stop_z, start_y:stop_y, start_x:stop_x] += self.weight
@@ -215,7 +233,7 @@ class LargeNCZYXQuilt(object):
         tmp = self.unstitch(tensor, this_ind)
         return this_ind, tmp
 
-    def return_mean(self):
+    def return_mean(self, std=False, normalize=True):
         """
         Return the averaged result.
 
@@ -223,7 +241,18 @@ class LargeNCZYXQuilt(object):
         -------
         The spatially averaged mean.
         """
-        return self.mean[...] / self.norma[...]
+        m = self.mean[...] / self.norma[...]
+        n = 1.0
+        if normalize:
+            n = np.sum(m,axis=1)
+        m = m / n
+        if std:
+            s = self.std[...] / self.norma[...]
+            s = s / n
+            return m, np.sqrt(np.abs(s))
+        return m
+
+
 
 
 def tst():
@@ -251,3 +280,4 @@ def tst():
 
 if __name__ == "__main__":
     tst()
+    print("OK")
