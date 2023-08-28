@@ -9,7 +9,7 @@ class NCYXQuilt(object):
 
     """
 
-    def __init__(self, Y, X, window, step, border, border_weight=0.1):
+    def __init__(self, Y, X, window, step, border, border_weight=1.0):
         """
         This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
         This class is aimed at handling tensors of type (N,C,Y,X).
@@ -29,14 +29,25 @@ class NCYXQuilt(object):
         self.window = window
         self.step = step
         self.border = border
+        self.border_weight = border_weight
+        if border == 0:
+            self.border = None
+        assert self.border_weight <= 1.0
+        assert self.border_weight >= 0.0
+
         self.nY, self.nX = self.get_times()
 
-        self.weight = torch.zeros(self.window) + border_weight
-        self.weight[border[0]:-(border[0]), border[1]:-(border[1])] = 1.0 - border_weight
+        self.weight = torch.ones(self.window)
+        if self.border is not None:
+            self.weight = torch.zeros(self.window) + border_weight
+            self.weight[border[0]:-(border[0]), border[1]:-(border[1])] = 1.0
 
     def border_tensor(self):
-        result = torch.zeros(self.window)
-        result[self.border[0]:-(self.border[0]), self.border[1]:-(self.border[1])] = 1.0
+        if self.border is not None:
+            result = torch.zeros(self.window)
+            result[self.border[0]:-(self.border[0]), self.border[1]:-(self.border[1])] = 1.0
+        else:
+            result = torch.ones(self.window)
         return result
 
     def get_times(self):
@@ -132,7 +143,7 @@ class NCYXQuilt(object):
 
         """
         N, C, Y, X = ml_tensor.shape
-        # we now need to figure out how to sticth this back into what dimension
+        # we now need to figure out how to stitch this back into what dimension
         times = self.nY * self.nX
         M_images = N // times
         assert N % times == 0
