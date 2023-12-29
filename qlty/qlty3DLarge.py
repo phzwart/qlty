@@ -210,12 +210,12 @@ class LargeNCZYXQuilt(object):
         stop_y = start_y + self.window[1]
         stop_x = start_x + self.window[2]
 
-        self.mean[n:n+1, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += patch.numpy() * self.weight
+        self.mean[n:n+1, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += patch.numpy() * self.weight.numpy()
         if patch_var is not None:
-            self.std[n:n+1, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += patch_var.numpy() * self.weight
+            self.std[n:n+1, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += patch_var.numpy() * self.weight.numpy()
 
         if n == 0:
-            self.norma[start_z:stop_z, start_y:stop_y, start_x:stop_x] += self.weight
+            self.norma[start_z:stop_z, start_y:stop_y, start_x:stop_x] += self.weight.numpy()
 
     def unstich_next(self, tensor):
         """
@@ -233,7 +233,7 @@ class LargeNCZYXQuilt(object):
         tmp = self.unstitch(tensor, this_ind)
         return this_ind, tmp
 
-    def return_mean(self, std=False, normalize=True):
+    def return_mean_do_not_use(self, std=False, normalize=True):
         """
         Return the averaged result.
 
@@ -252,6 +252,54 @@ class LargeNCZYXQuilt(object):
             return m, np.sqrt(np.abs(s))
         return m
 
+    def return_mean(self, std=False, normalize=True, eps=1e-8):
+        """
+        Return the averaged result using Dask for parallel processing and Zarr for disk caching.
+
+        Parameters
+        ----------
+        std : bool, optional
+            Whether to compute and return the standard deviation.
+        normalize : bool, optional
+            Whether to normalize the mean.
+        root_path : str, optional
+            The root directory path for saving the Zarr arrays.
+
+        Returns
+        -------
+        The spatially averaged mean stored as a Zarr array.
+        """
+        import dask.array as da
+        import os
+
+        # Convert Zarr arrays to Dask arrays for parallel processing
+        mean_dask = da.from_zarr(self.mean)
+        norma_dask = da.from_zarr(self.norma)+eps
+        std_dask = da.from_zarr(self.std) if std else None
+
+        # Compute mean and std using Dask (parallel processing)
+        mean_accumulated = da.sum(mean_dask / norma_dask, axis=0)
+        if std:
+            std_accumulated = da.sqrt(da.abs(da.sum(std_dask / norma_dask, axis=0)))
+
+        # Normalize if required
+        if normalize:
+            mean_accumulated /= da.sum(mean_accumulated, axis=0)
+            if std:
+                std_accumulated /= da.sum(std_accumulated, axis=0)
+
+        # Define file paths for Zarr arrays
+        mean_zarr_path = (self.filename + '_final_mean.zarr')
+        std_zarr_path = (self.filename +'_final_std.zarr') if std else None
+
+        # Store the result into Zarr arrays on disk
+        mean_zarr = mean_accumulated.compute()
+        zarr.save(mean_zarr_path, mean_zarr)
+        if std:
+            std_zarr = std_accumulated.compute()
+            zarr.save(std_zarr_path, std_zarr)
+            return mean_zarr, std_zarr
+        return mean_zarr
 
 
 
@@ -273,7 +321,8 @@ def tst():
         ind, tmp = qobj.unstich_next(Tdata)
         neural_network_result = tmp
         qobj.stitch(neural_network_result,ii)
-    mean = qobj.return_mean()
+    mean = qobj.return_mean_dask()
+    print(mean)
     assert np.max(np.abs(mean - data)) < 1e-4
     return True
 
