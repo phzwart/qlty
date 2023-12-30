@@ -76,16 +76,22 @@ class LargeNCZYXQuilt(object):
 
     def get_times(self):
         """
-        Computes how many steps along Z, Y and X we will take.
-
-        Returns
-        -------
-        Z_step, Y_step, X_step: steps along the Z, Y and X direction
+        Computes the number of chunks along Z, Y, and X dimensions, ensuring the last chunk
+        is included by adjusting the starting points.
         """
 
-        Z_times = (self.Z - self.window[0]) // self.step[0] + 1
-        Y_times = (self.Y - self.window[1]) // self.step[1] + 1
-        X_times = (self.X - self.window[2]) // self.step[2] + 1
+        def compute_steps(dimension_size, window_size, step_size):
+            # Calculate the number of full steps
+            full_steps = (dimension_size - window_size) // step_size
+            # Check if there is enough space left for the last chunk
+            if dimension_size > full_steps * step_size + window_size:
+                return full_steps + 2
+            else:
+                return full_steps + 1
+
+        Z_times = compute_steps(self.Z, self.window[0], self.step[0])
+        Y_times = compute_steps(self.Y, self.window[1], self.step[1])
+        X_times = compute_steps(self.X, self.window[2], self.step[2])
         return Z_times, Y_times, X_times
 
     def unstitch_and_clean_sparse_data_pair(self, tensor_in, tensor_out, missing_label):
@@ -135,65 +141,36 @@ class LargeNCZYXQuilt(object):
         return unstitched_in, unstitched_out
 
     def unstitch(self, tensor, index):
-        """
-        Unstich a single tensor.
-
-        Parameters
-        ----------
-        tensor: input tensor to be chopped up
-        index: the index of the chunk
-
-        Returns
-        -------
-        A patched tensor
-        """
         N, C, Z, Y, X = tensor.shape
 
-        # figure out the right output size
         out_shape = (N, self.nZ, self.nY, self.nX)
         n, zz, yy, xx = np.unravel_index(index, out_shape)
 
-        start_z = zz * self.step[0]
-        start_y = yy * self.step[1]
-        start_x = xx * self.step[2]
+        # Adjust the starting point for the last chunk in each dimension
+        start_z = min(zz * self.step[0], Z - self.window[0])
+        start_y = min(yy * self.step[1], Y - self.window[1])
+        start_x = min(xx * self.step[2], X - self.window[2])
 
         stop_z = start_z + self.window[0]
         stop_y = start_y + self.window[1]
         stop_x = start_x + self.window[2]
 
         patch = tensor[n, :, start_z:stop_z, start_y:stop_y, start_x:stop_x]
-
         return patch
 
     def stitch(self, patch, index_flat, patch_var=None):
-        """
-        Stitch overlapping chunks back together.
-
-        Parameters
-        ----------
-        patch : The chunk of data
-        index_flat : the 'index' of the patch. Use a unrolled / flattened index.
-                     We use np.unravel_index() to find its location
-
-        Returns
-        -------
-        No return value. Once done iterating, use .return_mean() to get the average.
-
-
-        """
-        # build the zarr arrays where we need to store things if they are not there yet
         C = patch.shape[1]
-
         if self.mean is None:
+            # Initialization code remains the same...
             self.mean = zarr.open(self.filename + "_mean_cache.zarr",
                                   shape=(self.N, C, self.Z, self.Y, self.X),
                                   chunks=(1, C, self.window[0], self.window[1], self.window[2]),
                                   mode='w', fill_value=0, )
 
             self.std = zarr.open(self.filename + "_std_cache.zarr",
-                                  shape=(self.N, C, self.Z, self.Y, self.X),
-                                  chunks=(1, C, self.window[0], self.window[1], self.window[2]),
-                                  mode='w', fill_value=0, )
+                                 shape=(self.N, C, self.Z, self.Y, self.X),
+                                 chunks=(1, C, self.window[0], self.window[1], self.window[2]),
+                                 mode='w', fill_value=0, )
 
             self.norma = zarr.open(self.filename + "_norma_cache.zarr",
                                    shape=(self.Z, self.Y, self.X),
@@ -203,13 +180,16 @@ class LargeNCZYXQuilt(object):
         screen_shape = (self.N, self.nZ, self.nY, self.nX)
         n, zz, yy, xx = np.unravel_index(index_flat, screen_shape)
 
-        start_z = zz * self.step[0]
-        start_y = yy * self.step[1]
-        start_x = xx * self.step[2]
+        # Adjust the starting point for the last chunk in each dimension
+        start_z = min(zz * self.step[0], self.Z - self.window[0])
+        start_y = min(yy * self.step[1], self.Y - self.window[1])
+        start_x = min(xx * self.step[2], self.X - self.window[2])
+
         stop_z = start_z + self.window[0]
         stop_y = start_y + self.window[1]
         stop_x = start_x + self.window[2]
 
+        # Update the mean, std, and norma arrays
         self.mean[n:n+1, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += patch.numpy() * self.weight.numpy()
         if patch_var is not None:
             self.std[n:n+1, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += patch_var.numpy() * self.weight.numpy()
