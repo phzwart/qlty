@@ -185,17 +185,17 @@ class LargeNCZYXQuilt(object):
         C = patch.shape[1]
 
         if self.mean is None:
-            self.mean = zarr.open(self.filename + "_mean.zarr",
+            self.mean = zarr.open(self.filename + "_mean_cache.zarr",
                                   shape=(self.N, C, self.Z, self.Y, self.X),
                                   chunks=(1, C, self.window[0], self.window[1], self.window[2]),
                                   mode='w', fill_value=0, )
 
-            self.std = zarr.open(self.filename + "_std.zarr",
+            self.std = zarr.open(self.filename + "_std_cache.zarr",
                                   shape=(self.N, C, self.Z, self.Y, self.X),
                                   chunks=(1, C, self.window[0], self.window[1], self.window[2]),
                                   mode='w', fill_value=0, )
 
-            self.norma = zarr.open(self.filename + "_norma.zarr",
+            self.norma = zarr.open(self.filename + "_norma_cache.zarr",
                                    shape=(self.Z, self.Y, self.X),
                                    chunks=self.window,
                                    mode='w', fill_value=0)
@@ -289,8 +289,8 @@ class LargeNCZYXQuilt(object):
                 std_accumulated /= da.sum(std_accumulated, axis=0)
 
         # Define file paths for Zarr arrays
-        mean_zarr_path = (self.filename + '_final_mean.zarr')
-        std_zarr_path = (self.filename +'_final_std.zarr') if std else None
+        mean_zarr_path = (self.filename + '_mean.zarr')
+        std_zarr_path = (self.filename +'_std.zarr') if std else None
 
         # Store the result into Zarr arrays on disk
         mean_zarr = mean_accumulated.compute()
