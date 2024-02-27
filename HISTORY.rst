@@ -30,4 +30,10 @@ History
 
 * Bug fix / behavoir change
 
+0.1.5. (2023-12-28)
+-------------------
+
+* Changes to qlty3DLarge: 
+  bug fixes
+  normalizing / averaging now done by dask
 

@@ -254,7 +254,7 @@ class LargeNCZYXQuilt(object):
 
         # Convert Zarr arrays to Dask arrays for parallel processing
         mean_dask = da.from_zarr(self.mean)
-        norma_dask = da.from_zarr(self.norma)+eps
+        norma_dask = da.from_zarr(self.norma) + eps
         std_dask = da.from_zarr(self.std) if std else None
 
         # Compute mean and std using Dask (parallel processing)
