@@ -116,8 +116,8 @@ class NCYXQuilt(object):
             tmp = tensor[n, ...]
             for yy in range(self.nY):
                 for xx in range(self.nX):
-                    start_y = min(yy * self.step[0], Y - self.window[0])
-                    start_x = min(xx * self.step[1], X - self.window[1])
+                    start_y = min(yy * self.step[0], self.Y - self.window[0])
+                    start_x = min(xx * self.step[1], self.X - self.window[1])
                     stop_y = start_y + self.window[0]
                     stop_x = start_x + self.window[1]
                     patch = tmp[:, start_y:stop_y, start_x:stop_x]
@@ -161,14 +161,11 @@ class NCYXQuilt(object):
             count = 0
             for yy in range(self.nY):
                 for xx in range(self.nX):
-
                     here_and_now = times * this_image + count
-
-                    start_y = min(yy * self.step[0], Y - self.window[0])
-                    start_x = min(xx * self.step[1], X - self.window[1])
+                    start_y = min(yy * self.step[0], self.Y - self.window[0])
+                    start_x = min(xx * self.step[1], self.X - self.window[1])
                     stop_y = start_y + self.window[0]
                     stop_x = start_x + self.window[1]
-
                     tmp = ml_tensor[here_and_now, ...]
                     result[this_image, :, start_y:stop_y, start_x:stop_x] += tmp * self.weight
                     count += 1
