@@ -52,14 +52,21 @@ class NCYXQuilt(object):
 
     def get_times(self):
         """
-        Computes how many stpes along Y and along X we will take.
-
-        Returns
-        -------
-        Y_step, X_step: steps along the Y and X direction
+        Computes the number of chunks along Z, Y, and X dimensions, ensuring the last chunk
+        is included by adjusting the starting points.
         """
-        Y_times = (self.Y - self.window[0]) // self.step[0] + 1
-        X_times = (self.X - self.window[1]) // self.step[1] + 1
+
+        def compute_steps(dimension_size, window_size, step_size):
+            # Calculate the number of full steps
+            full_steps = (dimension_size - window_size) // step_size
+            # Check if there is enough space left for the last chunk
+            if dimension_size > full_steps * step_size + window_size:
+                return full_steps + 2
+            else:
+                return full_steps + 1
+
+        Y_times = compute_steps(self.Y, self.window[-2], self.step[-2])
+        X_times = compute_steps(self.X, self.window[-1], self.step[-1])
         return Y_times, X_times
 
     def unstitch_data_pair(self, tensor_in, tensor_out):
@@ -109,8 +116,8 @@ class NCYXQuilt(object):
             tmp = tensor[n, ...]
             for yy in range(self.nY):
                 for xx in range(self.nX):
-                    start_y = yy * self.step[0]
-                    start_x = xx * self.step[1]
+                    start_y = min(yy * self.step[0], Y - self.window[0])
+                    start_x = min(xx * self.step[1], X - self.window[1])
                     stop_y = start_y + self.window[0]
                     stop_x = start_x + self.window[1]
                     patch = tmp[:, start_y:stop_y, start_x:stop_x]
@@ -156,8 +163,9 @@ class NCYXQuilt(object):
                 for xx in range(self.nX):
 
                     here_and_now = times * this_image + count
-                    start_y = yy * self.step[0]
-                    start_x = xx * self.step[1]
+
+                    start_y = min(yy * self.step[0], Y - self.window[0])
+                    start_x = min(xx * self.step[1], X - self.window[1])
                     stop_y = start_y + self.window[0]
                     stop_x = start_x + self.window[1]
 
