@@ -30,7 +30,7 @@ class NCYXQuilt(object):
         self.step = step
         self.border = border
         self.border_weight = border_weight
-        if border == 0:
+        if border == 0 or border == (0,0):
             self.border = None
         assert self.border_weight <= 1.0
         assert self.border_weight >= 0.0
