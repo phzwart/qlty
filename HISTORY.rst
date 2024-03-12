@@ -39,4 +39,8 @@ History
 
 0.1.6. (2024-03-10)
 -------------------
- bug fixes
+  bug fixes
+
+0.1.7. (2024-03-12)
+-------------------
+*  bug fix in border tensor definition.
