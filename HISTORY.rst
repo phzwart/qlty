@@ -37,3 +37,7 @@ History
   bug fixes
   normalizing / averaging now done by dask
 
+0.1.6. (2024-03-10)
+-------------------
+ bug fixes
+
