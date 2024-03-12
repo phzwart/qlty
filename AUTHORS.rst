@@ -11,6 +11,3 @@ Contributors
 ------------
 
 * Eric Roberts <EJRoberts@lbl.gov>
-
-
-

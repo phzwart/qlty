@@ -33,11 +33,10 @@ History
 0.1.5. (2023-12-28)
 -------------------
 
-* Changes to qlty3DLarge: 
+* Changes to qlty3DLarge:
   bug fixes
   normalizing / averaging now done by dask
 
 0.1.6. (2024-03-10)
 -------------------
  bug fixes
-
