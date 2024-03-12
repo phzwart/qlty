@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for `qlty` package."""
-
+import pytest
 import numpy as np
 import torch
 import einops
@@ -9,7 +9,10 @@ from qlty import qlty2D
 from qlty import qlty3D
 
 
-def test_NCYXQuilt():
+@pytest.mark.parametrize("step, border", [((16, 32),(None)),
+                                          ((16,32),(0,0)),
+                                          ((8,8),(2,3))])
+def test_NCYXQuilt(step, border):
     x = np.linspace(0, np.pi * 2.0, 128)
     X, Y = np.meshgrid(x, x)
     imgs = []
@@ -24,7 +27,7 @@ def test_NCYXQuilt():
 
     imgs_in = einops.rearrange(imgs, "N C Y X -> N C Y X")
     imgs_out = einops.reduce(imgs_in, "N C Y X -> N () Y X", reduction='sum')
-    quilt = qlty2D.NCYXQuilt(Y=128, X=128, window=(16, 32), step=(8, 16), border=(2, 4), border_weight=0.07)
+    quilt = qlty2D.NCYXQuilt(Y=128, X=128, window=(16, 32), step=step, border=border, border_weight=0.07)
     ain, aout = quilt.unstitch_data_pair(imgs_in, imgs_out)
 
     reconstruct_in, win = quilt.stitch(ain)
@@ -40,10 +43,13 @@ def test_NCYXQuilt():
         assert (delta_in < 1e-7)
         delta_out = torch.mean(torch.abs(reco_out - orig_out)).item() / aout.shape[0]
         assert (delta_out < 1e-7)
-    return True
 
 
-def test_NCZYXQuilt():
+
+@pytest.mark.parametrize("step, border", [((16, 16, 16),(None)),
+                                          ((16, 16, 16),(0,0,0)),
+                                          ((7,7,7),(1,1,3))])
+def test_NCZYXQuilt(step, border):
     x = np.linspace(0, np.pi * 2.0, 128)
     X, Y, Z = np.meshgrid(x, x, x)
     imgs = []
@@ -63,8 +69,8 @@ def test_NCZYXQuilt():
                               Y=128,
                               X=128,
                               window=(16, 16, 16),
-                              step=(8, 8, 8),
-                              border=(8, 8, 8),
+                              step=step,
+                              border=border,
                               border_weight=0.07)
 
     ain, aout = quilt.unstitch_data_pair(imgs_in, imgs_out)
@@ -81,14 +87,3 @@ def test_NCZYXQuilt():
         assert (delta_in < 1e-7)
         delta_out = torch.mean(torch.abs(reco_out - orig_out)).item() / aout.shape[0]
         assert (delta_out < 1e-7)
-
-    return True
-
-def run_tests():
-    test_NCYXQuilt()
-    test_NCZYXQuilt()
-
-
-if __name__ =="__main__":
-    run_tests()
-    print("OK")
