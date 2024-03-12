@@ -73,7 +73,3 @@ which gives::
     torch.Size([10, 17, 128, 128])
 
 The 'weights' tensor encodes how many contributors there were for each pixel.
-
-
-
-
