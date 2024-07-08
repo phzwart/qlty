@@ -17,7 +17,7 @@ class LargeNCZYXQuilt(object):
                  N, Z, Y, X,
                  window,
                  step,
-                 border,
+                 border=None,
                  border_weight=0.1,
                  ):
         """
@@ -60,6 +60,8 @@ class LargeNCZYXQuilt(object):
                         border[1]:-(border[1]),
                         border[2]:-(border[2])
                         ] = 1.0
+        if self.border is None:
+            self.weight = 1.0
 
         self.N_chunks = self.N * self.nZ * self.nY * self.nX
         self.mean = None
@@ -69,9 +71,10 @@ class LargeNCZYXQuilt(object):
 
     def border_tensor(self):
         result = np.zeros(self.window)
-        result[self.border[0]:-(self.border[0]),
-        self.border[1]:-(self.border[1]),
-        self.border[2]:-(self.border[2])] = 1.0
+        if self.border is not None:
+            result[self.border[0]:-(self.border[0]),
+            self.border[1]:-(self.border[1]),
+            self.border[2]:-(self.border[2])] = 1.0
         return result
 
     def get_times(self):
@@ -122,8 +125,12 @@ class LargeNCZYXQuilt(object):
 
         unstitched_in = []
         unstitched_out = []
+        modsel = self.border_tensor()
+        modsel = modsel < 0.5
+
         for ii in range(self.N_chunks):
             out_chunk = self.unstitch(tensor_out, ii)
+            out_chunk = out_chunk[:,modsel] = missing_label
             tmp_out_chunk = out_chunk[:,
                             self.border[0]:-(self.border[0]),
                             self.border[1]:-(self.border[1]),
@@ -131,6 +138,7 @@ class LargeNCZYXQuilt(object):
             NN = tmp_out_chunk.nelement()
             not_present = torch.sum(tmp_out_chunk == missing_label).item()
             if not_present != NN:
+                tmp = self.unstitch(tensor_in, ii)
                 unstitched_in.append(self.unstitch(tensor_in, ii))
                 unstitched_out.append(out_chunk)
         unstitched_in = einops.rearrange(unstitched_in, "N C Z Y X -> N C Z Y X")
