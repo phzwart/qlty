@@ -262,11 +262,12 @@ class LargeNCZYXQuilt(object):
         if std:
             std_accumulated = da.sqrt(da.abs(da.sum(std_dask / norma_dask, axis=0)))
 
-        # Normalize if required
+        # Renormalize if required
         if normalize:
-            mean_accumulated /= da.sum(mean_accumulated, axis=0)
+            norm = da.sum(mean_accumulated, axis=0)
+            mean_accumulated /= norm
             if std:
-                std_accumulated /= da.sum(std_accumulated, axis=0)
+                std_accumulated /= norm
 
         # Define file paths for Zarr arrays
         mean_zarr_path = (self.filename + '_mean.zarr')
