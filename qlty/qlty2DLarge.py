@@ -58,6 +58,7 @@ class LargeNCYXQuilt(object):
                         border[1]:-(border[1])
                         ] = 1.0
 
+
         self.N_chunks = self.N * self.nY * self.nX
         self.mean = None
         self.norma = None
@@ -65,9 +66,11 @@ class LargeNCYXQuilt(object):
         self.chunkerator = iter(np.arange(self.N_chunks))
 
     def border_tensor(self):
-        result = np.zeros(self.window)
-        result[self.border[0]:-(self.border[0]),
-               self.border[1]:-(self.border[1])] = 1.0
+        result = np.ones(self.window)
+        if self.border is not None:
+            result = result - 1
+            result[self.border[0]:-(self.border[0]),
+                self.border[1]:-(self.border[1])] = 1.0
         return result
 
     def get_times(self):
@@ -117,13 +120,18 @@ class LargeNCYXQuilt(object):
 
         unstitched_in = []
         unstitched_out = []
+        modsel = self.border_tensor()
+        modsel = modsel < 0.5
+
         for ii in range(self.N_chunks):
-            out_chunk = self.unstitch(tensor_out, ii)
-            tmp_out_chunk = out_chunk[:,
-                            self.border[0]:-(self.border[0]),
-                            self.border[1]:-(self.border[1])]
-            NN = tmp_out_chunk.nelement()
-            not_present = torch.sum(tmp_out_chunk == missing_label).item()
+            out_chunk = self.unstitch(tensor_out, ii).clone()
+            out_chunk[:, modsel] = missing_label
+            #if self.border 
+            #tmp_out_chunk = out_chunk[:,
+            #                self.border[0]:-(self.border[0]),
+            #                self.border[1]:-(self.border[1])]
+            NN = out_chunk.nelement()
+            not_present = torch.sum(out_chunk == missing_label).item()
             if not_present != NN:
                 unstitched_in.append(self.unstitch(tensor_in, ii))
                 unstitched_out.append(out_chunk)
@@ -265,6 +273,7 @@ def tst():
                           border=(10,10), border_weight=1.0)
 
     d, n = qobj.unstitch_and_clean_sparse_data_pair(Tdata, Tlabels, -1)
+    
     assert d.shape[0] == 36*2
     for ii in range(qobj.N_chunks):
         ind, tmp = qobj.unstich_next(Tdata)
@@ -272,6 +281,19 @@ def tst():
         qobj.stitch(neural_network_result, ii)
     mean = qobj.return_mean()
     assert np.max(np.abs(mean - data)) < 1e-4
+
+    qobj = LargeNCYXQuilt("test200D", 2, 300, 300,
+                          window=(150, 150),
+                          step=(25, 25),
+                          border=(10,10), border_weight=1.0)
+    
+    labels = np.zeros((2, 300, 300)) - 1
+    labels[:,0:51,0:51] = 1
+    Tlabels = torch.tensor(labels)
+    d, n = qobj.unstitch_and_clean_sparse_data_pair(Tdata, Tlabels, -1)
+    assert d.shape[0]==8
+
+
     return True
 
 
