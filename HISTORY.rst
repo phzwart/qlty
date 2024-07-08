@@ -44,3 +44,8 @@ History
 0.1.7. (2024-03-12)
 -------------------
 *  bug fix in border tensor definition.
+
+0.2.0. (2024-03-12)
+-------------------
+*  bug fixes
+*  2DLarge, mimics 3DLarge
