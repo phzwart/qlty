@@ -213,26 +213,10 @@ class LargeNCZYXQuilt(object):
         tmp = self.unstitch(tensor, this_ind)
         return this_ind, tmp
 
-    def return_mean_do_not_use(self, std=False, normalize=True):
-        """
-        Return the averaged result.
-
-        Returns
-        -------
-        The spatially averaged mean.
-        """
-        m = self.mean[...] / self.norma[...]
-        n = 1.0
-        if normalize:
-            n = np.sum(m,axis=1)
-        m = m / n
-        if std:
-            s = self.std[...] / self.norma[...]
-            s = s / n
-            return m, np.sqrt(np.abs(s))
-        return m
-
-    def return_mean(self, std=False, normalize=True, eps=1e-8):
+    def return_mean(self, 
+                    std=False, 
+                    renormalize_channels=False, 
+                    eps=1e-8):
         """
         Return the averaged result using Dask for parallel processing and Zarr for disk caching.
 
@@ -255,16 +239,18 @@ class LargeNCZYXQuilt(object):
         # Convert Zarr arrays to Dask arrays for parallel processing
         mean_dask = da.from_zarr(self.mean)
         norma_dask = da.from_zarr(self.norma) + eps
+        norma_dask = da.expand_dims(norma_dask, axis=0)
+        norma_dask = da.expand_dims(norma_dask, axis=0)
         std_dask = da.from_zarr(self.std) if std else None
 
-        # Compute mean and std using Dask (parallel processing)
-        mean_accumulated = da.sum(mean_dask / norma_dask, axis=0)
+        # Compute mean and std using Dask 
+        mean_accumulated = mean_dask / norma_dask
         if std:
-            std_accumulated = da.sqrt(da.abs(da.sum(std_dask / norma_dask, axis=0)))
+            std_accumulated = da.sqrt(da.abs(std_dask / norma_dask))
 
         # Renormalize if required
-        if normalize:
-            norm = da.sum(mean_accumulated, axis=0)
+        if renormalize_channels:
+            norm = da.sum(mean_accumulated, axis=1)
             mean_accumulated /= norm
             if std:
                 std_accumulated /= norm
@@ -275,6 +261,7 @@ class LargeNCZYXQuilt(object):
 
         # Store the result into Zarr arrays on disk
         mean_zarr = mean_accumulated.compute()
+
         zarr.save(mean_zarr_path, mean_zarr)
         if std:
             std_zarr = std_accumulated.compute()
@@ -285,25 +272,24 @@ class LargeNCZYXQuilt(object):
 
 
 def tst():
-    data = np.random.uniform(0, 1, (1, 300, 300, 300))
-    labels = np.zeros((1, 300, 300, 300)) - 1
-    labels[:, 0:151, 0:151, 0:51] = 1
-    Tdata = torch.Tensor(data).unsqueeze(dim=0)
-    Tlabels = torch.Tensor(labels)
+    data = np.random.uniform(0, 1, (2, 1, 100, 100, 100))*100
+    labels = np.zeros((2, 100, 100, 100)) - 1
+    labels[:, 0:51, 0:51, 0:51] = 1
+    Tdata = torch.Tensor(data)
+    Tlabels = torch.tensor(labels)
 
-    qobj = LargeNCZYXQuilt("test", 1, 300, 300, 300,
+    qobj = LargeNCZYXQuilt("test", 2, 100, 100, 100,
                            window=(50, 50, 50),
-                           step=(50, 50, 50),
-                           border=(10, 10, 10))
+                           step=(25, 35, 45),
+                           border=(1, 1, 1))
 
     d, n = qobj.unstitch_and_clean_sparse_data_pair(Tdata, Tlabels, -1)
-    assert d.shape[0] == 9
+    assert d.shape[0] == 16
     for ii in range(qobj.N_chunks):
         ind, tmp = qobj.unstich_next(Tdata)
-        neural_network_result = tmp
+        neural_network_result = tmp.unsqueeze(0)
         qobj.stitch(neural_network_result,ii)
-    mean = qobj.return_mean_dask()
-    print(mean)
+    mean = qobj.return_mean()
     assert np.max(np.abs(mean - data)) < 1e-4
     return True
 
