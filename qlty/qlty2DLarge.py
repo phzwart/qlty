@@ -135,12 +135,15 @@ class LargeNCYXQuilt(object):
             if not_present != NN:
                 unstitched_in.append(self.unstitch(tensor_in, ii))
                 unstitched_out.append(out_chunk)
-        unstitched_in = einops.rearrange(unstitched_in, "N C Y X -> N C Y X")
-        unstitched_out = einops.rearrange(unstitched_out, "N C Y X -> N C Y X")
-        if rearranged:
-            assert unstitched_out.shape[1] == 1
-            unstitched_out = unstitched_out.squeeze(dim=1)
-        return unstitched_in, unstitched_out
+        if len(unstitched_in) > 0:
+            unstitched_in = einops.rearrange(unstitched_in, "N C Y X -> N C Y X")
+            unstitched_out = einops.rearrange(unstitched_out, "N C Y X -> N C Y X")
+            if rearranged:
+                assert unstitched_out.shape[1] == 1
+                unstitched_out = unstitched_out.squeeze(dim=1)
+            return unstitched_in, unstitched_out
+        else:
+            return [], []
 
     def unstitch(self, tensor, index):
         N, C, Y, X = tensor.shape
