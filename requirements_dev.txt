@@ -10,3 +10,5 @@ twine>=1.14.0
 zarr
 einops
 dask
+sphinx
+sphinx_rtd_theme
