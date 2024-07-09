@@ -69,7 +69,7 @@ class NCYXQuilt(object):
         X_times = compute_steps(self.X, self.window[-1], self.step[-1])
         return Y_times, X_times
 
-    def unstitch_data_pair(self, tensor_in, tensor_out):
+    def unstitch_data_pair(self, tensor_in, tensor_out, missing_label=None):
         """
         Take a tensor and split it in smaller overlapping tensors.
         If you train a network, tensor_in is the input, while tensor_out is the target tensor.
@@ -83,6 +83,13 @@ class NCYXQuilt(object):
         -------
         Tensor patches.
         """
+        modsel = None
+        if missing_label is not None:
+            modsel = self.border_tensor() < 0.5
+            modsel = modsel
+            print(modsel.shape)
+
+
         rearranged = False
         if len(tensor_out.shape) == 3:
             tensor_out = einops.rearrange(tensor_out, "N Y X -> N () Y X")
@@ -93,6 +100,9 @@ class NCYXQuilt(object):
 
         unstitched_in = self.unstitch(tensor_in)
         unstitched_out = self.unstitch(tensor_out)
+        if modsel is not None:
+            unstitched_out[:,:,modsel]=missing_label
+
         if rearranged:
             assert unstitched_out.shape[1] == 1
             unstitched_out = unstitched_out.squeeze(dim=1)
@@ -112,6 +122,7 @@ class NCYXQuilt(object):
         """
         N, C, Y, X = tensor.shape
         result = []
+
         for n in range(N):
             tmp = tensor[n, ...]
             for yy in range(self.nY):
