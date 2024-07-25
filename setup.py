@@ -16,7 +16,7 @@ test_requirements = [ ]
 
 setup(
     author="Petrus H. Zwart",
-    author_email='PHZart@lbl.gov',
+    author_email='PHZwart@lbl.gov',
     python_requires='>=3.8',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
