@@ -1,7 +1,6 @@
 import torch
 import einops
 
-
 class NCYXQuilt(object):
     """
     This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
@@ -42,6 +41,8 @@ class NCYXQuilt(object):
             self.weight = torch.zeros(self.window) + border_weight
             self.weight[border[0]:-(border[0]), border[1]:-(border[1])] = 1.0
 
+        self.start_y_list, self.stop_y_list, self.start_x_list, self.stop_x_list = self.get_patch_boundaries()
+
     def border_tensor(self):
         if self.border is not None:
             result = torch.zeros(self.window)
@@ -49,6 +50,34 @@ class NCYXQuilt(object):
         else:
             result = torch.ones(self.window)
         return result
+
+    def get_patch_boundaries(self):
+        """
+        Computes 4 lists to represet the boundries of each of the patches according to nX, nY, window, and step.
+        Utilizes the min fucntion to make sure patches do not go outside of the X and Y.  
+
+        Returns
+        ------- 
+        start_y_list : The start of each patch in the Y direction
+        stop_y_list : The stop of each patch in the Y direction
+        start_x_list : The start of each patch in the X direction
+        stop_x_list : The stop of each patch in the X direction
+        """
+        start_y_list = []
+        stop_y_list = []
+        for yy in range(self.nY):
+            start_y = min(yy * self.step[0], self.Y - self.window[0])
+            start_y_list.append(start_y)
+            stop_y_list.append(start_y + self.window[0])
+
+        start_x_list = []
+        stop_x_list = []
+        for xx in range(self.nX):
+            start_x = min(xx * self.step[1], self.X - self.window[1])
+            start_x_list.append(start_x)
+            stop_x_list.append(start_x + self.window[1])
+
+        return start_y_list, stop_y_list, start_x_list, stop_x_list
 
     def get_times(self):
         """
@@ -127,11 +156,7 @@ class NCYXQuilt(object):
             tmp = tensor[n, ...]
             for yy in range(self.nY):
                 for xx in range(self.nX):
-                    start_y = min(yy * self.step[0], self.Y - self.window[0])
-                    start_x = min(xx * self.step[1], self.X - self.window[1])
-                    stop_y = start_y + self.window[0]
-                    stop_x = start_x + self.window[1]
-                    patch = tmp[:, start_y:stop_y, start_x:stop_x]
+                    patch = tmp[:, self.start_y_list[yy]:self.stop_y_list[yy], self.start_x_list[xx]:self.stop_x_list[xx]]
                     result.append(patch)
         result = einops.rearrange(result, "M C Y X -> M C Y X")
         return result
@@ -173,16 +198,12 @@ class NCYXQuilt(object):
             for yy in range(self.nY):
                 for xx in range(self.nX):
                     here_and_now = times * this_image + count
-                    start_y = min(yy * self.step[0], self.Y - self.window[0])
-                    start_x = min(xx * self.step[1], self.X - self.window[1])
-                    stop_y = start_y + self.window[0]
-                    stop_x = start_x + self.window[1]
                     tmp = ml_tensor[here_and_now, ...]
-                    result[this_image, :, start_y:stop_y, start_x:stop_x] += tmp * self.weight
+                    result[this_image, :, self.start_y_list[yy]:self.stop_y_list[yy], self.start_x_list[xx]:self.stop_x_list[xx]] += tmp * self.weight
                     count += 1
                     # get the weight matrix, only compute once
                     if m == 0:
-                        norma[start_y:stop_y, start_x:stop_x] += self.weight
+                        norma[self.start_y_list[yy]:self.stop_y_list[yy], self.start_x_list[xx]:self.stop_x_list[xx]] += self.weight
 
             this_image += 1
         result = result / norma
