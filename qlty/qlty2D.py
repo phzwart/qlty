@@ -1,5 +1,26 @@
 import torch
+from numba import njit, prange
 import einops
+
+
+@njit(fastmath=True, parallel=True)
+def numba_njit_stitch(ml_tensor, result, norma, weight, window, step, Y, X, nX, times, m):
+    
+    for i in prange(times):
+        yy = i // nX
+        xx = i % nX
+        here_and_now = times * m + yy * nX + xx
+        start_y = min(yy * step[0], Y - window[0])
+        start_x = min(xx * step[1], X - window[1])
+        stop_y = start_y + window[0]
+        stop_x = start_x + window[1]
+        for j in prange(ml_tensor.shape[1]):
+            tmp = ml_tensor[here_and_now, j, ...]
+            result[m, j, start_y:stop_y, start_x:stop_x] += tmp @ weight
+        # get the weight matrix, only compute once
+        if m == 0:
+            norma[start_y:stop_y, start_x:stop_x] += weight
+    return result, norma
 
 
 class NCYXQuilt(object):
@@ -136,7 +157,7 @@ class NCYXQuilt(object):
         result = einops.rearrange(result, "M C Y X -> M C Y X")
         return result
 
-    def stitch(self, ml_tensor):
+    def stitch(self, ml_tensor, use_numba=True):
         """
         The assumption here is that we have done the following:
 
@@ -167,23 +188,40 @@ class NCYXQuilt(object):
         assert N % times == 0
         result = torch.zeros((M_images, C, self.Y, self.X))
         norma = torch.zeros((self.Y, self.X))
+        # needed for numba implementation
+        if use_numba:
+            ml_tensor = ml_tensor.numpy()
+            result = result.numpy()
+            norma = norma.numpy()
+            weight = self.weight.numpy()
+            
         this_image = 0
+        
         for m in range(M_images):
-            count = 0
-            for yy in range(self.nY):
-                for xx in range(self.nX):
-                    here_and_now = times * this_image + count
-                    start_y = min(yy * self.step[0], self.Y - self.window[0])
-                    start_x = min(xx * self.step[1], self.X - self.window[1])
-                    stop_y = start_y + self.window[0]
-                    stop_x = start_x + self.window[1]
-                    tmp = ml_tensor[here_and_now, ...]
-                    result[this_image, :, start_y:stop_y, start_x:stop_x] += tmp * self.weight
-                    count += 1
-                    # get the weight matrix, only compute once
-                    if m == 0:
-                        norma[start_y:stop_y, start_x:stop_x] += self.weight
-
-            this_image += 1
+            
+            # numba jit implementation
+            if use_numba:
+                result, norma = numba_njit_stitch(ml_tensor, result, norma, weight, self.window, self.step, self.Y, self.X, self.nX, times, m)           
+        
+            # original implementation (modified)
+            if use_numba == False:
+                for yy in range(self.nY):
+                    for xx in range(self.nX):
+                        here_and_now = times * m + yy * self.nX + xx
+                        start_y = min(yy * self.step[0], self.Y - self.window[0])
+                        start_x = min(xx * self.step[1], self.X - self.window[1])
+                        stop_y = start_y + self.window[0]
+                        stop_x = start_x + self.window[1]
+                        tmp = ml_tensor[here_and_now, ...]
+                        result[m, :, start_y:stop_y, start_x:stop_x] += tmp * self.weight
+                        # get the weight matrix, only compute once
+                        if m == 0:
+                            norma[start_y:stop_y, start_x:stop_x] += self.weight
+                            
+        # with numba implementation
+        if use_numba:
+            result = torch.tensor(result)
+            norma = torch.tensor(norma)
+            
         result = result / norma
         return result, norma
