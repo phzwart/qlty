@@ -16,7 +16,7 @@ def numba_njit_stitch(ml_tensor, result, norma, weight, window, step, Y, X, nX, 
         stop_x = start_x + window[1]
         for j in prange(ml_tensor.shape[1]):
             tmp = ml_tensor[here_and_now, j, ...]
-            result[m, j, start_y:stop_y, start_x:stop_x] += tmp @ weight
+            result[m, j, start_y:stop_y, start_x:stop_x] += tmp * weight
         # get the weight matrix, only compute once
         if m == 0:
             norma[start_y:stop_y, start_x:stop_x] += weight
