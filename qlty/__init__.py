@@ -2,7 +2,7 @@
 
 __author__ = """Petrus H. Zwart"""
 __email__ = 'PHZwart@lbl.gov'
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 
 # Import main classes from all modules
 from .qlty2D import NCYXQuilt
