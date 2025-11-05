@@ -12,8 +12,10 @@ from .base import (
 
 
 @njit(fastmath=True, parallel=True)
-def numba_njit_stitch(ml_tensor, result, norma, weight, window, step, Y, X, nX, times, m):
-    
+def numba_njit_stitch(
+    ml_tensor, result, norma, weight, window, step, Y, X, nX, times, m
+):
+
     for i in prange(times):
         yy = i // nX
         xx = i % nX
@@ -39,13 +41,13 @@ class NCYXQuilt(object):
     """
 
     def __init__(
-        self, 
-        Y: int, 
-        X: int, 
-        window: Tuple[int, int], 
-        step: Tuple[int, int], 
-        border: Optional[Union[int, Tuple[int, int]]], 
-        border_weight: float = 1.0
+        self,
+        Y: int,
+        X: int,
+        window: Tuple[int, int],
+        step: Tuple[int, int],
+        border: Optional[Union[int, Tuple[int, int]]],
+        border_weight: float = 1.0,
     ) -> None:
         """
         This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
@@ -64,36 +66,29 @@ class NCYXQuilt(object):
         self.X = X
         self.window = window
         self.step = step
-        
+
         # Normalize and validate border
         self.border = normalize_border(border, ndim=2)
         self.border_weight = validate_border_weight(border_weight)
-        
+
         # Compute chunk times
         self.nY, self.nX = compute_chunk_times(
-            dimension_sizes=(Y, X),
-            window=window,
-            step=step
+            dimension_sizes=(Y, X), window=window, step=step
         )
-        
+
         # Compute weight matrix
         self.weight = compute_weight_matrix_torch(
-            window=window,
-            border=self.border,
-            border_weight=self.border_weight
+            window=window, border=self.border, border_weight=self.border_weight
         )
 
     def border_tensor(self) -> torch.Tensor:
         """Compute border tensor indicating valid (non-border) regions."""
-        return compute_border_tensor_torch(
-            window=self.window,
-            border=self.border
-        )
+        return compute_border_tensor_torch(window=self.window, border=self.border)
 
     def get_times(self) -> Tuple[int, int]:
         """
         Compute the number of patches along each spatial dimension.
-        
+
         This method calculates how many patches will be created in the Y and X
         dimensions, ensuring the last patch always fits within the image bounds.
 
@@ -103,7 +98,7 @@ class NCYXQuilt(object):
             A tuple (nY, nX) where:
             - nY: Number of patches in the Y (height) dimension
             - nX: Number of patches in the X (width) dimension
-            
+
         The total number of patches per image is nY * nX.
 
         Examples
@@ -114,20 +109,18 @@ class NCYXQuilt(object):
         >>> print(f"Total patches for 10 images: {10 * nY * nX}")
         """
         return compute_chunk_times(
-            dimension_sizes=(self.Y, self.X),
-            window=self.window,
-            step=self.step
+            dimension_sizes=(self.Y, self.X), window=self.window, step=self.step
         )
 
     def unstitch_data_pair(
-        self, 
-        tensor_in: torch.Tensor, 
-        tensor_out: torch.Tensor, 
-        missing_label: Optional[Union[int, float]] = None
+        self,
+        tensor_in: torch.Tensor,
+        tensor_out: torch.Tensor,
+        missing_label: Optional[Union[int, float]] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Split input and output tensors into smaller overlapping patches.
-        
+
         This method is useful for training neural networks where you need to process
         input-output pairs together. The output tensor can optionally have missing
         labels that will be masked in border regions.
@@ -165,7 +158,6 @@ class NCYXQuilt(object):
         if missing_label is not None:
             modsel = self.border_tensor() < 0.5
 
-
         rearranged = False
         if len(tensor_out.shape) == 3:
             tensor_out = einops.rearrange(tensor_out, "N Y X -> N () Y X")
@@ -177,7 +169,7 @@ class NCYXQuilt(object):
         unstitched_in = self.unstitch(tensor_in)
         unstitched_out = self.unstitch(tensor_out)
         if modsel is not None:
-            unstitched_out[:,:,modsel]=missing_label
+            unstitched_out[:, :, modsel] = missing_label
 
         if rearranged:
             assert unstitched_out.shape[1] == 1
@@ -228,29 +220,27 @@ class NCYXQuilt(object):
         return result
 
     def stitch(
-        self, 
-        ml_tensor: torch.Tensor, 
-        use_numba: bool = True
+        self, ml_tensor: torch.Tensor, use_numba: bool = True
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Reassemble patches back into full-size tensors.
-        
+
         This method takes patches produced by `unstitch()` and stitches them back
         together, averaging overlapping regions using a weight matrix. Border regions
         are downweighted according to `border_weight`.
 
         Typical workflow:
-        
+
         1. Unstitch the data::
-           
+
            patches = quilt.unstitch(input_images)
-        
+
         2. Process patches with your model::
-           
+
            output_patches = model(patches)
-        
+
         3. Stitch back together::
-           
+
            reconstructed, weights = quilt.stitch(output_patches)
 
         Parameters
@@ -274,18 +264,18 @@ class NCYXQuilt(object):
         Notes
         -----
         **Important**: When working with classification outputs:
-        
+
         - Apply softmax AFTER stitching, not before
         - Averaging softmaxed tensors ≠ softmax of averaged tensors
         - Process logits, stitch them, then apply softmax to the final result
-        
+
         Example::
-        
+
             # CORRECT:
             logits = model(patches)
             stitched_logits, _ = quilt.stitch(logits)
             probabilities = F.softmax(stitched_logits, dim=1)
-            
+
             # WRONG:
             probs = F.softmax(model(patches), dim=1)
             result, _ = quilt.stitch(probs)  # This is incorrect!
@@ -312,15 +302,27 @@ class NCYXQuilt(object):
             result = result.numpy()
             norma = norma.numpy()
             weight = self.weight.numpy()
-            
+
         this_image = 0
-        
+
         for m in range(M_images):
-            
+
             # numba jit implementation
             if use_numba:
-                result, norma = numba_njit_stitch(ml_tensor, result, norma, weight, self.window, self.step, self.Y, self.X, self.nX, times, m)           
-        
+                result, norma = numba_njit_stitch(
+                    ml_tensor,
+                    result,
+                    norma,
+                    weight,
+                    self.window,
+                    self.step,
+                    self.Y,
+                    self.X,
+                    self.nX,
+                    times,
+                    m,
+                )
+
             # original implementation (modified)
             if use_numba == False:
                 for yy in range(self.nY):
@@ -331,15 +333,17 @@ class NCYXQuilt(object):
                         stop_y = start_y + self.window[0]
                         stop_x = start_x + self.window[1]
                         tmp = ml_tensor[here_and_now, ...]
-                        result[m, :, start_y:stop_y, start_x:stop_x] += tmp * self.weight
+                        result[m, :, start_y:stop_y, start_x:stop_x] += (
+                            tmp * self.weight
+                        )
                         # get the weight matrix, only compute once
                         if m == 0:
                             norma[start_y:stop_y, start_x:stop_x] += self.weight
-                            
+
         # with numba implementation
         if use_numba:
             result = torch.tensor(result)
             norma = torch.tensor(norma)
-            
+
         result = result / norma
         return result, norma

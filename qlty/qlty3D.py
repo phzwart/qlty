@@ -18,14 +18,14 @@ class NCZYXQuilt(object):
     """
 
     def __init__(
-        self, 
-        Z: int, 
-        Y: int, 
-        X: int, 
-        window: Tuple[int, int, int], 
-        step: Tuple[int, int, int], 
-        border: Optional[Union[int, Tuple[int, int, int]]], 
-        border_weight: float = 0.1
+        self,
+        Z: int,
+        Y: int,
+        X: int,
+        window: Tuple[int, int, int],
+        step: Tuple[int, int, int],
+        border: Optional[Union[int, Tuple[int, int, int]]],
+        border_weight: float = 0.1,
     ) -> None:
         """
         This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
@@ -46,32 +46,24 @@ class NCZYXQuilt(object):
         self.X = X
         self.window = window
         self.step = step
-        
+
         # Normalize and validate border
         self.border = normalize_border(border, ndim=3)
         self.border_weight = validate_border_weight(border_weight)
-        
+
         # Compute chunk times
         self.nZ, self.nY, self.nX = compute_chunk_times(
-            dimension_sizes=(Z, Y, X),
-            window=window,
-            step=step
-        )
-        
-        # Compute weight matrix
-        self.weight = compute_weight_matrix_torch(
-            window=window,
-            border=self.border,
-            border_weight=self.border_weight
+            dimension_sizes=(Z, Y, X), window=window, step=step
         )
 
+        # Compute weight matrix
+        self.weight = compute_weight_matrix_torch(
+            window=window, border=self.border, border_weight=self.border_weight
+        )
 
     def border_tensor(self) -> torch.Tensor:
         """Compute border tensor indicating valid (non-border) regions."""
-        return compute_border_tensor_torch(
-            window=self.window,
-            border=self.border
-        )
+        return compute_border_tensor_torch(window=self.window, border=self.border)
 
     def get_times(self) -> Tuple[int, int, int]:
         """
@@ -79,19 +71,15 @@ class NCZYXQuilt(object):
         is included by adjusting the starting points.
         """
         return compute_chunk_times(
-            dimension_sizes=(self.Z, self.Y, self.X),
-            window=self.window,
-            step=self.step
+            dimension_sizes=(self.Z, self.Y, self.X), window=self.window, step=self.step
         )
 
     def unstitch_data_pair(
-        self, 
-        tensor_in: torch.Tensor, 
-        tensor_out: torch.Tensor
+        self, tensor_in: torch.Tensor, tensor_out: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Split input and output 3D tensors into smaller overlapping patches.
-        
+
         This method is useful for training neural networks on 3D volumes where you need
         to process input-output pairs together.
 
@@ -184,22 +172,22 @@ class NCZYXQuilt(object):
     def stitch(self, ml_tensor: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Reassemble 3D patches back into full-size volumes.
-        
+
         This method takes patches produced by `unstitch()` and stitches them back
         together, averaging overlapping regions using a weight matrix.
 
         Typical workflow:
-        
+
         1. Unstitch the data::
-           
+
            patches = quilt.unstitch(volumes)
-        
+
         2. Process patches with your model::
-           
+
            output_patches = model(patches)
-        
+
         3. Stitch back together::
-           
+
            reconstructed, weights = quilt.stitch(output_patches)
 
         Parameters
@@ -220,7 +208,7 @@ class NCZYXQuilt(object):
         Notes
         -----
         **Important**: When working with classification outputs:
-        
+
         - Apply softmax AFTER stitching, not before
         - Averaging softmaxed tensors ≠ softmax of averaged tensors
         - Process logits, stitch them, then apply softmax to the final result
@@ -259,11 +247,21 @@ class NCZYXQuilt(object):
                         stop_x = start_x + self.window[2]
 
                         tmp = ml_tensor[here_and_now, ...]
-                        result[this_image, :, start_z:stop_z, start_y:stop_y, start_x:stop_x] += tmp * self.weight
+                        result[
+                            this_image,
+                            :,
+                            start_z:stop_z,
+                            start_y:stop_y,
+                            start_x:stop_x,
+                        ] += (
+                            tmp * self.weight
+                        )
                         count += 1
                         # get the weight matrix, only compute once
                         if m == 0:
-                            norma[start_z:stop_z, start_y:stop_y, start_x:stop_x] += self.weight
+                            norma[
+                                start_z:stop_z, start_y:stop_y, start_x:stop_x
+                            ] += self.weight
 
             this_image += 1
         result = result / norma

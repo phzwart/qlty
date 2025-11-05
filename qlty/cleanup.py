@@ -4,14 +4,14 @@ import einops
 
 
 def weed_sparse_classification_training_pairs_2D(
-    tensor_in: torch.Tensor, 
-    tensor_out: torch.Tensor, 
-    missing_label: Union[int, float], 
-    border_tensor: torch.Tensor
+    tensor_in: torch.Tensor,
+    tensor_out: torch.Tensor,
+    missing_label: Union[int, float],
+    border_tensor: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Filter out patches that contain no valid data after unstitching.
-    
+
     This function removes patches that have only missing labels (or only in border
     regions). Useful for training with sparse annotations where most of the image
     is unlabeled.
@@ -59,28 +59,28 @@ def weed_sparse_classification_training_pairs_2D(
 
     tmp = torch.clone(tensor_out)
     sel = (tmp != missing_label).type(torch.int)
-    
+
     # Expand border_tensor to match tensor_out shape if needed
     if len(border_tensor.shape) == 2 and len(tensor_out.shape) == 4:
         # tensor_out has channels, expand border_tensor
         border_tensor = border_tensor.unsqueeze(0).unsqueeze(0)
         sel = sel * border_tensor
-        sel = einops.reduce(sel, "N C Y X -> N", reduction='sum')
+        sel = einops.reduce(sel, "N C Y X -> N", reduction="sum")
     elif len(border_tensor.shape) == 2:
         # tensor_out is (N, Y, X)
         border_tensor = border_tensor.unsqueeze(0)
         sel = sel * border_tensor
-        sel = einops.reduce(sel, "N Y X -> N", reduction='sum')
+        sel = einops.reduce(sel, "N Y X -> N", reduction="sum")
     elif len(border_tensor.shape) == 3:
         # tensor_out is (N, C, Y, X)
         border_tensor = border_tensor.unsqueeze(0)
         sel = sel * border_tensor
-        sel = einops.reduce(sel, "N C Y X -> N", reduction='sum')
+        sel = einops.reduce(sel, "N C Y X -> N", reduction="sum")
     else:
         # Fallback: multiply and reduce
         sel = sel * border_tensor
         sel = sel.sum(dim=tuple(range(1, len(sel.shape))))
-    
+
     sel = sel == 0
     newin = tensor_in[~sel, ...]
     newout = tensor_out[~sel, ...]
@@ -88,14 +88,14 @@ def weed_sparse_classification_training_pairs_2D(
 
 
 def weed_sparse_classification_training_pairs_3D(
-    tensor_in: torch.Tensor, 
-    tensor_out: torch.Tensor, 
-    missing_label: Union[int, float], 
-    border_tensor: torch.Tensor
+    tensor_in: torch.Tensor,
+    tensor_out: torch.Tensor,
+    missing_label: Union[int, float],
+    border_tensor: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Filter out 3D patches that contain no valid data after unstitching.
-    
+
     This function removes patches that have only missing labels (or only in border
     regions). Useful for training with sparse 3D annotations.
 
@@ -136,34 +136,34 @@ def weed_sparse_classification_training_pairs_3D(
 
     tmp = torch.clone(tensor_out)
     sel = (tmp != missing_label).type(torch.int)
-    
+
     # Expand border_tensor to match tensor_out shape if needed
     if len(border_tensor.shape) == 3 and len(tensor_out.shape) == 5:
         # tensor_out has channels, expand border_tensor
         border_tensor = border_tensor.unsqueeze(0).unsqueeze(0)
         sel = sel * border_tensor
-        sel = einops.reduce(sel, "N C Z Y X -> N", reduction='sum')
+        sel = einops.reduce(sel, "N C Z Y X -> N", reduction="sum")
     elif len(border_tensor.shape) == 3:
         # tensor_out is (N, Z, Y, X)
         border_tensor = border_tensor.unsqueeze(0)
         sel = sel * border_tensor
-        sel = einops.reduce(sel, "N Z Y X -> N", reduction='sum')
+        sel = einops.reduce(sel, "N Z Y X -> N", reduction="sum")
     elif len(border_tensor.shape) == 4:
         # tensor_out is (N, C, Z, Y, X) or (N, Z, Y, X)
         border_tensor = border_tensor.unsqueeze(0)
         sel = sel * border_tensor
         if len(tensor_out.shape) == 5:
-            sel = einops.reduce(sel, "N C Z Y X -> N", reduction='sum')
+            sel = einops.reduce(sel, "N C Z Y X -> N", reduction="sum")
         else:
-            sel = einops.reduce(sel, "N Z Y X -> N", reduction='sum')
+            sel = einops.reduce(sel, "N Z Y X -> N", reduction="sum")
     elif len(border_tensor.shape) == 5:
         sel = sel * border_tensor
-        sel = einops.reduce(sel, "N C Z Y X -> N", reduction='sum')
+        sel = einops.reduce(sel, "N C Z Y X -> N", reduction="sum")
     else:
         # Fallback: multiply and reduce
         sel = sel * border_tensor
         sel = sel.sum(dim=tuple(range(1, len(sel.shape))))
-    
+
     sel = sel == 0
     newin = tensor_in[~sel, ...]
     newout = tensor_out[~sel, ...]

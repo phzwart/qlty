@@ -6,19 +6,19 @@ from qlty.qlty2D import NCYXQuilt
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial import cKDTree
 
+
 class FalseColorGenerator(object):
-    def __init__(self, 
-                 image_shape, 
-                 window_size=32, 
-                 step_size=8,
-                 reducer=None,
-                 scaler=None):
+    def __init__(
+        self, image_shape, window_size=32, step_size=8, reducer=None, scaler=None
+    ):
         self.image_shape = image_shape
-        self.qlty_object = NCYXQuilt(X=image_shape[-1],
-                                     Y=image_shape[-2],
-                                     window=(window_size, window_size),
-                                     step=(step_size, step_size),
-                                     border=0)
+        self.qlty_object = NCYXQuilt(
+            X=image_shape[-1],
+            Y=image_shape[-2],
+            window=(window_size, window_size),
+            step=(step_size, step_size),
+            border=0,
+        )
         # Precompute patch coordinates
         tmp_x = np.arange(0, image_shape[-1], 1)
         tmp_y = np.arange(0, image_shape[-2], 1)
@@ -33,13 +33,15 @@ class FalseColorGenerator(object):
         self.mean_patch_Y = torch.mean(self.patch_Y, dim=(-1, -2))
 
         # for NN interpolation
-        YX = einops.rearrange(torch.cat([self.Y, self.X], dim=1), "N C Y X -> (N Y X) C")
+        YX = einops.rearrange(
+            torch.cat([self.Y, self.X], dim=1), "N C Y X -> (N Y X) C"
+        )
         pYX = torch.cat([self.mean_patch_Y, self.mean_patch_X], dim=1).numpy()
         YX = YX.numpy()
         tree = cKDTree(pYX)
         dist, self.idx = tree.query(YX, k=1)
 
-        self.reducer = reducer 
+        self.reducer = reducer
         self.scaler = scaler
         self.reducer_is_trained = True
         self.scaler_is_trained = True
@@ -60,21 +62,15 @@ class FalseColorGenerator(object):
         tmp = self.scaler.fit_transform(tmp)
 
     def train_reducer(self, images, num_patches=None):
-        assert len(images.shape)==4
+        assert len(images.shape) == 4
         patches = self.qlty_object.unstitch(images)
         N_patches = patches.shape[0]
         if num_patches is None:
             num_patches = N_patches
-        sel = np.argsort(np.random.uniform(0,1, N_patches))[:num_patches]
+        sel = np.argsort(np.random.uniform(0, 1, N_patches))[:num_patches]
         patches = patches[sel]
         self.train_reducer_from_patches(patches)
         self.scaler_is_trained = True
-
-
-
-
-
-
 
     def __call__(self, image):
         assert image.shape[0] == 1
@@ -86,30 +82,14 @@ class FalseColorGenerator(object):
         else:
             UVW = self.scaler.fit_transform(UVW)
             self.scaler_is_trained = True
-        
+
         interpolated_RGB = UVW[self.idx]
-        
+
         H, W = self.image_shape[-2], self.image_shape[-1]
-        interpolated_RGB = einops.rearrange(interpolated_RGB, 
-                                            "(Y X) C -> Y X C", 
-                                            X=W, Y=H)
+        interpolated_RGB = einops.rearrange(
+            interpolated_RGB, "(Y X) C -> Y X C", X=W, Y=H
+        )
         sel = interpolated_RGB > 1
-        interpolated_RGB[sel]=1
-        
+        interpolated_RGB[sel] = 1
+
         return interpolated_RGB
-
-
-
-
-
-    
-
-
-        
-
-
-        
-
-
-
-

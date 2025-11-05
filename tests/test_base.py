@@ -20,21 +20,21 @@ def test_normalize_border():
     # Test None
     assert normalize_border(None, 2) is None
     assert normalize_border(None, 3) is None
-    
+
     # Test int
     assert normalize_border(0, 2) is None
     assert normalize_border(5, 2) == (5, 5)
     assert normalize_border(3, 3) == (3, 3, 3)
-    
+
     # Test tuple
     assert normalize_border((0, 0), 2) is None
     assert normalize_border((5, 10), 2) == (5, 10)
     assert normalize_border((1, 2, 3), 3) == (1, 2, 3)
-    
+
     # Test invalid inputs
     with pytest.raises(ValueError):
         normalize_border((1, 2), 3)  # Wrong length
-    
+
     with pytest.raises(TypeError):
         normalize_border("invalid", 2)
 
@@ -46,14 +46,14 @@ def test_validate_border_weight():
     assert validate_border_weight(0.5) == 0.5
     assert validate_border_weight(1.0) == 1.0
     assert validate_border_weight(0.1) == 0.1
-    
+
     # Invalid weights
     with pytest.raises(ValueError):
         validate_border_weight(-0.1)
-    
+
     with pytest.raises(ValueError):
         validate_border_weight(1.5)
-    
+
     with pytest.raises(ValueError):
         validate_border_weight(2.0)
 
@@ -64,7 +64,7 @@ def test_compute_weight_matrix_torch():
     weight = compute_weight_matrix_torch((10, 10), None, 0.1)
     assert weight.shape == (10, 10)
     assert torch.allclose(weight, torch.ones(10, 10))
-    
+
     # With border
     weight = compute_weight_matrix_torch((10, 10), (2, 2), 0.1)
     assert weight.shape == (10, 10)
@@ -81,7 +81,7 @@ def test_compute_weight_matrix_numpy():
     weight = compute_weight_matrix_numpy((10, 10), None, 0.1)
     assert weight.shape == (10, 10)
     assert np.allclose(weight, np.ones((10, 10)) * 0.1)
-    
+
     # With border
     weight = compute_weight_matrix_numpy((10, 10), (2, 2), 0.1)
     assert weight.shape == (10, 10)
@@ -97,7 +97,7 @@ def test_compute_border_tensor_torch():
     border_tensor = compute_border_tensor_torch((10, 10), None)
     assert border_tensor.shape == (10, 10)
     assert torch.allclose(border_tensor, torch.ones(10, 10))
-    
+
     # With border
     border_tensor = compute_border_tensor_torch((10, 10), (2, 2))
     assert border_tensor.shape == (10, 10)
@@ -114,7 +114,7 @@ def test_compute_border_tensor_numpy():
     border_tensor = compute_border_tensor_numpy((10, 10), None)
     assert border_tensor.shape == (10, 10)
     assert np.allclose(border_tensor, np.ones((10, 10)))
-    
+
     # With border
     border_tensor = compute_border_tensor_numpy((10, 10), (2, 2))
     assert border_tensor.shape == (10, 10)
@@ -130,15 +130,15 @@ def test_compute_chunk_times():
     # Simple case
     times = compute_chunk_times((100, 100), (50, 50), (25, 25))
     assert times == (3, 3)  # 0, 25, 50, 75, 100 (but 75+50 > 100, so adjust)
-    
+
     # Edge case: exact fit
     times = compute_chunk_times((100, 100), (50, 50), (50, 50))
     assert times == (2, 2)  # 0, 50, 100
-    
+
     # 3D case
     times = compute_chunk_times((64, 64, 64), (32, 32, 32), (16, 16, 16))
     assert times == (3, 3, 3)
-    
+
     # Unequal dimensions
     times = compute_chunk_times((100, 50), (30, 20), (20, 10))
     assert len(times) == 2
@@ -151,9 +151,8 @@ def test_compute_chunk_times_edge_cases():
     # Window larger than step
     times = compute_chunk_times((100, 100), (60, 60), (20, 20))
     assert times[0] >= 3  # Should have at least a few chunks
-    
+
     # Step larger than dimension (should still work)
     times = compute_chunk_times((50, 50), (30, 30), (40, 40))
     assert times[0] >= 1
     assert times[1] >= 1
-

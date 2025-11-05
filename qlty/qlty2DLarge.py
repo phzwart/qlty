@@ -13,6 +13,7 @@ from .base import (
     validate_border_weight,
 )
 
+
 class LargeNCYXQuilt(object):
     """
     This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
@@ -52,26 +53,21 @@ class LargeNCYXQuilt(object):
         self.X = X
         self.window = window
         self.step = step
-        
+
         # Normalize and validate border
         self.border = normalize_border(border, ndim=2)
         self.border_weight = validate_border_weight(border_weight)
-        
+
         # Compute chunk times
         self.nY, self.nX = compute_chunk_times(
-            dimension_sizes=(Y, X),
-            window=window,
-            step=step
+            dimension_sizes=(Y, X), window=window, step=step
         )
-        
+
         # Compute weight matrix (as torch tensor for compatibility)
         weight_np = compute_weight_matrix_numpy(
-            window=window,
-            border=self.border,
-            border_weight=self.border_weight
+            window=window, border=self.border, border_weight=self.border_weight
         )
         self.weight = torch.from_numpy(weight_np)
-
 
         self.N_chunks = self.N * self.nY * self.nX
         self.mean = None
@@ -81,10 +77,7 @@ class LargeNCYXQuilt(object):
 
     def border_tensor(self) -> npt.NDArray[np.float64]:
         """Compute border tensor indicating valid (non-border) regions."""
-        return compute_border_tensor_numpy(
-            window=self.window,
-            border=self.border
-        )
+        return compute_border_tensor_numpy(window=self.window, border=self.border)
 
     def get_times(self) -> Tuple[int, int]:
         """
@@ -92,25 +85,23 @@ class LargeNCYXQuilt(object):
         is included by adjusting the starting points.
         """
         return compute_chunk_times(
-            dimension_sizes=(self.Y, self.X),
-            window=self.window,
-            step=self.step
+            dimension_sizes=(self.Y, self.X), window=self.window, step=self.step
         )
 
     def unstitch_and_clean_sparse_data_pair(
-        self, 
-        tensor_in: torch.Tensor, 
-        tensor_out: torch.Tensor, 
-        missing_label: Union[int, float]
+        self,
+        tensor_in: torch.Tensor,
+        tensor_out: torch.Tensor,
+        missing_label: Union[int, float],
     ) -> Tuple[Union[torch.Tensor, List], Union[torch.Tensor, List]]:
         """
         Split input and output tensors into patches, filtering out patches with no valid data.
-        
+
         This method combines unstitching with sparse data filtering. It:
         1. Splits both tensors into patches
         2. Marks border regions as missing
         3. Filters out patches that contain only missing labels
-        
+
         Parameters
         ----------
         tensor_in : torch.Tensor
@@ -127,7 +118,7 @@ class LargeNCYXQuilt(object):
         Tuple[Union[torch.Tensor, List], Union[torch.Tensor, List]]
             A tuple of (input_patches, output_patches). If no valid patches are found,
             returns empty lists. Otherwise returns torch.Tensor objects.
-            
+
             - input_patches: Shape (M, C, window[0], window[1]) where M <= N * nY * nX
             - output_patches: Shape (M, C, window[0], window[1]) or (M, window[0], window[1])
 
@@ -139,7 +130,7 @@ class LargeNCYXQuilt(object):
 
         Examples
         --------
-        >>> quilt = LargeNCYXQuilt("data", N=10, Y=128, X=128, 
+        >>> quilt = LargeNCYXQuilt("data", N=10, Y=128, X=128,
         ...                        window=(32, 32), step=(16, 16), border=(5, 5))
         >>> input_data = torch.randn(10, 3, 128, 128)
         >>> labels = torch.ones(10, 128, 128) * (-1)  # All missing
@@ -184,7 +175,7 @@ class LargeNCYXQuilt(object):
     def unstitch(self, tensor: torch.Tensor, index: int) -> torch.Tensor:
         """
         Extract a single patch from a tensor by index.
-        
+
         This method is used internally by `unstitch_next()` but can also be called
         directly if you know the patch index.
 
@@ -227,28 +218,37 @@ class LargeNCYXQuilt(object):
         return patch
 
     def stitch(
-        self, 
-        patch: torch.Tensor, 
-        index_flat: int, 
-        patch_var: Optional[torch.Tensor] = None
+        self,
+        patch: torch.Tensor,
+        index_flat: int,
+        patch_var: Optional[torch.Tensor] = None,
     ) -> None:
         C = patch.shape[1]
         if self.mean is None:
             # Initialization code remains the same...
-            self.mean = zarr.open(self.filename + "_mean_cache.zarr",
-                                  shape=(self.N, C, self.Y, self.X),
-                                  chunks=(1, C, self.window[0], self.window[1]),
-                                  mode='w', fill_value=0, )
+            self.mean = zarr.open(
+                self.filename + "_mean_cache.zarr",
+                shape=(self.N, C, self.Y, self.X),
+                chunks=(1, C, self.window[0], self.window[1]),
+                mode="w",
+                fill_value=0,
+            )
 
-            self.std = zarr.open(self.filename + "_std_cache.zarr",
-                                 shape=(self.N, C, self.Y, self.X),
-                                 chunks=(1, C, self.window[0], self.window[1]),
-                                 mode='w', fill_value=0, )
+            self.std = zarr.open(
+                self.filename + "_std_cache.zarr",
+                shape=(self.N, C, self.Y, self.X),
+                chunks=(1, C, self.window[0], self.window[1]),
+                mode="w",
+                fill_value=0,
+            )
 
-            self.norma = zarr.open(self.filename + "_norma_cache.zarr",
-                                   shape=(self.Y, self.X),
-                                   chunks=self.window,
-                                   mode='w', fill_value=0)
+            self.norma = zarr.open(
+                self.filename + "_norma_cache.zarr",
+                shape=(self.Y, self.X),
+                chunks=self.window,
+                mode="w",
+                fill_value=0,
+            )
 
         screen_shape = (self.N, self.nY, self.nX)
         n, yy, xx = np.unravel_index(index_flat, screen_shape)
@@ -260,9 +260,13 @@ class LargeNCYXQuilt(object):
         stop_x = start_x + self.window[1]
 
         # Update the mean, std, and norma arrays
-        self.mean[n:n+1, :, start_y:stop_y, start_x:stop_x] += patch.numpy() * self.weight.numpy()
+        self.mean[n : n + 1, :, start_y:stop_y, start_x:stop_x] += (
+            patch.numpy() * self.weight.numpy()
+        )
         if patch_var is not None:
-            self.std[n:n+1, :, start_y:stop_y, start_x:stop_x] += patch_var.numpy() * self.weight.numpy()
+            self.std[n : n + 1, :, start_y:stop_y, start_x:stop_x] += (
+                patch_var.numpy() * self.weight.numpy()
+            )
 
         if n == 0:
             self.norma[start_y:stop_y, start_x:stop_x] += self.weight.numpy()
@@ -270,7 +274,7 @@ class LargeNCYXQuilt(object):
     def unstitch_next(self, tensor: torch.Tensor) -> Tuple[int, torch.Tensor]:
         """
         Get the next patch in sequence (generator-like interface).
-        
+
         This method maintains an internal iterator and returns the next patch
         each time it's called. Useful for processing large datasets chunk by chunk.
 
@@ -289,7 +293,7 @@ class LargeNCYXQuilt(object):
         Notes
         -----
         The iterator resets after reaching the end. To process all patches::
-        
+
             for i in range(quilt.N_chunks):
                 index, patch = quilt.unstitch_next(data)
                 # Process patch...
@@ -306,17 +310,16 @@ class LargeNCYXQuilt(object):
         """
         this_ind = next(self.chunkerator)
         tmp = self.unstitch(tensor, this_ind)
-        return this_ind, tmp    
+        return this_ind, tmp
 
     def return_mean(
-        self, 
-        std: bool = False, 
-        normalize: bool = False, 
-        eps: float = 1e-8
-    ) -> Union[npt.NDArray[np.float64], Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]]:
+        self, std: bool = False, normalize: bool = False, eps: float = 1e-8
+    ) -> Union[
+        npt.NDArray[np.float64], Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
+    ]:
         """
         Compute and return the final stitched result.
-        
+
         After calling `stitch()` for all patches, this method computes the final
         averaged result. The result is normalized by the weight matrix to account
         for overlapping regions and border downweighting.
@@ -337,7 +340,7 @@ class LargeNCYXQuilt(object):
         Union[npt.NDArray, Tuple[npt.NDArray, npt.NDArray]]
             If std=False: Returns mean array of shape (N, C, Y, X)
             If std=True: Returns tuple (mean, std) where both have shape (N, C, Y, X)
-            
+
             The result is a NumPy array (stored as Zarr array on disk).
 
         Notes
@@ -364,7 +367,7 @@ class LargeNCYXQuilt(object):
         norma_dask = da.expand_dims(norma_dask, axis=0)
         std_dask = da.from_zarr(self.std) if std else None
 
-        # Compute mean and std using Dask 
+        # Compute mean and std using Dask
         mean_accumulated = mean_dask / norma_dask
         if std:
             std_accumulated = da.sqrt(da.abs(std_dask / norma_dask))
@@ -377,8 +380,8 @@ class LargeNCYXQuilt(object):
                 std_accumulated /= norm
 
         # Define file paths for Zarr arrays
-        mean_zarr_path = (self.filename + '_mean.zarr')
-        std_zarr_path = (self.filename + '_std.zarr') if std else None
+        mean_zarr_path = self.filename + "_mean.zarr"
+        std_zarr_path = (self.filename + "_std.zarr") if std else None
 
         # Store the result into Zarr arrays on disk
         mean_zarr = mean_accumulated.compute()
@@ -391,20 +394,26 @@ class LargeNCYXQuilt(object):
 
 
 def tst():
-    data = np.random.uniform(0, 1, (2, 1, 300, 300))*100.0
+    data = np.random.uniform(0, 1, (2, 1, 300, 300)) * 100.0
     labels = np.zeros((2, 300, 300)) - 1
     labels[:, 0:151, 0:151] = 1
     Tdata = torch.Tensor(data)
     Tlabels = torch.Tensor(labels)
 
-    qobj = LargeNCYXQuilt("test200D", 2, 300, 300,
-                          window=(50, 50),
-                          step=(25, 25),
-                          border=(10,10), border_weight=1.0)
+    qobj = LargeNCYXQuilt(
+        "test200D",
+        2,
+        300,
+        300,
+        window=(50, 50),
+        step=(25, 25),
+        border=(10, 10),
+        border_weight=1.0,
+    )
 
     d, n = qobj.unstitch_and_clean_sparse_data_pair(Tdata, Tlabels, -1)
-    
-    assert d.shape[0] == 36*2
+
+    assert d.shape[0] == 36 * 2
     for ii in range(qobj.N_chunks):
         ind, tmp = qobj.unstitch_next(Tdata)
         neural_network_result = tmp.unsqueeze(0)
@@ -412,17 +421,22 @@ def tst():
     mean = qobj.return_mean()
     assert np.max(np.abs(mean - data)) < 1e-4
 
-    qobj = LargeNCYXQuilt("test200D", 2, 300, 300,
-                          window=(150, 150),
-                          step=(25, 25),
-                          border=(10,10), border_weight=1.0)
-    
+    qobj = LargeNCYXQuilt(
+        "test200D",
+        2,
+        300,
+        300,
+        window=(150, 150),
+        step=(25, 25),
+        border=(10, 10),
+        border_weight=1.0,
+    )
+
     labels = np.zeros((2, 300, 300)) - 1
-    labels[:,0:51,0:51] = 1
+    labels[:, 0:51, 0:51] = 1
     Tlabels = torch.tensor(labels)
     d, n = qobj.unstitch_and_clean_sparse_data_pair(Tdata, Tlabels, -1)
-    assert d.shape[0]==8
-
+    assert d.shape[0] == 8
 
     return True
 
