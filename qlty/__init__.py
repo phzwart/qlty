@@ -2,7 +2,7 @@
 
 __author__ = """Petrus H. Zwart"""
 __email__ = "PHZwart@lbl.gov"
-__version__ = "0.3.0"
+__version__ = "1.0.0rc1"
 
 # Import cleanup functions
 from .cleanup import (
