@@ -113,10 +113,10 @@ For 3D volumes, use NCZYXQuilt::
     # Process 3D volume
     volume = torch.randn(5, 1, 64, 64, 64)  # (N, C, Z, Y, X)
     patches = quilt.unstitch(volume)
-    
+
     # Process patches...
     processed = your_model(patches)
-    
+
     # Stitch back
     reconstructed, weights = quilt.stitch(processed)
 
@@ -151,10 +151,10 @@ For very large datasets that don't fit in memory, use the Large classes::
     # Process all chunks
     for i in range(quilt.N_chunks):
         index, patch = quilt.unstitch_next(data)
-        
+
         # Process patch (e.g., with neural network)
         processed = your_model(patch.unsqueeze(0))
-        
+
         # Accumulate result
         quilt.stitch(processed, index)
 
@@ -222,7 +222,7 @@ For a tensor with N images, the total number of patches will be N * nY * nX.
 Best Practices
 --------------
 
-1. **Overlap Strategy**: 
+1. **Overlap Strategy**:
    - Use step size = window/2 for 50% overlap (common choice)
    - More overlap = smoother results but more computation
    - Less overlap = faster but may have artifacts
@@ -256,12 +256,12 @@ Training Loop Pattern
 ::
 
     quilt = NCYXQuilt(Y=256, X=256, window=(64, 64), step=(32, 32), border=(8, 8))
-    
+
     for epoch in range(num_epochs):
         for images, labels in dataloader:
             # Unstitch
             img_patches, lbl_patches = quilt.unstitch_data_pair(images, labels)
-            
+
             # Train
             for img, lbl in zip(img_patches, lbl_patches):
                 output = model(img.unsqueeze(0))
@@ -274,14 +274,14 @@ Inference Pattern
 ::
 
     quilt = NCYXQuilt(Y=512, X=512, window=(128, 128), step=(64, 64), border=(10, 10))
-    
+
     # Unstitch
     patches = quilt.unstitch(test_image)
-    
+
     # Process
     with torch.no_grad():
         outputs = model(patches)
-    
+
     # Stitch
     result, weights = quilt.stitch(outputs)
 
@@ -290,15 +290,15 @@ Large Dataset Pattern
 
 ::
 
-    quilt = LargeNCYXQuilt(filename, N=1000, Y=1024, X=1024, 
+    quilt = LargeNCYXQuilt(filename, N=1000, Y=1024, X=1024,
                           window=(256, 256), step=(128, 128), border=(20, 20))
-    
+
     # Process in chunks
     for i in range(quilt.N_chunks):
         idx, patch = quilt.unstitch_next(data)
         processed = model(patch.unsqueeze(0))
         quilt.stitch(processed, idx)
-    
+
     # Get results
     mean = quilt.return_mean()
     mean, std = quilt.return_mean(std=True)

@@ -3,12 +3,16 @@ from typing import Optional, Tuple, Union
 import einops
 import torch
 
-from .base import (compute_border_tensor_torch, compute_chunk_times,
-                   compute_weight_matrix_torch, normalize_border,
-                   validate_border_weight)
+from .base import (
+    compute_border_tensor_torch,
+    compute_chunk_times,
+    compute_weight_matrix_torch,
+    normalize_border,
+    validate_border_weight,
+)
 
 
-class NCZYXQuilt(object):
+class NCZYXQuilt:
     """
     This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
     This class is aimed at handling tensors of type (N,C,Z,Y,X)
@@ -234,7 +238,6 @@ class NCZYXQuilt(object):
             for zz in range(self.nZ):
                 for yy in range(self.nY):
                     for xx in range(self.nX):
-
                         here_and_now = times * this_image + count
 
                         start_z = zz * self.step[0]
@@ -251,9 +254,7 @@ class NCZYXQuilt(object):
                             start_z:stop_z,
                             start_y:stop_y,
                             start_x:stop_x,
-                        ] += (
-                            tmp * self.weight
-                        )
+                        ] += tmp * self.weight
                         count += 1
                         # get the weight matrix, only compute once
                         if m == 0:

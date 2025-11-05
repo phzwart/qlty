@@ -144,11 +144,11 @@ qlty/
 class BaseQuilt(ABC):
     """Base class for all quilt operations"""
     # Common initialization, validation, weight computation
-    
+
 class BaseQuilt2D(BaseQuilt):
     """Base for 2D operations"""
     # 2D-specific common code
-    
+
 class BaseQuilt3D(BaseQuilt):
     """Base for 3D operations"""
     # 3D-specific common code
@@ -190,7 +190,7 @@ import torch
 import numpy as np
 
 def unstitch(
-    self, 
+    self,
     tensor: torch.Tensor
 ) -> torch.Tensor:
     ...
@@ -353,4 +353,3 @@ qlty/
 ## Conclusion
 
 The qlty codebase has solid functionality but needs significant cleanup to improve maintainability, consistency, and reliability. The proposed plan addresses code duplication, inconsistencies, and quality issues while maintaining backward compatibility where possible. Starting with bug fixes and foundation work will provide immediate value, while the refactoring phases can be done incrementally.
-

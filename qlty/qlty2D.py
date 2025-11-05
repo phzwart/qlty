@@ -4,16 +4,19 @@ import einops
 import torch
 from numba import njit, prange
 
-from .base import (compute_border_tensor_torch, compute_chunk_times,
-                   compute_weight_matrix_torch, normalize_border,
-                   validate_border_weight)
+from .base import (
+    compute_border_tensor_torch,
+    compute_chunk_times,
+    compute_weight_matrix_torch,
+    normalize_border,
+    validate_border_weight,
+)
 
 
 @njit(fastmath=True, parallel=True)
 def numba_njit_stitch(
     ml_tensor, result, norma, weight, window, step, Y, X, nX, times, m
 ):
-
     for i in prange(times):
         yy = i // nX
         xx = i % nX
@@ -31,7 +34,7 @@ def numba_njit_stitch(
     return result, norma
 
 
-class NCYXQuilt(object):
+class NCYXQuilt:
     """
     This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
     This class is aimed at handling tensors of type (N,C,Y,X)
@@ -301,10 +304,7 @@ class NCYXQuilt(object):
             norma = norma.numpy()
             weight = self.weight.numpy()
 
-        this_image = 0
-
         for m in range(M_images):
-
             # numba jit implementation
             if use_numba:
                 result, norma = numba_njit_stitch(
@@ -322,7 +322,7 @@ class NCYXQuilt(object):
                 )
 
             # original implementation (modified)
-            if use_numba == False:
+            if not use_numba:
                 for yy in range(self.nY):
                     for xx in range(self.nX):
                         here_and_now = times * m + yy * self.nX + xx

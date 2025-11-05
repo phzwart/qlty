@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import einops
 import numpy as np
@@ -6,12 +6,16 @@ import numpy.typing as npt
 import torch
 import zarr
 
-from .base import (compute_border_tensor_numpy, compute_chunk_times,
-                   compute_weight_matrix_numpy, normalize_border,
-                   validate_border_weight)
+from .base import (
+    compute_border_tensor_numpy,
+    compute_chunk_times,
+    compute_weight_matrix_numpy,
+    normalize_border,
+    validate_border_weight,
+)
 
 
-class LargeNCZYXQuilt(object):
+class LargeNCZYXQuilt:
     """
     This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
     This class is aimed at handling tensors of type (N,C,Z,Y,X)

@@ -41,7 +41,7 @@ All constructor signatures remain **identical**:
 # 2D in-memory
 NCYXQuilt(Y, X, window, step, border, border_weight=1.0)
 
-# 3D in-memory  
+# 3D in-memory
 NCZYXQuilt(Z, Y, X, window, step, border, border_weight=0.1)
 
 # 2D Large
@@ -158,7 +158,7 @@ pytest tests/
 
 The refactoring was designed to be completely transparent:
 - Same classes
-- Same methods  
+- Same methods
 - Same signatures
 - Same behavior
 - Same results
@@ -168,4 +168,3 @@ The only changes are:
 - Better error messages
 - Bug fixes (typo correction)
 - Type hints (don't affect runtime)
-

@@ -111,7 +111,7 @@ import torch
 import numpy as np
 
 def unstitch(
-    self, 
+    self,
     tensor: torch.Tensor
 ) -> torch.Tensor:
     """Unstitch a tensor into patches."""
@@ -247,4 +247,3 @@ def test_weed_sparse_2d():
 - Follow type hint guidelines
 - Add tests for all new code
 - Use shared utilities instead of duplicating code
-

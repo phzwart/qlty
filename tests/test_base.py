@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 
 """Tests for base utilities."""
+
 import numpy as np
 import pytest
 import torch
 
-from qlty.base import (compute_border_tensor_numpy,
-                       compute_border_tensor_torch, compute_chunk_times,
-                       compute_weight_matrix_numpy,
-                       compute_weight_matrix_torch, normalize_border,
-                       validate_border_weight)
+from qlty.base import (
+    compute_border_tensor_numpy,
+    compute_border_tensor_torch,
+    compute_chunk_times,
+    compute_weight_matrix_numpy,
+    compute_weight_matrix_torch,
+    normalize_border,
+    validate_border_weight,
+)
 
 
 def test_normalize_border():

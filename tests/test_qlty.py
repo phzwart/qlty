@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for `qlty` package."""
+
 import einops
 import numpy as np
 import pytest

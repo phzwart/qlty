@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
 """Tests for cleanup functions."""
+
 import einops
 import pytest
 import torch
 
 from qlty import qlty2D, qlty3D
-from qlty.cleanup import (weed_sparse_classification_training_pairs_2D,
-                          weed_sparse_classification_training_pairs_3D)
+from qlty.cleanup import (
+    weed_sparse_classification_training_pairs_2D,
+    weed_sparse_classification_training_pairs_3D,
+)
 
 
 def test_weed_sparse_2D_all_valid():

@@ -5,8 +5,7 @@ This module provides base classes and shared utilities to eliminate code duplica
 across 2D/3D and in-memory/disk-cached quilt implementations.
 """
 
-from abc import ABC, abstractmethod
-from typing import Any, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -253,7 +252,7 @@ def compute_chunk_times(
     )
 
 
-class BaseQuilt(ABC):
+class BaseQuilt:
     """
     Base class for all quilt operations.
 
@@ -294,12 +293,11 @@ class BaseQuilt(ABC):
         # Validate window and step match dimensions
         if len(window) != ndim:
             raise ValueError(
-                f"window must have {ndim} elements for {ndim}D data, "
-                f"got {len(window)}"
+                f"window must have {ndim} elements for {ndim}D data, got {len(window)}"
             )
         if len(step) != ndim:
             raise ValueError(
-                f"step must have {ndim} elements for {ndim}D data, " f"got {len(step)}"
+                f"step must have {ndim} elements for {ndim}D data, got {len(step)}"
             )
 
         # Validate border matches dimensions if provided

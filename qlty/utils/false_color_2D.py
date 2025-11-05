@@ -8,7 +8,7 @@ from sklearn.preprocessing import MinMaxScaler
 from qlty.qlty2D import NCYXQuilt
 
 
-class FalseColorGenerator(object):
+class FalseColorGenerator:
     def __init__(
         self, image_shape, window_size=32, step_size=8, reducer=None, scaler=None
     ):

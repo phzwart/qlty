@@ -2,49 +2,49 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
-with open('README.rst') as readme_file:
+with open("README.rst") as readme_file:
     readme = readme_file.read()
 
-with open('HISTORY.rst') as history_file:
+with open("HISTORY.rst") as history_file:
     history = history_file.read()
 
 # Read requirements from requirements.txt
-with open('requirements.txt') as f:
+with open("requirements.txt") as f:
     requirements = [
-        line.strip() 
-        for line in f 
-        if line.strip() and not line.startswith('#') and 'sphinx' not in line
+        line.strip()
+        for line in f
+        if line.strip() and not line.startswith("#") and "sphinx" not in line
     ]
 
 test_requirements = []
 
 setup(
     author="Petrus H. Zwart",
-    author_email='PHZwart@lbl.gov',
-    python_requires='>=3.8',
+    author_email="PHZwart@lbl.gov",
+    python_requires=">=3.8",
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: BSD License',
-        'Natural Language :: English',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
+        "Development Status :: 2 - Pre-Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: BSD License",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
     ],
     description="Unstitch and stich back pytorch tensors",
     install_requires=requirements,
     license="BSD license",
-    long_description=readme + '\n\n' + history,
+    long_description=readme + "\n\n" + history,
     include_package_data=True,
-    keywords='qlty',
-    name='qlty',
-    packages=find_packages(include=['qlty', 'qlty.*']),
-    test_suite='tests',
+    keywords="qlty",
+    name="qlty",
+    packages=find_packages(include=["qlty", "qlty.*"]),
+    test_suite="tests",
     tests_require=test_requirements,
-    url='https://github.com/phzwart/qlty',
-    version='0.3.0',
+    url="https://github.com/phzwart/qlty",
+    version="0.3.0",
     zip_safe=False,
 )

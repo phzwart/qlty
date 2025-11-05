@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for edge cases and error handling."""
+
 import einops
 import numpy as np
 import pytest
@@ -64,7 +65,12 @@ def test_qlty2D_border_normalization():
     """Test that border normalization works correctly."""
     # Test int border
     quilt1 = qlty2D.NCYXQuilt(
-        Y=100, X=100, window=(50, 50), step=(25, 25), border=5, border_weight=0.1  # int
+        Y=100,
+        X=100,
+        window=(50, 50),
+        step=(25, 25),
+        border=5,
+        border_weight=0.1,  # int
     )
 
     # Test tuple border

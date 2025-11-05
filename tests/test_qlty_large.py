@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for Large (disk-cached) quilt classes."""
+
 import os
 import shutil
 import tempfile
@@ -46,7 +47,7 @@ def test_LargeNCYXQuilt(temp_dir, step, border):
         imgs.append(img)
 
     imgs_in = einops.rearrange(imgs, "N C Y X -> N C Y X")
-    imgs_out = einops.reduce(imgs_in, "N C Y X -> N () Y X", reduction="sum")
+    _ = einops.reduce(imgs_in, "N C Y X -> N () Y X", reduction="sum")  # noqa: F841
 
     filename = os.path.join(temp_dir, "test_2d")
     quilt = qlty2DLarge.LargeNCYXQuilt(

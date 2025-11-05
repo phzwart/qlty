@@ -184,10 +184,10 @@ data = torch.randn(100, 3, 512, 512)
 
 for i in range(quilt.N_chunks):
     index, patch = quilt.unstitch_next(data)
-    
+
     # Process patch
     processed = your_model(patch.unsqueeze(0))
-    
+
     # Accumulate result
     quilt.stitch(processed, index)
 
@@ -310,7 +310,7 @@ valid_in, valid_out, mask = weed_sparse_classification_training_pairs_2D(
 
 ## Best Practices
 
-1. **Choose Appropriate Overlap**: 
+1. **Choose Appropriate Overlap**:
    - 50% overlap (step = window/2) is common
    - More overlap = smoother results but slower processing
 

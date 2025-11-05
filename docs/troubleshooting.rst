@@ -16,7 +16,7 @@ Issue: AssertionError when stitching
     quilt = NCYXQuilt(Y=128, X=128, window=(32, 32), step=(16, 16), border=(5, 5))
     nY, nX = quilt.get_times()
     expected_patches = num_images * nY * nX
-    
+
     patches = quilt.unstitch(data)
     assert patches.shape[0] == expected_patches, \
         f"Expected {expected_patches} patches, got {patches.shape[0]}"
@@ -30,7 +30,7 @@ Issue: Memory errors with large datasets
 
     # Instead of:
     quilt = NCYXQuilt(...)  # Loads everything into memory
-    
+
     # Use:
     quilt = LargeNCYXQuilt(filename, N, Y, X, ...)  # Uses disk caching
 
@@ -41,15 +41,15 @@ Issue: Border artifacts in reconstructed images
 
 **Solutions**:
 1. Increase overlap (reduce step size)::
-   
+
        quilt = NCYXQuilt(..., step=(window[0]//2, window[1]//2), ...)
 
 2. Increase border size::
-   
+
        quilt = NCYXQuilt(..., border=(10, 10), ...)  # Larger border
 
 3. Decrease border weight::
-   
+
        quilt = NCYXQuilt(..., border_weight=0.05, ...)  # More downweighting
 
 Issue: Softmax giving wrong results
@@ -64,7 +64,7 @@ Issue: Softmax giving wrong results
     # WRONG:
     probs = F.softmax(model(patches), dim=1)
     result, _ = quilt.stitch(probs)  # Averaging probabilities is wrong!
-    
+
     # CORRECT:
     logits = model(patches)
     stitched_logits, _ = quilt.stitch(logits)
@@ -88,7 +88,7 @@ Issue: Zarr cache files not cleaned up
 
     import os
     import shutil
-    
+
     for suffix in ["_mean_cache.zarr", "_std_cache.zarr", "_norma_cache.zarr",
                    "_mean.zarr", "_std.zarr"]:
         path = filename + suffix
@@ -108,7 +108,7 @@ Issue: Empty patches after filtering
     valid_count = (labels != missing_label).sum()
     if valid_count == 0:
         print("Warning: No valid data found!")
-    
+
     # Check border tensor
     border_tensor = quilt.border_tensor()
     valid_pixels = border_tensor.sum()
@@ -130,7 +130,7 @@ Issue: Wrong tensor shapes
     assert len(data.shape) == 4, f"Expected 4D tensor, got {len(data.shape)}D"
     assert data.shape[2] == quilt.Y, f"Y dimension mismatch"
     assert data.shape[3] == quilt.X, f"X dimension mismatch"
-    
+
     # 3D: Should be (N, C, Z, Y, X)
     assert len(data.shape) == 5, f"Expected 5D tensor, got {len(data.shape)}D"
 
@@ -141,7 +141,7 @@ Issue: Slow stitching performance
 
 **Solutions**:
 1. Enable Numba (default for 2D)::
-   
+
        result, weights = quilt.stitch(patches, use_numba=True)
 
 2. Use batch processing
@@ -156,7 +156,7 @@ Issue: Border weight not working as expected
 
     # Verify border is set
     assert quilt.border is not None, "Border is None!"
-    
+
     # Check weight matrix
     weight = quilt.weight
     print(f"Border weight: {weight[0, 0].item()}")  # Should be border_weight
@@ -185,11 +185,11 @@ Performance Tips
 
 2. **Enable Numba**: For 2D stitching, Numba provides significant speedup
 
-3. **Choose step size wisely**: 
+3. **Choose step size wisely**:
    - Smaller step = more overlap = smoother results but slower
    - Larger step = less overlap = faster but may have artifacts
 
-4. **Memory management**: 
+4. **Memory management**:
    - Use in-memory classes for small datasets
    - Use Large classes for datasets > several GB
 
@@ -207,4 +207,3 @@ If you encounter issues not covered here:
    - Minimal reproducible example
    - Error messages
    - Your environment (Python version, PyTorch version, etc.)
-

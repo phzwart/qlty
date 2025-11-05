@@ -1,18 +1,21 @@
 from typing import List, Optional, Tuple, Union
 
-import dask.array as da
 import einops
 import numpy as np
 import numpy.typing as npt
 import torch
 import zarr
 
-from .base import (compute_border_tensor_numpy, compute_chunk_times,
-                   compute_weight_matrix_numpy, normalize_border,
-                   validate_border_weight)
+from .base import (
+    compute_border_tensor_numpy,
+    compute_chunk_times,
+    compute_weight_matrix_numpy,
+    normalize_border,
+    validate_border_weight,
+)
 
 
-class LargeNCYXQuilt(object):
+class LargeNCYXQuilt:
     """
     This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
     This class is aimed at handling tensors of type (N, C, Y, X).
