@@ -5,7 +5,7 @@
 import pytest
 import torch
 
-from qlty.patch_pairs import extract_overlapping_pixels, extract_patch_pairs
+from qlty.patch_pairs_2d import extract_overlapping_pixels, extract_patch_pairs
 
 
 def test_extract_patch_pairs_basic():

@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from qlty.patch_pairs import extract_overlapping_pixels, extract_patch_pairs
+from qlty.patch_pairs_2d import extract_overlapping_pixels, extract_patch_pairs
 
 
 def test_kernel_optimization_with_overlapping_pixels():

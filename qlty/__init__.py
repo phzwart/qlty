@@ -10,13 +10,11 @@ from .cleanup import (
     weed_sparse_classification_training_pairs_3D,
 )
 
-# Import patch pair extraction
-from .patch_pairs import (
-    extract_overlapping_pixels,
-    extract_overlapping_pixels_3d,
-    extract_patch_pairs,
-    extract_patch_pairs_3d,
-)
+# Import patch pair extraction (2D)
+from .patch_pairs_2d import extract_overlapping_pixels, extract_patch_pairs
+
+# Import patch pair extraction (3D)
+from .patch_pairs_3d import extract_overlapping_pixels_3d, extract_patch_pairs_3d
 
 # Import main classes from all modules
 from .qlty2D import NCYXQuilt

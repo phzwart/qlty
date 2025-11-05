@@ -142,7 +142,7 @@ Patch Pair Extraction Functions
 extract_patch_pairs
 ~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: qlty.patch_pairs.extract_patch_pairs
+.. autofunction:: qlty.patch_pairs_2d.extract_patch_pairs
 
 **Example:**
 
@@ -167,7 +167,7 @@ extract_patch_pairs
 extract_overlapping_pixels
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: qlty.patch_pairs.extract_overlapping_pixels
+.. autofunction:: qlty.patch_pairs_2d.extract_overlapping_pixels
 
 **Example:**
 
