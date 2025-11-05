@@ -10,6 +10,9 @@ from .cleanup import (
     weed_sparse_classification_training_pairs_3D,
 )
 
+# Import patch pair extraction
+from .patch_pairs import extract_overlapping_pixels, extract_patch_pairs
+
 # Import main classes from all modules
 from .qlty2D import NCYXQuilt
 from .qlty2DLarge import LargeNCYXQuilt
@@ -24,4 +27,6 @@ __all__ = [
     "LargeNCZYXQuilt",
     "weed_sparse_classification_training_pairs_2D",
     "weed_sparse_classification_training_pairs_3D",
+    "extract_patch_pairs",
+    "extract_overlapping_pixels",
 ]

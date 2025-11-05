@@ -302,3 +302,159 @@ Large Dataset Pattern
     # Get results
     mean = quilt.return_mean()
     mean, std = quilt.return_mean(std=True)
+
+Patch Pair Extraction
+---------------------
+
+The patch pair extraction feature allows you to extract pairs of patches from images with controlled displacement between them. This is useful for training models that learn relationships between nearby image regions, such as self-supervised learning, contrastive learning, or learning spatial correspondences.
+
+Overview
+~~~~~~~~
+
+The patch pair extraction works by:
+
+1. **Extracting patch pairs**: For each image, randomly samples pairs of patches where the displacement between patch centers follows a specified Euclidean distance constraint.
+
+2. **Finding overlapping regions**: Given the displacement vectors, identifies which pixels in the two patches correspond to the same spatial location in the original image.
+
+3. **Gradient-friendly**: All operations preserve gradients, making it suitable for end-to-end training.
+
+Basic Usage
+~~~~~~~~~~~
+
+Extract patch pairs from a tensor::
+
+    import torch
+    from qlty import extract_patch_pairs, extract_overlapping_pixels
+
+    # Create input tensor: (N, C, Y, X)
+    tensor = torch.randn(10, 3, 128, 128)
+
+    # Extract patch pairs
+    window = (32, 32)  # 32x32 patches
+    num_patches = 5    # 5 patch pairs per image
+    delta_range = (8.0, 16.0)  # Euclidean distance between 8 and 16 pixels
+
+    patches1, patches2, deltas = extract_patch_pairs(
+        tensor, window, num_patches, delta_range, random_seed=42
+    )
+
+    # patches1: (50, 3, 32, 32) - first patches
+    # patches2: (50, 3, 32, 32) - second patches (displaced)
+    # deltas: (50, 2) - displacement vectors (dx, dy)
+
+Extract overlapping pixels::
+
+    # Get overlapping pixels from patch pairs
+    overlapping1, overlapping2 = extract_overlapping_pixels(
+        patches1, patches2, deltas
+    )
+
+    # overlapping1: (K, 3) - overlapping pixels from patches1
+    # overlapping2: (K, 3) - overlapping pixels from patches2
+    # K is the total number of overlapping pixels across all pairs
+    # Corresponding pixels are at the same index in both tensors
+
+Delta Range Constraints
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``delta_range`` parameter specifies the Euclidean distance constraint for displacement vectors:
+
+- **Constraint**: ``low <= sqrt(dx² + dy²) <= high``
+- **Range requirement**: ``window//4 <= low <= high <= 3*window//4``
+  where ``window`` is the maximum of patch height and width
+
+This ensures that:
+- Displacements are not too small (patches would be nearly identical)
+- Displacements are not too large (patches would have no overlap)
+- There's meaningful overlap for learning correspondences
+
+Example: For a 32x32 window, valid delta_range is approximately (8, 24).
+
+Use Case: Kernel Optimization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A common use case is optimizing neural network kernels using L1 loss on overlapping pixels::
+
+    import torch
+    import torch.nn as nn
+    from qlty import extract_patch_pairs, extract_overlapping_pixels
+
+    # Create input tensor
+    tensor = torch.randn(10, 1, 32, 32)
+
+    # Extract patch pairs
+    patches1, patches2, deltas = extract_patch_pairs(
+        tensor, window=(9, 9), num_patches=5, delta_range=(3.0, 6.0)
+    )
+    patches1 = patches1.detach()
+    patches2 = patches2.detach()
+
+    # Create two Conv2D layers
+    conv1 = nn.Conv2d(1, 1, 3, padding=1, padding_mode='reflect', bias=False)
+    conv2 = nn.Conv2d(1, 1, 3, padding=1, padding_mode='reflect', bias=False)
+
+    # Optimize conv2 to match conv1 using L1 loss on overlapping pixels
+    optimizer = torch.optim.Adam(conv2.parameters(), lr=0.05)
+
+    for iteration in range(100):
+        optimizer.zero_grad()
+
+        output1 = conv1(patches1)
+        output2 = conv2(patches2)
+
+        # Extract overlapping pixels
+        overlapping1, overlapping2 = extract_overlapping_pixels(
+            output1, output2, deltas
+        )
+
+        # L1 loss on corresponding pixels
+        loss = torch.nn.functional.l1_loss(overlapping1, overlapping2)
+        loss.backward()
+        optimizer.step()
+
+How It Works
+~~~~~~~~~~~
+
+**Patch Pair Extraction:**
+
+1. For each image in the input tensor, randomly samples ``num_patches`` locations.
+2. For each location ``(x_i, y_i)``, samples a displacement vector ``(dx_i, dy_i)`` such that the Euclidean distance ``sqrt(dx_i² + dy_i²)`` is within ``delta_range``.
+3. Extracts two patches:
+   - Patch 1 at ``(x_i, y_i)``
+   - Patch 2 at ``(x_i + dx_i, y_i + dy_i)``
+4. Ensures both patches fit within image boundaries.
+
+**Overlapping Pixel Extraction:**
+
+1. For each patch pair, computes which pixels have valid correspondences:
+   - A pixel at ``(u1, v1)`` in patch1 corresponds to ``(u1 - dy, v1 - dx)`` in patch2
+   - Only pixels where both coordinates are valid (within patch bounds) are included
+2. Extracts the overlapping regions from both patches.
+3. Flattens and concatenates all overlapping pixels into ``(K, C)`` tensors.
+
+**Key Properties:**
+
+- **Partial overlap**: Typically 30-70% of pixels overlap, depending on displacement
+- **Gradient preservation**: All operations maintain the computation graph
+- **GPU-friendly**: Optimized for GPU execution with minimal CPU-GPU transfers
+- **Reproducible**: Optional random seed for consistent results
+
+Mathematical Details
+~~~~~~~~~~~~~~~~~~~~
+
+Given:
+- Patch 1 extracted at ``(x, y)`` with size ``(U, V)``
+- Patch 2 extracted at ``(x + dx, y + dy)`` with size ``(U, V)``
+- Displacement vector ``(dx, dy)``
+
+A pixel at ``(u1, v1)`` in patch1 corresponds to the same spatial location as pixel ``(u2, v2)`` in patch2 when:
+
+- ``u2 = u1 - dy``
+- ``v2 = v1 - dx``
+
+The overlap region in patch1 coordinates is:
+- ``u1 in [max(0, dy), min(U, U + dy))``
+- ``v1 in [max(0, dx), min(V, V + dx))``
+
+This ensures both corresponding pixels are within their respective patch bounds.
