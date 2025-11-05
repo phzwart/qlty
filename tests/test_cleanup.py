@@ -160,3 +160,4 @@ def test_weed_sparse_2D_with_channels():
     # Should work with channel dimension
     assert newin.shape[0] == 10
     assert newout.shape[0] == 10
+    assert torch.sum(sel) == 0  # None selected for removal
