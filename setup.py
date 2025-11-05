@@ -1,44 +1,19 @@
 #!/usr/bin/env python
 
-"""The setup script."""
+"""The setup script (minimal, metadata now in pyproject.toml)."""
 
-from setuptools import setup, find_packages
+from pathlib import Path
 
-with open('README.rst') as readme_file:
-    readme = readme_file.read()
+from setuptools import setup
 
-with open('HISTORY.rst') as history_file:
-    history = history_file.read()
+# Read README and HISTORY for long_description
+readme_file = Path(__file__).parent / "README.rst"
+history_file = Path(__file__).parent / "HISTORY.rst"
 
-requirements = [ ]
+long_description = readme_file.read_text(encoding="utf-8")
+if history_file.exists():
+    long_description += "\n\n" + history_file.read_text(encoding="utf-8")
 
-test_requirements = [ ]
-
-setup(
-    author="Petrus H. Zwart",
-    author_email='PHZwart@lbl.gov',
-    python_requires='>=3.8',
-    classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: BSD License',
-        'Natural Language :: English',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-    ],
-    description="Unstitch and stich back pytorch tensors",
-    install_requires=requirements,
-    license="BSD license",
-    long_description=readme + '\n\n' + history,
-    include_package_data=True,
-    keywords='qlty',
-    name='qlty',
-    packages=find_packages(include=['qlty', 'qlty.*']),
-    test_suite='tests',
-    tests_require=test_requirements,
-    url='https://github.com/phzwart/qlty',
-    version='0.3.0',
-    zip_safe=False,
-)
+# All metadata is now in pyproject.toml
+# This file is kept minimal for long_description combining
+setup(long_description=long_description, long_description_content_type="text/x-rst")

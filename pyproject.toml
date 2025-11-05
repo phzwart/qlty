@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=62.2.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qlty"
+version = "1.0.3rc1"
+description = "Unstitch and stitch back pytorch tensors"
+requires-python = ">=3.8"
+license = {text = "BSD"}
+dynamic = ["readme"]
+authors = [
+    {name = "Petrus H. Zwart", email = "PHZwart@lbl.gov"}
+]
+keywords = ["qlty", "pytorch", "tensor", "stitch", "unstitch", "patch", "image"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "numpy>=1.20.1",
+    "torch>=1.11",
+    "einops>=0.3.0",
+    "scipy>=1.8.1",
+    "zarr>=2.11.1",
+    "numba>=0.56.0",
+    "dask>=2021.12.0",
+    "umap-learn>=0.5.0",
+    "scikit-learn>=1.0.0",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+]
+
+[project.urls]
+Homepage = "https://github.com/phzwart/qlty"
+Documentation = "https://qlty.readthedocs.io/"
+Repository = "https://github.com/phzwart/qlty"
+Issues = "https://github.com/phzwart/qlty/issues"
+
+[tool.setuptools]
+packages = ["qlty", "qlty.utils"]
+
+[tool.setuptools.package-data]
+"*" = ["*.rst", "*.txt"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # allow unused imports in __init__.py
+"tests/*" = ["E501", "F401", "F811"]  # more lenient in tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pydocstyle]
+convention = "google"
+match = "(?!test_).*\\.py"
+match-dir = "(?!tests|build|dist|\\.git|\\.venv|venv)"

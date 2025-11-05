@@ -8,7 +8,9 @@ Welcome to qlty's documentation!
    readme
    installation
    usage
-   modules
+   examples
+   api
+   troubleshooting
    contributing
    authors
    history
