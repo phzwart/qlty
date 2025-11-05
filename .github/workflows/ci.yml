@@ -45,9 +45,15 @@ jobs:
         pip install -r requirements.txt
         pip install pytest pytest-cov
 
-    - name: Run tests
+    - name: Run tests with coverage
       run: |
-        pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term
+        pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+
+    - name: Check coverage threshold
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      run: |
+        coverage report --fail-under=75
+      continue-on-error: true
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
