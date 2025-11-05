@@ -1,3 +1,62 @@
+[build-system]
+requires = ["setuptools>=62.2.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qlty"
+version = "1.0.0rc1"
+description = "Unstitch and stitch back pytorch tensors"
+requires-python = ">=3.8"
+license = {text = "BSD"}
+dynamic = ["readme"]
+authors = [
+    {name = "Petrus H. Zwart", email = "PHZwart@lbl.gov"}
+]
+keywords = ["qlty", "pytorch", "tensor", "stitch", "unstitch", "patch", "image"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "numpy>=1.20.1",
+    "torch>=1.11",
+    "einops>=0.3.0",
+    "scipy>=1.8.1",
+    "zarr>=2.11.1",
+    "numba>=0.56.0",
+    "dask>=2021.12.0",
+    "umap-learn>=0.5.0",
+    "scikit-learn>=1.0.0",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+]
+
+[project.urls]
+Homepage = "https://github.com/phzwart/qlty"
+Documentation = "https://qlty.readthedocs.io/"
+Repository = "https://github.com/phzwart/qlty"
+Issues = "https://github.com/phzwart/qlty/issues"
+
+[tool.setuptools]
+packages = ["qlty", "qlty.utils"]
+
+[tool.setuptools.package-data]
+"*" = ["*.rst", "*.txt"]
+
 [tool.ruff]
 line-length = 88
 target-version = "py38"
