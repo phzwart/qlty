@@ -64,11 +64,18 @@ def test_return_mean_with_normalize(temp_dir):
     mean_normalized = quilt.return_mean(normalize=True)
 
     assert mean_normalized.shape == (N, C, Y, X)
-    # Normalize=True divides by sum along channel dimension (axis=0 in the computation)
-    # Check that values are finite and reasonable
+    # Normalize=True divides by sum along axis=0 (batch dimension)
+    # Check that values are finite
     assert np.isfinite(mean_normalized).all()
-    # The normalization divides by sum, so values should be normalized
-    assert np.abs(mean_normalized).max() < 1e6  # Reasonable bounds
+    # After normalization, sum along axis=0 should equal 1 (or close to it)
+    # But only check if sum is not zero to avoid division by zero issues
+    sum_along_batch = np.sum(mean_normalized, axis=0)
+    non_zero_mask = np.abs(sum_along_batch) > 1e-10
+    if np.any(non_zero_mask):
+        # Where sum is non-zero, normalized values should have sum ≈ 1
+        normalized_sums = sum_along_batch[non_zero_mask]
+        # Allow some tolerance for numerical precision
+        assert np.allclose(normalized_sums, 1.0, atol=1e-6, rtol=1e-6)
 
 
 def test_return_mean_normalize_with_std(temp_dir):
@@ -104,11 +111,18 @@ def test_return_mean_normalize_with_std(temp_dir):
 
     assert mean_norm.shape == (N, C, Y, X)
     assert std_norm.shape == (N, C, Y, X)
-    # Check that values are finite and reasonable
+    # Check that values are finite
     assert np.isfinite(mean_norm).all()
     assert np.isfinite(std_norm).all()
-    # The normalization divides by sum, so values should be normalized
-    assert np.abs(mean_norm).max() < 1e6  # Reasonable bounds
+    # After normalization, sum along axis=0 should equal 1 (or close to it)
+    # But only check if sum is not zero to avoid division by zero issues
+    sum_along_batch = np.sum(mean_norm, axis=0)
+    non_zero_mask = np.abs(sum_along_batch) > 1e-10
+    if np.any(non_zero_mask):
+        # Where sum is non-zero, normalized values should have sum ≈ 1
+        normalized_sums = sum_along_batch[non_zero_mask]
+        # Allow some tolerance for numerical precision
+        assert np.allclose(normalized_sums, 1.0, atol=1e-6, rtol=1e-6)
 
 
 def test_stitch_with_patch_var(temp_dir):
