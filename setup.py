@@ -10,9 +10,15 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = [ ]
+# Read requirements from requirements.txt
+with open('requirements.txt') as f:
+    requirements = [
+        line.strip() 
+        for line in f 
+        if line.strip() and not line.startswith('#') and 'sphinx' not in line
+    ]
 
-test_requirements = [ ]
+test_requirements = []
 
 setup(
     author="Petrus H. Zwart",
