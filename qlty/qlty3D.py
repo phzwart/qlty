@@ -1,13 +1,11 @@
-from typing import Tuple, Optional, Union
-import torch
+from typing import Optional, Tuple, Union
+
 import einops
-from .base import (
-    compute_weight_matrix_torch,
-    compute_border_tensor_torch,
-    compute_chunk_times,
-    normalize_border,
-    validate_border_weight,
-)
+import torch
+
+from .base import (compute_border_tensor_torch, compute_chunk_times,
+                   compute_weight_matrix_torch, normalize_border,
+                   validate_border_weight)
 
 
 class NCZYXQuilt(object):

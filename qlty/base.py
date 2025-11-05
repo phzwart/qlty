@@ -5,10 +5,11 @@ This module provides base classes and shared utilities to eliminate code duplica
 across 2D/3D and in-memory/disk-cached quilt implementations.
 """
 
-from typing import Tuple, Optional, Union, Any
 from abc import ABC, abstractmethod
-import torch
+from typing import Any, Optional, Tuple, Union
+
 import numpy as np
+import torch
 
 
 def normalize_border(

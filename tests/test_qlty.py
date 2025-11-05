@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 """Tests for `qlty` package."""
-import pytest
-import numpy as np
-import torch
 import einops
-from qlty import qlty2D
-from qlty import qlty3D
+import numpy as np
+import pytest
+import torch
+
+from qlty import qlty2D, qlty3D
 
 
 @pytest.mark.parametrize(

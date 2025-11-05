@@ -1,6 +1,7 @@
 from typing import Tuple, Union
-import torch
+
 import einops
+import torch
 
 
 def weed_sparse_classification_training_pairs_2D(

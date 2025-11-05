@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
 """Tests for Large (disk-cached) quilt classes."""
-import pytest
-import numpy as np
-import torch
-import einops
-import tempfile
-import shutil
 import os
-from qlty import qlty2DLarge
-from qlty import qlty3DLarge
+import shutil
+import tempfile
+
+import einops
+import numpy as np
+import pytest
+import torch
+
+from qlty import qlty2DLarge, qlty3DLarge
 
 
 @pytest.fixture

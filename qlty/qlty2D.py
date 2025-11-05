@@ -1,14 +1,12 @@
-from typing import Tuple, Optional, Union
+from typing import Optional, Tuple, Union
+
+import einops
 import torch
 from numba import njit, prange
-import einops
-from .base import (
-    compute_weight_matrix_torch,
-    compute_border_tensor_torch,
-    compute_chunk_times,
-    normalize_border,
-    validate_border_weight,
-)
+
+from .base import (compute_border_tensor_torch, compute_chunk_times,
+                   compute_weight_matrix_torch, normalize_border,
+                   validate_border_weight)
 
 
 @njit(fastmath=True, parallel=True)

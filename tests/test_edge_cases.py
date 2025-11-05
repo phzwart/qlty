@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 """Tests for edge cases and error handling."""
-import pytest
-import numpy as np
-import torch
 import einops
+import numpy as np
+import pytest
+import torch
+
 from qlty import qlty2D, qlty3D
 from qlty.base import BaseQuilt, normalize_border, validate_border_weight
 

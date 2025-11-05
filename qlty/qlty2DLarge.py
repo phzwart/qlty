@@ -1,17 +1,15 @@
-from typing import Tuple, Optional, Union, List
-import torch
-import zarr
+from typing import List, Optional, Tuple, Union
+
+import dask.array as da
+import einops
 import numpy as np
 import numpy.typing as npt
-import einops
-import dask.array as da
-from .base import (
-    compute_weight_matrix_numpy,
-    compute_border_tensor_numpy,
-    compute_chunk_times,
-    normalize_border,
-    validate_border_weight,
-)
+import torch
+import zarr
+
+from .base import (compute_border_tensor_numpy, compute_chunk_times,
+                   compute_weight_matrix_numpy, normalize_border,
+                   validate_border_weight)
 
 
 class LargeNCYXQuilt(object):

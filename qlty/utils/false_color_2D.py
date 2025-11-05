@@ -1,10 +1,11 @@
+import einops
 import numpy as np
 import torch
-import einops
 import umap
-from qlty.qlty2D import NCYXQuilt
-from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial import cKDTree
+from sklearn.preprocessing import MinMaxScaler
+
+from qlty.qlty2D import NCYXQuilt
 
 
 class FalseColorGenerator(object):
