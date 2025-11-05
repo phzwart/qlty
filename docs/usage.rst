@@ -458,3 +458,64 @@ The overlap region in patch1 coordinates is:
 - ``v1 in [max(0, dx), min(V, V + dx))``
 
 This ensures both corresponding pixels are within their respective patch bounds.
+
+3D Patch Pair Extraction
+-------------------------
+
+The same functionality is available for 3D volumes (volumetric data).
+
+Basic Usage (3D)
+~~~~~~~~~~~~~~~~
+
+Extract patch pairs from a 3D tensor::
+
+    import torch
+    from qlty import extract_patch_pairs_3d, extract_overlapping_pixels_3d
+
+    # Create input tensor: (N, C, Z, Y, X)
+    tensor = torch.randn(5, 1, 64, 64, 64)  # 5 volumes, 1 channel, 64x64x64
+
+    # Extract patch pairs
+    window = (16, 16, 16)  # 16x16x16 patches
+    num_patches = 10  # 10 patch pairs per volume
+    delta_range = (8.0, 12.0)  # Euclidean distance between 8 and 12 voxels
+
+    patches1, patches2, deltas = extract_patch_pairs_3d(
+        tensor, window, num_patches, delta_range, random_seed=42
+    )
+
+    # patches1: (50, 1, 16, 16, 16) - first patches
+    # patches2: (50, 1, 16, 16, 16) - second patches (displaced)
+    # deltas: (50, 3) - displacement vectors (dx, dy, dz)
+
+Extract overlapping pixels from 3D patches::
+
+    # Get overlapping pixels from patch pairs
+    overlapping1, overlapping2 = extract_overlapping_pixels_3d(
+        patches1, patches2, deltas
+    )
+
+    # overlapping1: (K, 1) - overlapping pixels from patches1
+    # overlapping2: (K, 1) - overlapping pixels from patches2
+    # K is the total number of overlapping pixels across all pairs
+
+3D Mathematical Details
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Given:
+- Patch 1 extracted at ``(x, y, z)`` with size ``(U, V, W)``
+- Patch 2 extracted at ``(x + dx, y + dy, z + dz)`` with size ``(U, V, W)``
+- Displacement vector ``(dx, dy, dz)``
+
+A pixel at ``(u1, v1, w1)`` in patch1 corresponds to the same spatial location as pixel ``(u2, v2, w2)`` in patch2 when:
+
+- ``u2 = u1 - dz``
+- ``v2 = v1 - dy``
+- ``w2 = w1 - dx``
+
+The overlap region in patch1 coordinates is:
+- ``u1 in [max(0, dz), min(U, U + dz))``
+- ``v1 in [max(0, dy), min(V, V + dy))``
+- ``w1 in [max(0, dx), min(W, W + dx))``
+
+The Euclidean distance constraint is: ``low <= sqrt(dx² + dy² + dz²) <= high``

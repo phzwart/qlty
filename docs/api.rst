@@ -191,6 +191,58 @@ extract_overlapping_pixels
     # K is the total number of overlapping pixels
     # Corresponding pixels are at the same index in both tensors
 
+extract_patch_pairs_3d
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.patch_pairs.extract_patch_pairs_3d
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty import extract_patch_pairs_3d
+    import torch
+
+    tensor = torch.randn(5, 1, 64, 64, 64)  # 5 volumes, 1 channel, 64x64x64
+    window = (16, 16, 16)  # 16x16x16 patches
+    num_patches = 10  # 10 patch pairs per volume
+    delta_range = (8.0, 12.0)  # Euclidean distance between 8 and 12 voxels
+
+    patches1, patches2, deltas = extract_patch_pairs_3d(
+        tensor, window, num_patches, delta_range, random_seed=42
+    )
+
+    # patches1: (50, 1, 16, 16, 16) - patches at original locations
+    # patches2: (50, 1, 16, 16, 16) - patches at displaced locations
+    # deltas: (50, 3) - displacement vectors (dx, dy, dz)
+
+extract_overlapping_pixels_3d
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.patch_pairs.extract_overlapping_pixels_3d
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty import extract_patch_pairs_3d, extract_overlapping_pixels_3d
+    import torch
+
+    # Extract patch pairs
+    patches1, patches2, deltas = extract_patch_pairs_3d(
+        tensor, window=(16, 16, 16), num_patches=10, delta_range=(8.0, 12.0)
+    )
+
+    # Extract overlapping pixels
+    overlapping1, overlapping2 = extract_overlapping_pixels_3d(
+        patches1, patches2, deltas
+    )
+
+    # overlapping1: (K, 1) - overlapping pixels from patches1
+    # overlapping2: (K, 1) - overlapping pixels from patches2
+    # K is the total number of overlapping pixels
+    # Corresponding pixels are at the same index in both tensors
+
 Parameter Details
 -----------------
 
