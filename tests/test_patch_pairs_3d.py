@@ -5,7 +5,11 @@
 import pytest
 import torch
 
-from qlty.patch_pairs_3d import extract_overlapping_pixels_3d, extract_patch_pairs_3d
+from qlty.patch_pairs_3d import (
+    _sample_displacement_vector_3d,
+    extract_overlapping_pixels_3d,
+    extract_patch_pairs_3d,
+)
 
 
 def test_extract_patch_pairs_3d_basic():
@@ -103,6 +107,85 @@ def test_extract_patch_pairs_3d_invalid_delta_range():
     # Test: low > high
     with pytest.raises(ValueError, match="low.*must be <= high"):
         extract_patch_pairs_3d(tensor, window, num_patches, (10.0, 5.0))
+
+
+def test_extract_patch_pairs_3d_volume_too_small():
+    """Volumes that are too small for the requested window/high delta raise errors."""
+    tensor = torch.randn(1, 1, 20, 20, 20)
+    window = (16, 16, 16)
+    delta_range = (4.0, 8.0)  # max_window//4 = 4, 3*max_window//4 = 12
+
+    with pytest.raises(ValueError, match="Volume dimensions"):
+        extract_patch_pairs_3d(tensor, window, num_patches=1, delta_range=delta_range)
+
+
+def test_extract_patch_pairs_3d_exhausts_invalid_displacements(monkeypatch):
+    """If displacement sampling never yields a valid location we raise a ValueError."""
+    tensor = torch.randn(1, 1, 32, 32, 32)
+    window = (8, 8, 8)
+    delta_range = (3.0, 5.0)
+
+    def always_invalid(low, high, generator=None, device=None):
+        return 100, 0, 0  # too large to ever fit
+
+    monkeypatch.setattr(
+        "qlty.patch_pairs_3d._sample_displacement_vector_3d", always_invalid
+    )
+
+    with pytest.raises(ValueError, match="Could not find valid patch locations"):
+        extract_patch_pairs_3d(tensor, window, num_patches=1, delta_range=delta_range)
+
+
+def test_sample_displacement_vector_3d_fallback_scaling(monkeypatch):
+    """Fallback path (after max attempts) returns a displacement on CPU without device."""
+
+    def fake_randint(low, high, size, generator=None, device=None):
+        device = device or torch.device("cpu")
+        shape = size if isinstance(size, tuple) else (size,)
+        return torch.zeros(shape, dtype=torch.int64, device=device)
+
+    rand_values = iter([0.0, 0.254, 0.0])  # theta, phi, distance controls
+
+    def fake_rand(size, generator=None, device=None):
+        device = device or torch.device("cpu")
+        shape = size if isinstance(size, tuple) else (size,)
+        value = next(rand_values)
+        return torch.full(shape, value, dtype=torch.float32, device=device)
+
+    monkeypatch.setattr("qlty.patch_pairs_3d.torch.randint", fake_randint)
+    monkeypatch.setattr("qlty.patch_pairs_3d.torch.rand", fake_rand)
+
+    dx, dy, dz = _sample_displacement_vector_3d(low=3.0, high=5.0)
+
+    # Returned vector should be integral and the fallback path should have been used.
+    assert (dx, dy, dz) == (2, 0, 2)
+
+
+def test_sample_displacement_vector_3d_fallback_with_generator(monkeypatch):
+    """Fallback path also works when a torch.Generator is provided."""
+
+    generator = torch.Generator()
+    generator.manual_seed(0)
+
+    def fake_randint(low, high, size, generator=None, device=None):
+        device = device or torch.device("cpu")
+        shape = size if isinstance(size, tuple) else (size,)
+        return torch.zeros(shape, dtype=torch.int64, device=device)
+
+    rand_values = iter([0.125, 0.5, 1.0])  # theta -> pi/4, phi -> pi/2, distance -> high
+
+    def fake_rand(size, generator=None, device=None):
+        device = device or torch.device("cpu")
+        shape = size if isinstance(size, tuple) else (size,)
+        value = next(rand_values)
+        return torch.full(shape, value, dtype=torch.float32, device=device)
+
+    monkeypatch.setattr("qlty.patch_pairs_3d.torch.randint", fake_randint)
+    monkeypatch.setattr("qlty.patch_pairs_3d.torch.rand", fake_rand)
+
+    dx, dy, dz = _sample_displacement_vector_3d(low=4.0, high=5.5, generator=generator)
+
+    assert (dx, dy, dz) == (4, 4, 0)
 
 
 def test_extract_overlapping_pixels_3d_basic():
