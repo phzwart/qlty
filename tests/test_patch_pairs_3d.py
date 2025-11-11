@@ -172,7 +172,9 @@ def test_sample_displacement_vector_3d_fallback_with_generator(monkeypatch):
         shape = size if isinstance(size, tuple) else (size,)
         return torch.zeros(shape, dtype=torch.int64, device=device)
 
-    rand_values = iter([0.125, 0.5, 1.0])  # theta -> pi/4, phi -> pi/2, distance -> high
+    rand_values = iter(
+        [0.125, 0.5, 1.0]
+    )  # theta -> pi/4, phi -> pi/2, distance -> high
 
     def fake_rand(size, generator=None, device=None):
         device = device or torch.device("cpu")
