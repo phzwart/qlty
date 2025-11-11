@@ -3,7 +3,7 @@ from typing import Optional, Tuple, Union
 import einops
 import torch
 
-from .base import (
+from qlty.base import (
     compute_border_tensor_torch,
     compute_chunk_times,
     compute_weight_matrix_torch,

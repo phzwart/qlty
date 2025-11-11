@@ -6,7 +6,7 @@ import numpy.typing as npt
 import torch
 import zarr
 
-from .base import (
+from qlty.base import (
     compute_border_tensor_numpy,
     compute_chunk_times,
     compute_weight_matrix_numpy,

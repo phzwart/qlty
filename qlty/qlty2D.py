@@ -2,9 +2,9 @@ from typing import Optional, Tuple, Union
 
 import einops
 import torch
-from numba import njit, prange
+from numba import njit
 
-from .base import (
+from qlty.base import (
     compute_border_tensor_torch,
     compute_chunk_times,
     compute_weight_matrix_torch,
@@ -13,11 +13,15 @@ from .base import (
 )
 
 
-@njit(fastmath=True, parallel=True)
+@njit(fastmath=True)
 def numba_njit_stitch(
     ml_tensor, result, norma, weight, window, step, Y, X, nX, times, m
 ):
-    for i in prange(times):
+    # NOTE:
+    # We intentionally avoid `parallel=True` because concurrent updates to
+    # shared output slices (`result` and `norma`) introduce race conditions
+    # that break test expectations. Keeping the loop serial preserves correctness.
+    for i in range(times):
         yy = i // nX
         xx = i % nX
         here_and_now = times * m + yy * nX + xx
@@ -25,7 +29,7 @@ def numba_njit_stitch(
         start_x = min(xx * step[1], X - window[1])
         stop_y = start_y + window[0]
         stop_x = start_x + window[1]
-        for j in prange(ml_tensor.shape[1]):
+        for j in range(ml_tensor.shape[1]):
             tmp = ml_tensor[here_and_now, j, ...]
             result[m, j, start_y:stop_y, start_x:stop_x] += tmp * weight
         # get the weight matrix, only compute once
