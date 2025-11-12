@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qlty"
-version = "1.1.0.dev0"
+version = "1.1.0"
 description = "Unstitch and stitch back pytorch tensors"
 requires-python = ">=3.8"
 license = {text = "BSD"}
@@ -43,6 +43,9 @@ dependencies = [
 docs = [
     "sphinx",
     "sphinx_rtd_theme",
+]
+tests = [
+    "pytest>=8.0.0",
 ]
 
 [project.urls]

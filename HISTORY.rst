@@ -2,6 +2,14 @@
 History
 =======
 
+1.1.0 (2025-11-12)
+------------------
+
+* Restored Numba acceleration for 2D quilting via color-based parallel stitching that avoids write races.
+* Expanded 3D patch-pair sampling tests to cover edge cases and fallback logic, driving coverage to 100%.
+* Updated documentation to describe partially overlapping patch-pair utilities.
+* Noted that NCZYXQuilt and the Large* variants still need analogous race-free acceleration.
+
 0.1.0 (2021-10-20)
 ------------------
 
