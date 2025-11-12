@@ -22,7 +22,8 @@ Features
 * Support for both in-memory and disk-cached processing
 * 2D and 3D tensor support
 * Sparse data handling utilities
-* Numba acceleration for 2D stitching
+* Patch pair extraction helpers for partially overlapping regions in 2D and 3D
+* Numba acceleration for 2D stitching with race-free colored parallelism
 
 Quick Start
 -----------
