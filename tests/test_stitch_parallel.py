@@ -1,16 +1,16 @@
 import pytest
 
+from qlty import qlty2D
+
 pytest.importorskip("einops")
 torch = pytest.importorskip("torch")
-
-from qlty import qlty2D
 
 
 @pytest.mark.parametrize(
     "window,step",
     [
-        ((16, 32), (8, 8)),   # parity coloring sufficient
-        ((16, 32), (4, 8)),   # requires four colors along Y
+        ((16, 32), (8, 8)),  # parity coloring sufficient
+        ((16, 32), (4, 8)),  # requires four colors along Y
     ],
 )
 def test_stitch_parallel_colored_matches_serial_dense_overlap(window, step):
@@ -49,4 +49,3 @@ def test_stitch_parallel_colored_matches_serial_dense_overlap(window, step):
 
     assert torch.allclose(parallel_result, serial_result, atol=1e-6, rtol=1e-5)
     assert torch.allclose(parallel_norma, serial_norma, atol=1e-6, rtol=1e-5)
-
