@@ -15,7 +15,7 @@ from qlty.base import (
 )
 
 
-@njit(fastmath=True)
+@njit(fastmath=True)  # pragma: no cover
 def numba_njit_stitch(
     ml_tensor, result, norma, weight, window, step, Y, X, nX, times, m
 ):
@@ -40,7 +40,7 @@ def numba_njit_stitch(
     return result, norma
 
 
-@njit(fastmath=True, parallel=True)
+@njit(fastmath=True, parallel=True)  # pragma: no cover
 def numba_njit_stitch_color(
     ml_tensor,
     result,

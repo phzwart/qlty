@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from qlty import qlty2D
@@ -49,3 +50,9 @@ def test_stitch_parallel_colored_matches_serial_dense_overlap(window, step):
 
     assert torch.allclose(parallel_result, serial_result, atol=1e-6, rtol=1e-5)
     assert torch.allclose(parallel_norma, serial_norma, atol=1e-6, rtol=1e-5)
+
+
+def test_ensure_numpy_passthrough():
+    arr = np.arange(6, dtype=np.float32).reshape(2, 3)
+    returned = qlty2D._ensure_numpy(arr)
+    assert returned is arr
