@@ -1,0 +1,286 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qlty.cleanup &mdash; qlty 1.1.0.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=1c471e8e"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            qlty
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../readme.html">qlty</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../history.html">History</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">qlty</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">qlty.cleanup</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qlty.cleanup</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">einops</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+
+<div class="viewcode-block" id="weed_sparse_classification_training_pairs_2D">
+<a class="viewcode-back" href="../../api.html#qlty.cleanup.weed_sparse_classification_training_pairs_2D">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">weed_sparse_classification_training_pairs_2D</span><span class="p">(</span>
+    <span class="n">tensor_in</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">tensor_out</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">missing_label</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">border_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Filter out patches that contain no valid data after unstitching.</span>
+
+<span class="sd">    This function removes patches that have only missing labels (or only in border</span>
+<span class="sd">    regions). Useful for training with sparse annotations where most of the image</span>
+<span class="sd">    is unlabeled.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tensor_in : torch.Tensor</span>
+<span class="sd">        Input patches tensor, typically of shape (N, C, Y, X) or (N, Y, X)</span>
+<span class="sd">    tensor_out : torch.Tensor</span>
+<span class="sd">        Output patches tensor with labels, shape (N, C, Y, X) or (N, Y, X).</span>
+<span class="sd">        Missing/invalid data should be marked with `missing_label`.</span>
+<span class="sd">    missing_label : Union[int, float]</span>
+<span class="sd">        Label value that indicates missing/invalid data (typically -1)</span>
+<span class="sd">    border_tensor : torch.Tensor</span>
+<span class="sd">        Border mask tensor from `NCYXQuilt.border_tensor()` or `NCZYXQuilt.border_tensor()`.</span>
+<span class="sd">        Shape should be (Y, X) for 2D or (Z, Y, X) for 3D (this function handles 2D).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor]</span>
+<span class="sd">        A tuple of (valid_input, valid_output, removal_mask) where:</span>
+<span class="sd">        - valid_input: Filtered input patches (only patches with valid data)</span>
+<span class="sd">        - valid_output: Filtered output patches (only patches with valid data)</span>
+<span class="sd">        - removal_mask: Boolean tensor indicating which patches were removed</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - Only patches with at least one non-missing label in the valid (non-border) region are kept</span>
+<span class="sd">    - Border regions are automatically excluded from the validity check</span>
+<span class="sd">    - Useful for semi-supervised learning with sparse annotations</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from qlty import NCYXQuilt, weed_sparse_classification_training_pairs_2D</span>
+<span class="sd">    &gt;&gt;&gt; quilt = NCYXQuilt(Y=128, X=128, window=(32, 32), step=(16, 16), border=(5, 5))</span>
+<span class="sd">    &gt;&gt;&gt; input_patches = torch.randn(100, 3, 32, 32)</span>
+<span class="sd">    &gt;&gt;&gt; label_patches = torch.ones(100, 32, 32) * (-1)  # All missing</span>
+<span class="sd">    &gt;&gt;&gt; label_patches[0:50] = 1.0  # Some valid</span>
+<span class="sd">    &gt;&gt;&gt; border_tensor = quilt.border_tensor()</span>
+<span class="sd">    &gt;&gt;&gt; valid_in, valid_out, mask = weed_sparse_classification_training_pairs_2D(</span>
+<span class="sd">    ...     input_patches, label_patches, missing_label=-1, border_tensor=border_tensor</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; print(f&quot;Kept {valid_in.shape[0]} out of {input_patches.shape[0]} patches&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">tmp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">tensor_out</span><span class="p">)</span>
+    <span class="n">sel</span> <span class="o">=</span> <span class="p">(</span><span class="n">tmp</span> <span class="o">!=</span> <span class="n">missing_label</span><span class="p">)</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+
+    <span class="c1"># Expand border_tensor to match tensor_out shape if needed</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">border_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor_out</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="c1"># tensor_out has channels, expand border_tensor</span>
+        <span class="n">border_tensor</span> <span class="o">=</span> <span class="n">border_tensor</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">*</span> <span class="n">border_tensor</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sel</span><span class="p">,</span> <span class="s2">&quot;N C Y X -&gt; N&quot;</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">border_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="c1"># tensor_out is (N, Y, X)</span>
+        <span class="n">border_tensor</span> <span class="o">=</span> <span class="n">border_tensor</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">*</span> <span class="n">border_tensor</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sel</span><span class="p">,</span> <span class="s2">&quot;N Y X -&gt; N&quot;</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">border_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="c1"># tensor_out is (N, C, Y, X)</span>
+        <span class="n">border_tensor</span> <span class="o">=</span> <span class="n">border_tensor</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">*</span> <span class="n">border_tensor</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sel</span><span class="p">,</span> <span class="s2">&quot;N C Y X -&gt; N&quot;</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Fallback: multiply and reduce</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">*</span> <span class="n">border_tensor</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sel</span><span class="o">.</span><span class="n">shape</span><span class="p">))))</span>
+
+    <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="n">newin</span> <span class="o">=</span> <span class="n">tensor_in</span><span class="p">[</span><span class="o">~</span><span class="n">sel</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">newout</span> <span class="o">=</span> <span class="n">tensor_out</span><span class="p">[</span><span class="o">~</span><span class="n">sel</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">newin</span><span class="p">,</span> <span class="n">newout</span><span class="p">,</span> <span class="n">sel</span></div>
+
+
+
+<div class="viewcode-block" id="weed_sparse_classification_training_pairs_3D">
+<a class="viewcode-back" href="../../api.html#qlty.cleanup.weed_sparse_classification_training_pairs_3D">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">weed_sparse_classification_training_pairs_3D</span><span class="p">(</span>
+    <span class="n">tensor_in</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">tensor_out</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">missing_label</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">border_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Filter out 3D patches that contain no valid data after unstitching.</span>
+
+<span class="sd">    This function removes patches that have only missing labels (or only in border</span>
+<span class="sd">    regions). Useful for training with sparse 3D annotations.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tensor_in : torch.Tensor</span>
+<span class="sd">        Input patches tensor, typically of shape (N, C, Z, Y, X) or (N, Z, Y, X)</span>
+<span class="sd">    tensor_out : torch.Tensor</span>
+<span class="sd">        Output patches tensor with labels, shape (N, C, Z, Y, X) or (N, Z, Y, X).</span>
+<span class="sd">        Missing/invalid data should be marked with `missing_label`.</span>
+<span class="sd">    missing_label : Union[int, float]</span>
+<span class="sd">        Label value that indicates missing/invalid data (typically -1)</span>
+<span class="sd">    border_tensor : torch.Tensor</span>
+<span class="sd">        Border mask tensor from `NCZYXQuilt.border_tensor()`.</span>
+<span class="sd">        Shape should be (Z, Y, X).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor]</span>
+<span class="sd">        A tuple of (valid_input, valid_output, removal_mask) where:</span>
+<span class="sd">        - valid_input: Filtered input patches (only patches with valid data)</span>
+<span class="sd">        - valid_output: Filtered output patches (only patches with valid data)</span>
+<span class="sd">        - removal_mask: Boolean tensor indicating which patches were removed</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from qlty import NCZYXQuilt, weed_sparse_classification_training_pairs_3D</span>
+<span class="sd">    &gt;&gt;&gt; quilt = NCZYXQuilt(Z=64, Y=64, X=64, window=(32, 32, 32), step=(16, 16, 16), border=(4, 4, 4))</span>
+<span class="sd">    &gt;&gt;&gt; input_patches = torch.randn(100, 1, 32, 32, 32)</span>
+<span class="sd">    &gt;&gt;&gt; label_patches = torch.ones(100, 32, 32, 32) * (-1)  # All missing</span>
+<span class="sd">    &gt;&gt;&gt; label_patches[0:50] = 1.0  # Some valid</span>
+<span class="sd">    &gt;&gt;&gt; border_tensor = quilt.border_tensor()</span>
+<span class="sd">    &gt;&gt;&gt; valid_in, valid_out, mask = weed_sparse_classification_training_pairs_3D(</span>
+<span class="sd">    ...     input_patches, label_patches, missing_label=-1, border_tensor=border_tensor</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; print(f&quot;Kept {valid_in.shape[0]} out of {input_patches.shape[0]} patches&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">tmp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">tensor_out</span><span class="p">)</span>
+    <span class="n">sel</span> <span class="o">=</span> <span class="p">(</span><span class="n">tmp</span> <span class="o">!=</span> <span class="n">missing_label</span><span class="p">)</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+
+    <span class="c1"># Expand border_tensor to match tensor_out shape if needed</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">border_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor_out</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="c1"># tensor_out has channels, expand border_tensor</span>
+        <span class="n">border_tensor</span> <span class="o">=</span> <span class="n">border_tensor</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">*</span> <span class="n">border_tensor</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sel</span><span class="p">,</span> <span class="s2">&quot;N C Z Y X -&gt; N&quot;</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">border_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="c1"># tensor_out is (N, Z, Y, X)</span>
+        <span class="n">border_tensor</span> <span class="o">=</span> <span class="n">border_tensor</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">*</span> <span class="n">border_tensor</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sel</span><span class="p">,</span> <span class="s2">&quot;N Z Y X -&gt; N&quot;</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">border_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="c1"># tensor_out is (N, C, Z, Y, X) or (N, Z, Y, X)</span>
+        <span class="n">border_tensor</span> <span class="o">=</span> <span class="n">border_tensor</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">*</span> <span class="n">border_tensor</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor_out</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="n">sel</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sel</span><span class="p">,</span> <span class="s2">&quot;N C Z Y X -&gt; N&quot;</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sel</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sel</span><span class="p">,</span> <span class="s2">&quot;N Z Y X -&gt; N&quot;</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">border_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">*</span> <span class="n">border_tensor</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">sel</span><span class="p">,</span> <span class="s2">&quot;N C Z Y X -&gt; N&quot;</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Fallback: multiply and reduce</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">*</span> <span class="n">border_tensor</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sel</span><span class="o">.</span><span class="n">shape</span><span class="p">))))</span>
+
+    <span class="n">sel</span> <span class="o">=</span> <span class="n">sel</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="n">newin</span> <span class="o">=</span> <span class="n">tensor_in</span><span class="p">[</span><span class="o">~</span><span class="n">sel</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">newout</span> <span class="o">=</span> <span class="n">tensor_out</span><span class="p">[</span><span class="o">~</span><span class="n">sel</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">newin</span><span class="p">,</span> <span class="n">newout</span><span class="p">,</span> <span class="n">sel</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Petrus H. Zwart.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

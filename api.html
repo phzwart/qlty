@@ -1,0 +1,1395 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference &mdash; qlty 1.1.0.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=1c471e8e"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Troubleshooting" href="troubleshooting.html" />
+    <link rel="prev" title="Examples" href="examples.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            qlty
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="readme.html">qlty</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#in-memory-classes">In-Memory Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#ncyxquilt">NCYXQuilt</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.qlty2D.NCYXQuilt"><code class="docutils literal notranslate"><span class="pre">NCYXQuilt</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#nczyxquilt">NCZYXQuilt</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.qlty3D.NCZYXQuilt"><code class="docutils literal notranslate"><span class="pre">NCZYXQuilt</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#disk-cached-classes">Disk-Cached Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#largencyxquilt">LargeNCYXQuilt</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.qlty2DLarge.LargeNCYXQuilt"><code class="docutils literal notranslate"><span class="pre">LargeNCYXQuilt</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#largenczyxquilt">LargeNCZYXQuilt</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.qlty3DLarge.LargeNCZYXQuilt"><code class="docutils literal notranslate"><span class="pre">LargeNCZYXQuilt</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#utility-functions">Utility Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#weed-sparse-classification-training-pairs-2d">weed_sparse_classification_training_pairs_2D</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.cleanup.weed_sparse_classification_training_pairs_2D"><code class="docutils literal notranslate"><span class="pre">weed_sparse_classification_training_pairs_2D()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#weed-sparse-classification-training-pairs-3d">weed_sparse_classification_training_pairs_3D</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.cleanup.weed_sparse_classification_training_pairs_3D"><code class="docutils literal notranslate"><span class="pre">weed_sparse_classification_training_pairs_3D()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#patch-pair-extraction-functions">Patch Pair Extraction Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#extract-patch-pairs">extract_patch_pairs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.patch_pairs_2d.extract_patch_pairs"><code class="docutils literal notranslate"><span class="pre">extract_patch_pairs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-overlapping-pixels">extract_overlapping_pixels</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.patch_pairs_2d.extract_overlapping_pixels"><code class="docutils literal notranslate"><span class="pre">extract_overlapping_pixels()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-patch-pairs-3d">extract_patch_pairs_3d</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-overlapping-pixels-3d">extract_overlapping_pixels_3d</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#parameter-details">Parameter Details</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#window-and-step-sizes">Window and Step Sizes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#border-parameters">Border Parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#return-types">Return Types</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history.html">History</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">qlty</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h1>
+<p>This page provides detailed API documentation for all public classes and functions in qlty.</p>
+<section id="in-memory-classes">
+<h2>In-Memory Classes<a class="headerlink" href="#in-memory-classes" title="Link to this heading"></a></h2>
+<section id="ncyxquilt">
+<h3>NCYXQuilt<a class="headerlink" href="#ncyxquilt" title="Link to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="qlty.qlty2D.NCYXQuilt">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">qlty.qlty2D.</span></span><span class="sig-name descname"><span class="pre">NCYXQuilt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border_weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/qlty/qlty2D.html#NCYXQuilt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2D.NCYXQuilt" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
+This class is aimed at handling tensors of type (N,C,Y,X)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2D.NCYXQuilt.border_tensor">
+<span class="sig-name descname"><span class="pre">border_tensor</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/qlty/qlty2D.html#NCYXQuilt.border_tensor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2D.NCYXQuilt.border_tensor" title="Link to this definition"></a></dt>
+<dd><p>Compute border tensor indicating valid (non-border) regions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2D.NCYXQuilt.get_times">
+<span class="sig-name descname"><span class="pre">get_times</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty2D.html#NCYXQuilt.get_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2D.NCYXQuilt.get_times" title="Link to this definition"></a></dt>
+<dd><p>Compute the number of patches along each spatial dimension.</p>
+<p>This method calculates how many patches will be created in the Y and X
+dimensions, ensuring the last patch always fits within the image bounds.</p>
+<section id="returns">
+<h4>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[int, int]</dt><dd><p>A tuple (nY, nX) where:
+- nY: Number of patches in the Y (height) dimension
+- nX: Number of patches in the X (width) dimension</p>
+</dd>
+</dl>
+<p>The total number of patches per image is nY * nX.</p>
+</section>
+<section id="examples">
+<h4>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nY</span><span class="p">,</span> <span class="n">nX</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">get_times</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Patches per image: </span><span class="si">{</span><span class="n">nY</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">nX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total patches for 10 images: </span><span class="si">{</span><span class="mi">10</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">nY</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">nX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2D.NCYXQuilt.stitch">
+<span class="sig-name descname"><span class="pre">stitch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ml_tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_numba</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty2D.html#NCYXQuilt.stitch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2D.NCYXQuilt.stitch" title="Link to this definition"></a></dt>
+<dd><p>Reassemble patches back into full-size tensors.</p>
+<p>This method takes patches produced by <cite>unstitch()</cite> and stitches them back
+together, averaging overlapping regions using a weight matrix. Border regions
+are downweighted according to <cite>border_weight</cite>.</p>
+<p>Typical workflow:</p>
+<ol class="arabic">
+<li><p>Unstitch the data:</p>
+<p>patches = quilt.unstitch(input_images)</p>
+</li>
+<li><p>Process patches with your model:</p>
+<p>output_patches = model(patches)</p>
+</li>
+<li><p>Stitch back together:</p>
+<p>reconstructed, weights = quilt.stitch(output_patches)</p>
+</li>
+</ol>
+<section id="parameters">
+<h4>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>ml_tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Patches tensor of shape (M, C, window[0], window[1]) where:
+- M must equal N * nY * nX (number of patches)
+- C: Number of channels
+- window: Patch dimensions</p>
+</dd>
+<dt>use_numba<span class="classifier">bool, optional</span></dt><dd><p>Whether to use Numba JIT compilation for faster stitching.
+Default is True (recommended for performance).</p>
+</dd>
+</dl>
+</section>
+<section id="id1">
+<h4>Returns<a class="headerlink" href="#id1" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor]</dt><dd><p>A tuple of (reconstructed, weights) where:
+- reconstructed: Shape (N, C, Y, X) - the stitched result
+- weights: Shape (Y, X) - normalization weights (number of contributors per pixel)</p>
+</dd>
+</dl>
+</section>
+<section id="notes">
+<h4>Notes<a class="headerlink" href="#notes" title="Link to this heading"></a></h4>
+<p><strong>Important</strong>: When working with classification outputs:</p>
+<ul class="simple">
+<li><p>Apply softmax AFTER stitching, not before</p></li>
+<li><p>Averaging softmaxed tensors ≠ softmax of averaged tensors</p></li>
+<li><p>Process logits, stitch them, then apply softmax to the final result</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># CORRECT:</span>
+<span class="n">logits</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patches</span><span class="p">)</span>
+<span class="n">stitched_logits</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">logits</span><span class="p">)</span>
+<span class="n">probabilities</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">stitched_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># WRONG:</span>
+<span class="n">probs</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">patches</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">result</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">probs</span><span class="p">)</span>  <span class="c1"># This is incorrect!</span>
+</pre></div>
+</div>
+</section>
+<section id="id2">
+<h4>Examples<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">processed</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patches</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">reconstructed</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">reconstructed</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (10, C, 128, 128)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2D.NCYXQuilt.unstitch">
+<span class="sig-name descname"><span class="pre">unstitch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/qlty/qlty2D.html#NCYXQuilt.unstitch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2D.NCYXQuilt.unstitch" title="Link to this definition"></a></dt>
+<dd><p>Split a tensor into smaller overlapping patches.</p>
+<section id="id3">
+<h4>Parameters<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Y, X) where:
+- N: Number of images
+- C: Number of channels
+- Y: Height (must match self.Y)
+- X: Width (must match self.X)</p>
+</dd>
+</dl>
+</section>
+<section id="id4">
+<h4>Returns<a class="headerlink" href="#id4" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>torch.Tensor</dt><dd><p>Patches tensor of shape (M, C, window[0], window[1]) where:
+- M = N * nY * nX (total number of patches)
+- window[0], window[1]: Patch dimensions</p>
+</dd>
+</dl>
+</section>
+<section id="id5">
+<h4>Examples<a class="headerlink" href="#id5" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">patches</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (M, 3, 32, 32)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2D.NCYXQuilt.unstitch_data_pair">
+<span class="sig-name descname"><span class="pre">unstitch_data_pair</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">missing_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty2D.html#NCYXQuilt.unstitch_data_pair"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2D.NCYXQuilt.unstitch_data_pair" title="Link to this definition"></a></dt>
+<dd><p>Split input and output tensors into smaller overlapping patches.</p>
+<p>This method is useful for training neural networks where you need to process
+input-output pairs together. The output tensor can optionally have missing
+labels that will be masked in border regions.</p>
+<section id="id6">
+<h4>Parameters<a class="headerlink" href="#id6" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor_in<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Y, X). The tensor going into the network.</p>
+</dd>
+<dt>tensor_out<span class="classifier">torch.Tensor</span></dt><dd><p>Output tensor of shape (N, C, Y, X) or (N, Y, X). The target tensor.
+If 3D, will be automatically expanded to 4D.</p>
+</dd>
+<dt>missing_label<span class="classifier">Optional[Union[int, float]], optional</span></dt><dd><p>Label value that indicates missing/invalid data. If provided, pixels
+in the border region will be set to this value in the output patches.
+Default is None (no masking).</p>
+</dd>
+</dl>
+</section>
+<section id="id7">
+<h4>Returns<a class="headerlink" href="#id7" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor]</dt><dd><p>A tuple of (input_patches, output_patches) where:
+- input_patches: Shape (M, C, window[0], window[1])
+- output_patches: Shape (M, C, window[0], window[1]) or (M, window[0], window[1])
+where M = N * nY * nX</p>
+</dd>
+</dl>
+</section>
+<section id="id8">
+<h4>Examples<a class="headerlink" href="#id8" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">input_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">target_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">inp_patches</span><span class="p">,</span> <span class="n">tgt_patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_data_pair</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">target_data</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">inp_patches</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (M, 3, 32, 32)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">tgt_patches</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (M, 32, 32)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCYXQuilt</span>
+
+<span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span>
+    <span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span>
+    <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+    <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+    <span class="n">border_weight</span><span class="o">=</span><span class="mf">0.1</span>
+<span class="p">)</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">reconstructed</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">patches</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="nczyxquilt">
+<h3>NCZYXQuilt<a class="headerlink" href="#nczyxquilt" title="Link to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="qlty.qlty3D.NCZYXQuilt">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">qlty.qlty3D.</span></span><span class="sig-name descname"><span class="pre">NCZYXQuilt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border_weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/qlty/qlty3D.html#NCZYXQuilt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3D.NCZYXQuilt" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
+This class is aimed at handling tensors of type (N,C,Z,Y,X)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3D.NCZYXQuilt.border_tensor">
+<span class="sig-name descname"><span class="pre">border_tensor</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/qlty/qlty3D.html#NCZYXQuilt.border_tensor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3D.NCZYXQuilt.border_tensor" title="Link to this definition"></a></dt>
+<dd><p>Compute border tensor indicating valid (non-border) regions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3D.NCZYXQuilt.get_times">
+<span class="sig-name descname"><span class="pre">get_times</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty3D.html#NCZYXQuilt.get_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3D.NCZYXQuilt.get_times" title="Link to this definition"></a></dt>
+<dd><p>Computes the number of chunks along Z, Y, and X dimensions, ensuring the last chunk
+is included by adjusting the starting points.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3D.NCZYXQuilt.stitch">
+<span class="sig-name descname"><span class="pre">stitch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ml_tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty3D.html#NCZYXQuilt.stitch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3D.NCZYXQuilt.stitch" title="Link to this definition"></a></dt>
+<dd><p>Reassemble 3D patches back into full-size volumes.</p>
+<p>This method takes patches produced by <cite>unstitch()</cite> and stitches them back
+together, averaging overlapping regions using a weight matrix.</p>
+<p>Typical workflow:</p>
+<ol class="arabic">
+<li><p>Unstitch the data:</p>
+<p>patches = quilt.unstitch(volumes)</p>
+</li>
+<li><p>Process patches with your model:</p>
+<p>output_patches = model(patches)</p>
+</li>
+<li><p>Stitch back together:</p>
+<p>reconstructed, weights = quilt.stitch(output_patches)</p>
+</li>
+</ol>
+<section id="id9">
+<h4>Parameters<a class="headerlink" href="#id9" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>ml_tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Patches tensor of shape (M, C, window[0], window[1], window[2]) where:
+- M must equal N * nZ * nY * nX (number of patches)
+- C: Number of channels
+- window: Patch dimensions in (Z, Y, X)</p>
+</dd>
+</dl>
+</section>
+<section id="id10">
+<h4>Returns<a class="headerlink" href="#id10" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor]</dt><dd><p>A tuple of (reconstructed, weights) where:
+- reconstructed: Shape (N, C, Z, Y, X) - the stitched result
+- weights: Shape (Z, Y, X) - normalization weights</p>
+</dd>
+</dl>
+</section>
+<section id="id11">
+<h4>Notes<a class="headerlink" href="#id11" title="Link to this heading"></a></h4>
+<p><strong>Important</strong>: When working with classification outputs:</p>
+<ul class="simple">
+<li><p>Apply softmax AFTER stitching, not before</p></li>
+<li><p>Averaging softmaxed tensors ≠ softmax of averaged tensors</p></li>
+<li><p>Process logits, stitch them, then apply softmax to the final result</p></li>
+</ul>
+</section>
+<section id="id12">
+<h4>Examples<a class="headerlink" href="#id12" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCZYXQuilt</span><span class="p">(</span><span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">volume</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">volume</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">processed</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patches</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">reconstructed</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">reconstructed</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (5, C, 64, 64, 64)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3D.NCZYXQuilt.unstitch">
+<span class="sig-name descname"><span class="pre">unstitch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/qlty/qlty3D.html#NCZYXQuilt.unstitch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3D.NCZYXQuilt.unstitch" title="Link to this definition"></a></dt>
+<dd><p>Split a 3D tensor into smaller overlapping patches.</p>
+<section id="id13">
+<h4>Parameters<a class="headerlink" href="#id13" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Z, Y, X) where:
+- N: Number of volumes
+- C: Number of channels
+- Z, Y, X: Dimensions (must match self.Z, self.Y, self.X)</p>
+</dd>
+</dl>
+</section>
+<section id="id14">
+<h4>Returns<a class="headerlink" href="#id14" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>torch.Tensor</dt><dd><p>Patches tensor of shape (M, C, window[0], window[1], window[2]) where:
+- M = N * nZ * nY * nX (total number of patches)
+- window[0], window[1], window[2]: Patch dimensions in Z, Y, X</p>
+</dd>
+</dl>
+</section>
+<section id="id15">
+<h4>Examples<a class="headerlink" href="#id15" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCZYXQuilt</span><span class="p">(</span><span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">volume</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">volume</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">patches</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (M, 1, 32, 32, 32)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3D.NCZYXQuilt.unstitch_data_pair">
+<span class="sig-name descname"><span class="pre">unstitch_data_pair</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty3D.html#NCZYXQuilt.unstitch_data_pair"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3D.NCZYXQuilt.unstitch_data_pair" title="Link to this definition"></a></dt>
+<dd><p>Split input and output 3D tensors into smaller overlapping patches.</p>
+<p>This method is useful for training neural networks on 3D volumes where you need
+to process input-output pairs together.</p>
+<section id="id16">
+<h4>Parameters<a class="headerlink" href="#id16" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor_in<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Z, Y, X). The tensor going into the network.</p>
+</dd>
+<dt>tensor_out<span class="classifier">torch.Tensor</span></dt><dd><p>Output tensor of shape (N, C, Z, Y, X) or (N, Z, Y, X). The target tensor.
+If 4D, will be automatically expanded to 5D.</p>
+</dd>
+</dl>
+</section>
+<section id="id17">
+<h4>Returns<a class="headerlink" href="#id17" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor]</dt><dd><p>A tuple of (input_patches, output_patches) where:
+- input_patches: Shape (M, C, window[0], window[1], window[2])
+- output_patches: Shape (M, C, window[0], window[1], window[2]) or (M, window[0], window[1], window[2])
+where M = N * nZ * nY * nX</p>
+</dd>
+</dl>
+</section>
+<section id="id18">
+<h4>Examples<a class="headerlink" href="#id18" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCZYXQuilt</span><span class="p">(</span><span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">input_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">target_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">inp_patches</span><span class="p">,</span> <span class="n">tgt_patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_data_pair</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">target_data</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">inp_patches</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (M, 1, 32, 32, 32)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">tgt_patches</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (M, 32, 32, 32)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCZYXQuilt</span>
+
+<span class="n">quilt</span> <span class="o">=</span> <span class="n">NCZYXQuilt</span><span class="p">(</span>
+    <span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+    <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span>
+    <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+    <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+    <span class="n">border_weight</span><span class="o">=</span><span class="mf">0.1</span>
+<span class="p">)</span>
+
+<span class="n">volume</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">volume</span><span class="p">)</span>
+<span class="n">reconstructed</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">patches</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="disk-cached-classes">
+<h2>Disk-Cached Classes<a class="headerlink" href="#disk-cached-classes" title="Link to this heading"></a></h2>
+<section id="largencyxquilt">
+<h3>LargeNCYXQuilt<a class="headerlink" href="#largencyxquilt" title="Link to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="qlty.qlty2DLarge.LargeNCYXQuilt">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">qlty.qlty2DLarge.</span></span><span class="sig-name descname"><span class="pre">LargeNCYXQuilt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border_weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/qlty/qlty2DLarge.html#LargeNCYXQuilt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2DLarge.LargeNCYXQuilt" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
+This class is aimed at handling tensors of type (N, C, Y, X).</p>
+<p>This object is geared towards handling large datasets.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2DLarge.LargeNCYXQuilt.border_tensor">
+<span class="sig-name descname"><span class="pre">border_tensor</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty2DLarge.html#LargeNCYXQuilt.border_tensor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2DLarge.LargeNCYXQuilt.border_tensor" title="Link to this definition"></a></dt>
+<dd><p>Compute border tensor indicating valid (non-border) regions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2DLarge.LargeNCYXQuilt.get_times">
+<span class="sig-name descname"><span class="pre">get_times</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty2DLarge.html#LargeNCYXQuilt.get_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2DLarge.LargeNCYXQuilt.get_times" title="Link to this definition"></a></dt>
+<dd><p>Computes the number of chunks along Y and X dimensions, ensuring the last chunk
+is included by adjusting the starting points.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2DLarge.LargeNCYXQuilt.return_mean">
+<span class="sig-name descname"><span class="pre">return_mean</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normalize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty2DLarge.html#LargeNCYXQuilt.return_mean"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2DLarge.LargeNCYXQuilt.return_mean" title="Link to this definition"></a></dt>
+<dd><p>Compute and return the final stitched result.</p>
+<p>After calling <cite>stitch()</cite> for all patches, this method computes the final
+averaged result. The result is normalized by the weight matrix to account
+for overlapping regions and border downweighting.</p>
+<section id="id19">
+<h4>Parameters<a class="headerlink" href="#id19" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>std<span class="classifier">bool, optional</span></dt><dd><p>Whether to compute and return the standard deviation. Requires that
+<cite>patch_var</cite> was provided to <cite>stitch()</cite> calls. Default is False.</p>
+</dd>
+<dt>normalize<span class="classifier">bool, optional</span></dt><dd><p>Whether to normalize the result so that values sum to 1.0 along the
+channel dimension. Useful for probability distributions. Default is False.</p>
+</dd>
+<dt>eps<span class="classifier">float, optional</span></dt><dd><p>Small epsilon value to prevent division by zero. Default is 1e-8.</p>
+</dd>
+</dl>
+</section>
+<section id="id20">
+<h4>Returns<a class="headerlink" href="#id20" title="Link to this heading"></a></h4>
+<dl>
+<dt>Union[npt.NDArray, Tuple[npt.NDArray, npt.NDArray]]</dt><dd><p>If std=False: Returns mean array of shape (N, C, Y, X)
+If std=True: Returns tuple (mean, std) where both have shape (N, C, Y, X)</p>
+<p>The result is a NumPy array (stored as Zarr array on disk).</p>
+</dd>
+</dl>
+</section>
+<section id="id21">
+<h4>Notes<a class="headerlink" href="#id21" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>This method uses Dask for parallel processing of the Zarr arrays</p></li>
+<li><p>Results are saved to disk as Zarr arrays (filename + ‘_mean.zarr’ and ‘_std.zarr’)</p></li>
+<li><p>The computation happens lazily and is only executed when needed</p></li>
+</ul>
+</section>
+<section id="id22">
+<h4>Examples<a class="headerlink" href="#id22" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCYXQuilt</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+<span class="gp">... </span>                       <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ... process all patches with quilt.stitch() ...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mean</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">return_mean</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mean</span><span class="p">,</span> <span class="n">std</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">return_mean</span><span class="p">(</span><span class="n">std</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean shape: </span><span class="si">{</span><span class="n">mean</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># (10, C, 128, 128)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2DLarge.LargeNCYXQuilt.stitch">
+<span class="sig-name descname"><span class="pre">stitch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_flat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patch_var</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/qlty/qlty2DLarge.html#LargeNCYXQuilt.stitch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2DLarge.LargeNCYXQuilt.stitch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2DLarge.LargeNCYXQuilt.unstitch">
+<span class="sig-name descname"><span class="pre">unstitch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/qlty/qlty2DLarge.html#LargeNCYXQuilt.unstitch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2DLarge.LargeNCYXQuilt.unstitch" title="Link to this definition"></a></dt>
+<dd><p>Extract a single patch from a tensor by index.</p>
+<p>This method is used internally by <cite>unstitch_next()</cite> but can also be called
+directly if you know the patch index.</p>
+<section id="id23">
+<h4>Parameters<a class="headerlink" href="#id23" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Y, X) where:
+- N: Number of images
+- C: Number of channels
+- Y, X: Must match self.Y and self.X</p>
+</dd>
+<dt>index<span class="classifier">int</span></dt><dd><p>Linear index of the patch to extract. Must be in range [0, N_chunks).</p>
+</dd>
+</dl>
+</section>
+<section id="id24">
+<h4>Returns<a class="headerlink" href="#id24" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>torch.Tensor</dt><dd><p>Single patch of shape (C, window[0], window[1])</p>
+</dd>
+</dl>
+</section>
+<section id="id25">
+<h4>Examples<a class="headerlink" href="#id25" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCYXQuilt</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+<span class="gp">... </span>                       <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patch</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">patch</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (3, 32, 32)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2DLarge.LargeNCYXQuilt.unstitch_and_clean_sparse_data_pair">
+<span class="sig-name descname"><span class="pre">unstitch_and_clean_sparse_data_pair</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">missing_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty2DLarge.html#LargeNCYXQuilt.unstitch_and_clean_sparse_data_pair"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2DLarge.LargeNCYXQuilt.unstitch_and_clean_sparse_data_pair" title="Link to this definition"></a></dt>
+<dd><p>Split input and output tensors into patches, filtering out patches with no valid data.</p>
+<p>This method combines unstitching with sparse data filtering. It:
+1. Splits both tensors into patches
+2. Marks border regions as missing
+3. Filters out patches that contain only missing labels</p>
+<section id="id26">
+<h4>Parameters<a class="headerlink" href="#id26" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor_in<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Y, X). The tensor going into the network.</p>
+</dd>
+<dt>tensor_out<span class="classifier">torch.Tensor</span></dt><dd><p>Output tensor of shape (N, C, Y, X) or (N, Y, X). The target tensor.
+Missing/invalid data should be marked with <cite>missing_label</cite>.</p>
+</dd>
+<dt>missing_label<span class="classifier">Union[int, float]</span></dt><dd><p>Label value that indicates missing/invalid data. Patches containing only
+this value (including border regions) will be filtered out.</p>
+</dd>
+</dl>
+</section>
+<section id="id27">
+<h4>Returns<a class="headerlink" href="#id27" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[Union[torch.Tensor, List], Union[torch.Tensor, List]]</dt><dd><p>A tuple of (input_patches, output_patches). If no valid patches are found,
+returns empty lists. Otherwise returns torch.Tensor objects.</p>
+<ul class="simple">
+<li><p>input_patches: Shape (M, C, window[0], window[1]) where M &lt;= N * nY * nX</p></li>
+<li><p>output_patches: Shape (M, C, window[0], window[1]) or (M, window[0], window[1])</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="id28">
+<h4>Notes<a class="headerlink" href="#id28" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>Border regions are automatically marked as missing in the output patches</p></li>
+<li><p>Only patches with at least one non-missing label in the valid (non-border) region are kept</p></li>
+<li><p>This is useful for training with sparse annotations where most of the image is unlabeled</p></li>
+</ul>
+</section>
+<section id="id29">
+<h4>Examples<a class="headerlink" href="#id29" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCYXQuilt</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+<span class="gp">... </span>                       <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">input_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># All missing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">labels</span><span class="p">[:,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">108</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">108</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>            <span class="c1"># Some valid data</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">inp_patches</span><span class="p">,</span> <span class="n">lbl_patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_and_clean_sparse_data_pair</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">input_data</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">missing_label</span><span class="o">=-</span><span class="mi">1</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Valid patches: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">inp_patches</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nb">isinstance</span><span class="p">(</span><span class="n">inp_patches</span><span class="p">,</span><span class="w"> </span><span class="nb">list</span><span class="p">)</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="n">inp_patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty2DLarge.LargeNCYXQuilt.unstitch_next">
+<span class="sig-name descname"><span class="pre">unstitch_next</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty2DLarge.html#LargeNCYXQuilt.unstitch_next"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty2DLarge.LargeNCYXQuilt.unstitch_next" title="Link to this definition"></a></dt>
+<dd><p>Get the next patch in sequence (generator-like interface).</p>
+<p>This method maintains an internal iterator and returns the next patch
+each time it’s called. Useful for processing large datasets chunk by chunk.</p>
+<section id="id30">
+<h4>Parameters<a class="headerlink" href="#id30" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Y, X) where N matches self.N</p>
+</dd>
+</dl>
+</section>
+<section id="id31">
+<h4>Returns<a class="headerlink" href="#id31" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[int, torch.Tensor]</dt><dd><p>A tuple of (index, patch) where:
+- index: Linear index of the patch (0 to N_chunks-1)
+- patch: Patch tensor of shape (C, window[0], window[1])</p>
+</dd>
+</dl>
+</section>
+<section id="id32">
+<h4>Notes<a class="headerlink" href="#id32" title="Link to this heading"></a></h4>
+<p>The iterator resets after reaching the end. To process all patches:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">quilt</span><span class="o">.</span><span class="n">N_chunks</span><span class="p">):</span>
+    <span class="n">index</span><span class="p">,</span> <span class="n">patch</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_next</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="c1"># Process patch...</span>
+</pre></div>
+</div>
+</section>
+<section id="id33">
+<h4>Examples<a class="headerlink" href="#id33" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCYXQuilt</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+<span class="gp">... </span>                       <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">quilt</span><span class="o">.</span><span class="n">N_chunks</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">idx</span><span class="p">,</span> <span class="n">patch</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_next</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">processed</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">LargeNCYXQuilt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">temp_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+<span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">,</span> <span class="s2">&quot;dataset&quot;</span><span class="p">)</span>
+
+<span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCYXQuilt</span><span class="p">(</span>
+    <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
+    <span class="n">N</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">Y</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>
+    <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span>
+    <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span>
+    <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+    <span class="n">border_weight</span><span class="o">=</span><span class="mf">0.1</span>
+<span class="p">)</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">quilt</span><span class="o">.</span><span class="n">N_chunks</span><span class="p">):</span>
+    <span class="n">idx</span><span class="p">,</span> <span class="n">patch</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_next</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">processed</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">return_mean</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="largenczyxquilt">
+<h3>LargeNCZYXQuilt<a class="headerlink" href="#largenczyxquilt" title="Link to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="qlty.qlty3DLarge.LargeNCZYXQuilt">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">qlty.qlty3DLarge.</span></span><span class="sig-name descname"><span class="pre">LargeNCZYXQuilt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border_weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/qlty/qlty3DLarge.html#LargeNCZYXQuilt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3DLarge.LargeNCZYXQuilt" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.
+This class is aimed at handling tensors of type (N,C,Z,Y,X)</p>
+<p>This object is geared towards handling large datasets.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3DLarge.LargeNCZYXQuilt.border_tensor">
+<span class="sig-name descname"><span class="pre">border_tensor</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty3DLarge.html#LargeNCZYXQuilt.border_tensor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3DLarge.LargeNCZYXQuilt.border_tensor" title="Link to this definition"></a></dt>
+<dd><p>Compute border tensor indicating valid (non-border) regions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3DLarge.LargeNCZYXQuilt.get_times">
+<span class="sig-name descname"><span class="pre">get_times</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty3DLarge.html#LargeNCZYXQuilt.get_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3DLarge.LargeNCZYXQuilt.get_times" title="Link to this definition"></a></dt>
+<dd><p>Computes the number of chunks along Z, Y, and X dimensions, ensuring the last chunk
+is included by adjusting the starting points.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3DLarge.LargeNCZYXQuilt.return_mean">
+<span class="sig-name descname"><span class="pre">return_mean</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">renormalize_channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty3DLarge.html#LargeNCZYXQuilt.return_mean"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3DLarge.LargeNCZYXQuilt.return_mean" title="Link to this definition"></a></dt>
+<dd><p>Compute and return the final stitched 3D result.</p>
+<p>After calling <cite>stitch()</cite> for all patches, this method computes the final
+averaged result. The result is normalized by the weight matrix to account
+for overlapping regions and border downweighting.</p>
+<section id="id34">
+<h4>Parameters<a class="headerlink" href="#id34" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>std<span class="classifier">bool, optional</span></dt><dd><p>Whether to compute and return the standard deviation. Requires that
+<cite>patch_var</cite> was provided to <cite>stitch()</cite> calls. Default is False.</p>
+</dd>
+<dt>renormalize_channels<span class="classifier">bool, optional</span></dt><dd><p>Whether to normalize the result so that values sum to 1.0 along the
+channel dimension. Useful for probability distributions. Default is False.</p>
+</dd>
+<dt>eps<span class="classifier">float, optional</span></dt><dd><p>Small epsilon value to prevent division by zero. Default is 1e-8.</p>
+</dd>
+</dl>
+</section>
+<section id="id35">
+<h4>Returns<a class="headerlink" href="#id35" title="Link to this heading"></a></h4>
+<dl>
+<dt>Union[npt.NDArray, Tuple[npt.NDArray, npt.NDArray]]</dt><dd><p>If std=False: Returns mean array of shape (N, C, Z, Y, X)
+If std=True: Returns tuple (mean, std) where both have shape (N, C, Z, Y, X)</p>
+<p>The result is a NumPy array (stored as Zarr array on disk).</p>
+</dd>
+</dl>
+</section>
+<section id="id36">
+<h4>Notes<a class="headerlink" href="#id36" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>This method uses Dask for parallel processing of the Zarr arrays</p></li>
+<li><p>Results are saved to disk as Zarr arrays</p></li>
+<li><p>The computation happens lazily and is only executed when needed</p></li>
+</ul>
+</section>
+<section id="id37">
+<h4>Examples<a class="headerlink" href="#id37" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCZYXQuilt</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+<span class="gp">... </span>                        <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ... process all patches with quilt.stitch() ...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mean</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">return_mean</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mean</span><span class="p">,</span> <span class="n">std</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">return_mean</span><span class="p">(</span><span class="n">std</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean shape: </span><span class="si">{</span><span class="n">mean</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># (5, C, 64, 64, 64)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3DLarge.LargeNCZYXQuilt.stitch">
+<span class="sig-name descname"><span class="pre">stitch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_flat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patch_var</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/qlty/qlty3DLarge.html#LargeNCZYXQuilt.stitch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3DLarge.LargeNCZYXQuilt.stitch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3DLarge.LargeNCZYXQuilt.unstitch">
+<span class="sig-name descname"><span class="pre">unstitch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/qlty/qlty3DLarge.html#LargeNCZYXQuilt.unstitch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3DLarge.LargeNCZYXQuilt.unstitch" title="Link to this definition"></a></dt>
+<dd><p>Extract a single 3D patch from a tensor by index.</p>
+<p>This method is used internally by <cite>unstitch_next()</cite> but can also be called
+directly if you know the patch index.</p>
+<section id="id38">
+<h4>Parameters<a class="headerlink" href="#id38" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Z, Y, X) where:
+- N: Number of volumes
+- C: Number of channels
+- Z, Y, X: Must match self.Z, self.Y, and self.X</p>
+</dd>
+<dt>index<span class="classifier">int</span></dt><dd><p>Linear index of the patch to extract. Must be in range [0, N_chunks).</p>
+</dd>
+</dl>
+</section>
+<section id="id39">
+<h4>Returns<a class="headerlink" href="#id39" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>torch.Tensor</dt><dd><p>Single patch of shape (C, window[0], window[1], window[2])</p>
+</dd>
+</dl>
+</section>
+<section id="id40">
+<h4>Examples<a class="headerlink" href="#id40" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCZYXQuilt</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+<span class="gp">... </span>                        <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">volume</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patch</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">volume</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">patch</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (1, 32, 32, 32)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3DLarge.LargeNCZYXQuilt.unstitch_and_clean_sparse_data_pair">
+<span class="sig-name descname"><span class="pre">unstitch_and_clean_sparse_data_pair</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">missing_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty3DLarge.html#LargeNCZYXQuilt.unstitch_and_clean_sparse_data_pair"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3DLarge.LargeNCZYXQuilt.unstitch_and_clean_sparse_data_pair" title="Link to this definition"></a></dt>
+<dd><p>Split input and output 3D tensors into patches, filtering out patches with no valid data.</p>
+<p>This method combines unstitching with sparse data filtering for 3D volumes. It:
+1. Splits both tensors into patches
+2. Marks border regions as missing
+3. Filters out patches that contain only missing labels</p>
+<section id="id41">
+<h4>Parameters<a class="headerlink" href="#id41" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor_in<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Z, Y, X). The tensor going into the network.</p>
+</dd>
+<dt>tensor_out<span class="classifier">torch.Tensor</span></dt><dd><p>Output tensor of shape (N, C, Z, Y, X) or (N, Z, Y, X). The target tensor.
+Missing/invalid data should be marked with <cite>missing_label</cite>.</p>
+</dd>
+<dt>missing_label<span class="classifier">Union[int, float]</span></dt><dd><p>Label value that indicates missing/invalid data. Patches containing only
+this value (including border regions) will be filtered out.</p>
+</dd>
+</dl>
+</section>
+<section id="id42">
+<h4>Returns<a class="headerlink" href="#id42" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor]</dt><dd><p>A tuple of (input_patches, output_patches) where:
+- input_patches: Shape (M, C, window[0], window[1], window[2])
+- output_patches: Shape (M, C, window[0], window[1], window[2]) or (M, window[0], window[1], window[2])
+where M &lt;= N * nZ * nY * nX</p>
+</dd>
+</dl>
+</section>
+<section id="id43">
+<h4>Examples<a class="headerlink" href="#id43" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCZYXQuilt</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+<span class="gp">... </span>                        <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">input_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># All missing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">labels</span><span class="p">[:,</span> <span class="mi">10</span><span class="p">:</span><span class="mi">54</span><span class="p">,</span> <span class="mi">10</span><span class="p">:</span><span class="mi">54</span><span class="p">,</span> <span class="mi">10</span><span class="p">:</span><span class="mi">54</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>        <span class="c1"># Some valid data</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">inp_patches</span><span class="p">,</span> <span class="n">lbl_patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_and_clean_sparse_data_pair</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">input_data</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">missing_label</span><span class="o">=-</span><span class="mi">1</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Valid patches: </span><span class="si">{</span><span class="n">inp_patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="qlty.qlty3DLarge.LargeNCZYXQuilt.unstitch_next">
+<span class="sig-name descname"><span class="pre">unstitch_next</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/qlty3DLarge.html#LargeNCZYXQuilt.unstitch_next"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.qlty3DLarge.LargeNCZYXQuilt.unstitch_next" title="Link to this definition"></a></dt>
+<dd><p>Get the next 3D patch in sequence (generator-like interface).</p>
+<p>This method maintains an internal iterator and returns the next patch
+each time it’s called. Useful for processing large 3D datasets chunk by chunk.</p>
+<section id="id44">
+<h4>Parameters<a class="headerlink" href="#id44" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Z, Y, X) where N matches self.N</p>
+</dd>
+</dl>
+</section>
+<section id="id45">
+<h4>Returns<a class="headerlink" href="#id45" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[int, torch.Tensor]</dt><dd><p>A tuple of (index, patch) where:
+- index: Linear index of the patch (0 to N_chunks-1)
+- patch: Patch tensor of shape (C, window[0], window[1], window[2])</p>
+</dd>
+</dl>
+</section>
+<section id="id46">
+<h4>Examples<a class="headerlink" href="#id46" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCZYXQuilt</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+<span class="gp">... </span>                        <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">volume</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">quilt</span><span class="o">.</span><span class="n">N_chunks</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">idx</span><span class="p">,</span> <span class="n">patch</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_next</span><span class="p">(</span><span class="n">volume</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">processed</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+<section id="utility-functions">
+<h2>Utility Functions<a class="headerlink" href="#utility-functions" title="Link to this heading"></a></h2>
+<section id="weed-sparse-classification-training-pairs-2d">
+<h3>weed_sparse_classification_training_pairs_2D<a class="headerlink" href="#weed-sparse-classification-training-pairs-2d" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.cleanup.weed_sparse_classification_training_pairs_2D">
+<span class="sig-prename descclassname"><span class="pre">qlty.cleanup.</span></span><span class="sig-name descname"><span class="pre">weed_sparse_classification_training_pairs_2D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">missing_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border_tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/cleanup.html#weed_sparse_classification_training_pairs_2D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.cleanup.weed_sparse_classification_training_pairs_2D" title="Link to this definition"></a></dt>
+<dd><p>Filter out patches that contain no valid data after unstitching.</p>
+<p>This function removes patches that have only missing labels (or only in border
+regions). Useful for training with sparse annotations where most of the image
+is unlabeled.</p>
+<section id="id47">
+<h4>Parameters<a class="headerlink" href="#id47" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor_in<span class="classifier">torch.Tensor</span></dt><dd><p>Input patches tensor, typically of shape (N, C, Y, X) or (N, Y, X)</p>
+</dd>
+<dt>tensor_out<span class="classifier">torch.Tensor</span></dt><dd><p>Output patches tensor with labels, shape (N, C, Y, X) or (N, Y, X).
+Missing/invalid data should be marked with <cite>missing_label</cite>.</p>
+</dd>
+<dt>missing_label<span class="classifier">Union[int, float]</span></dt><dd><p>Label value that indicates missing/invalid data (typically -1)</p>
+</dd>
+<dt>border_tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Border mask tensor from <cite>NCYXQuilt.border_tensor()</cite> or <cite>NCZYXQuilt.border_tensor()</cite>.
+Shape should be (Y, X) for 2D or (Z, Y, X) for 3D (this function handles 2D).</p>
+</dd>
+</dl>
+</section>
+<section id="id48">
+<h4>Returns<a class="headerlink" href="#id48" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor, torch.Tensor]</dt><dd><p>A tuple of (valid_input, valid_output, removal_mask) where:
+- valid_input: Filtered input patches (only patches with valid data)
+- valid_output: Filtered output patches (only patches with valid data)
+- removal_mask: Boolean tensor indicating which patches were removed</p>
+</dd>
+</dl>
+</section>
+<section id="id49">
+<h4>Notes<a class="headerlink" href="#id49" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>Only patches with at least one non-missing label in the valid (non-border) region are kept</p></li>
+<li><p>Border regions are automatically excluded from the validity check</p></li>
+<li><p>Useful for semi-supervised learning with sparse annotations</p></li>
+</ul>
+</section>
+<section id="id50">
+<h4>Examples<a class="headerlink" href="#id50" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCYXQuilt</span><span class="p">,</span> <span class="n">weed_sparse_classification_training_pairs_2D</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">input_patches</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">label_patches</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># All missing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">label_patches</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">50</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Some valid</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">border_tensor</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">border_tensor</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">valid_in</span><span class="p">,</span> <span class="n">valid_out</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">weed_sparse_classification_training_pairs_2D</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">input_patches</span><span class="p">,</span> <span class="n">label_patches</span><span class="p">,</span> <span class="n">missing_label</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">border_tensor</span><span class="o">=</span><span class="n">border_tensor</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Kept </span><span class="si">{</span><span class="n">valid_in</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> out of </span><span class="si">{</span><span class="n">input_patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> patches&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCYXQuilt</span><span class="p">,</span> <span class="n">weed_sparse_classification_training_pairs_2D</span>
+
+<span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+
+<span class="n">input_patches</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="n">label_patches</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Missing labels</span>
+<span class="n">label_patches</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">50</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Some valid</span>
+
+<span class="n">border_tensor</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">border_tensor</span><span class="p">()</span>
+<span class="n">valid_in</span><span class="p">,</span> <span class="n">valid_out</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">weed_sparse_classification_training_pairs_2D</span><span class="p">(</span>
+    <span class="n">input_patches</span><span class="p">,</span> <span class="n">label_patches</span><span class="p">,</span> <span class="n">missing_label</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">border_tensor</span><span class="o">=</span><span class="n">border_tensor</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="weed-sparse-classification-training-pairs-3d">
+<h3>weed_sparse_classification_training_pairs_3D<a class="headerlink" href="#weed-sparse-classification-training-pairs-3d" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.cleanup.weed_sparse_classification_training_pairs_3D">
+<span class="sig-prename descclassname"><span class="pre">qlty.cleanup.</span></span><span class="sig-name descname"><span class="pre">weed_sparse_classification_training_pairs_3D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">missing_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">border_tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/cleanup.html#weed_sparse_classification_training_pairs_3D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.cleanup.weed_sparse_classification_training_pairs_3D" title="Link to this definition"></a></dt>
+<dd><p>Filter out 3D patches that contain no valid data after unstitching.</p>
+<p>This function removes patches that have only missing labels (or only in border
+regions). Useful for training with sparse 3D annotations.</p>
+<section id="id51">
+<h4>Parameters<a class="headerlink" href="#id51" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor_in<span class="classifier">torch.Tensor</span></dt><dd><p>Input patches tensor, typically of shape (N, C, Z, Y, X) or (N, Z, Y, X)</p>
+</dd>
+<dt>tensor_out<span class="classifier">torch.Tensor</span></dt><dd><p>Output patches tensor with labels, shape (N, C, Z, Y, X) or (N, Z, Y, X).
+Missing/invalid data should be marked with <cite>missing_label</cite>.</p>
+</dd>
+<dt>missing_label<span class="classifier">Union[int, float]</span></dt><dd><p>Label value that indicates missing/invalid data (typically -1)</p>
+</dd>
+<dt>border_tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Border mask tensor from <cite>NCZYXQuilt.border_tensor()</cite>.
+Shape should be (Z, Y, X).</p>
+</dd>
+</dl>
+</section>
+<section id="id52">
+<h4>Returns<a class="headerlink" href="#id52" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor, torch.Tensor]</dt><dd><p>A tuple of (valid_input, valid_output, removal_mask) where:
+- valid_input: Filtered input patches (only patches with valid data)
+- valid_output: Filtered output patches (only patches with valid data)
+- removal_mask: Boolean tensor indicating which patches were removed</p>
+</dd>
+</dl>
+</section>
+<section id="id53">
+<h4>Examples<a class="headerlink" href="#id53" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCZYXQuilt</span><span class="p">,</span> <span class="n">weed_sparse_classification_training_pairs_3D</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCZYXQuilt</span><span class="p">(</span><span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">input_patches</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">label_patches</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># All missing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">label_patches</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">50</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Some valid</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">border_tensor</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">border_tensor</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">valid_in</span><span class="p">,</span> <span class="n">valid_out</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">weed_sparse_classification_training_pairs_3D</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">input_patches</span><span class="p">,</span> <span class="n">label_patches</span><span class="p">,</span> <span class="n">missing_label</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">border_tensor</span><span class="o">=</span><span class="n">border_tensor</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Kept </span><span class="si">{</span><span class="n">valid_in</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> out of </span><span class="si">{</span><span class="n">input_patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> patches&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+</section>
+</section>
+<section id="patch-pair-extraction-functions">
+<h2>Patch Pair Extraction Functions<a class="headerlink" href="#patch-pair-extraction-functions" title="Link to this heading"></a></h2>
+<section id="extract-patch-pairs">
+<h3>extract_patch_pairs<a class="headerlink" href="#extract-patch-pairs" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.patch_pairs_2d.extract_patch_pairs">
+<span class="sig-prename descclassname"><span class="pre">qlty.patch_pairs_2d.</span></span><span class="sig-name descname"><span class="pre">extract_patch_pairs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_patches</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_choices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/patch_pairs_2d.html#extract_patch_pairs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.patch_pairs_2d.extract_patch_pairs" title="Link to this definition"></a></dt>
+<dd><p>Extract pairs of patches from 2D image tensors with controlled displacement.</p>
+<p>For each image in the input tensor, this function extracts P pairs of patches.
+Each pair consists of two patches: one at location (x_i, y_i) and another at
+(x_i + dx_i, y_i + dy_i), where the Euclidean distance between the locations
+is constrained to be within the specified delta_range.</p>
+<section id="id54">
+<h4>Parameters<a class="headerlink" href="#id54" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Y, X) where:
+- N: Number of images
+- C: Number of channels
+- Y: Height of images
+- X: Width of images</p>
+</dd>
+<dt>window<span class="classifier">Tuple[int, int]</span></dt><dd><p>Window shape (U, V) where:
+- U: Height of patches
+- V: Width of patches</p>
+</dd>
+<dt>num_patches<span class="classifier">int</span></dt><dd><p>Number of patch pairs P to extract per image</p>
+</dd>
+<dt>delta_range<span class="classifier">Tuple[float, float]</span></dt><dd><p>Range (low, high) for the Euclidean distance of displacement vectors.
+The constraint is: low &lt;= sqrt(dx_i² + dy_i²) &lt;= high
+Additionally, low and high must satisfy: window//4 &lt;= low &lt;= high &lt;= 3*window//4
+where window is the maximum of U and V.</p>
+</dd>
+<dt>random_seed<span class="classifier">Optional[int], optional</span></dt><dd><p>Random seed for reproducibility. If None, uses current random state.
+Default is None.</p>
+</dd>
+<dt>rotation_choices<span class="classifier">Optional[Sequence[int]], optional</span></dt><dd><p>Allowed quarter-turn rotations (0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°) to apply
+to the second patch in each pair. If provided, a rotation from this set is
+sampled uniformly per pair and tracked in the returned <cite>rotations</cite> tensor.
+When None (default), no rotations are applied.</p>
+</dd>
+</dl>
+</section>
+<section id="id55">
+<h4>Returns<a class="headerlink" href="#id55" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</dt><dd><p>A tuple containing:
+- patches1: Tensor of shape (N*P, C, U, V) containing patches at (x_i, y_i)
+- patches2: Tensor of shape (N*P, C, U, V) containing patches at (x_i + dx_i, y_i + dy_i)
+- deltas: Tensor of shape (N*P, 2) containing (dx_i, dy_i) displacement vectors
+- rotations: Tensor of shape (N*P,) containing quarter-turn rotations applied to patches2</p>
+</dd>
+</dl>
+</section>
+<section id="raises">
+<h4>Raises<a class="headerlink" href="#raises" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>ValueError</dt><dd><p>If delta_range constraints are violated or image dimensions are too small
+for the specified window and delta range.</p>
+</dd>
+</dl>
+</section>
+<section id="id56">
+<h4>Examples<a class="headerlink" href="#id56" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>  <span class="c1"># 5 images, 3 channels, 128x128</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>  <span class="c1"># 32x32 patches</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">num_patches</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># 10 patch pairs per image</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">)</span>  <span class="c1"># Euclidean distance between 8 and 16 pixels</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patch_pairs</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># (50, 3, 32, 32)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># (50, 3, 32, 32)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>     <span class="c1"># (50, 2)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">rotations</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (50,)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>  <span class="c1"># 5 images, 3 channels, 128x128</span>
+<span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>  <span class="c1"># 32x32 patches</span>
+<span class="n">num_patches</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># 10 patch pairs per image</span>
+<span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">)</span>  <span class="c1"># Euclidean distance between 8 and 16 pixels</span>
+
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span> <span class="o">=</span> <span class="n">extract_patch_pairs</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span>
+<span class="p">)</span>
+
+<span class="c1"># patches1: (50, 3, 32, 32) - patches at original locations</span>
+<span class="c1"># patches2: (50, 3, 32, 32) - patches at displaced locations</span>
+<span class="c1"># deltas: (50, 2) - displacement vectors (dx, dy)</span>
+</pre></div>
+</div>
+</section>
+<section id="extract-overlapping-pixels">
+<h3>extract_overlapping_pixels<a class="headerlink" href="#extract-overlapping-pixels" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.patch_pairs_2d.extract_overlapping_pixels">
+<span class="sig-prename descclassname"><span class="pre">qlty.patch_pairs_2d.</span></span><span class="sig-name descname"><span class="pre">extract_overlapping_pixels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patches1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patches2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deltas</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/patch_pairs_2d.html#extract_overlapping_pixels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.patch_pairs_2d.extract_overlapping_pixels" title="Link to this definition"></a></dt>
+<dd><p>Extract overlapping pixels from patch pairs based on displacement vectors.</p>
+<p>For each patch pair, this function finds pixels that have valid correspondences
+between the two patches (i.e., pixels that represent the same spatial location
+in the original image). Only overlapping pixels are returned.</p>
+<section id="id57">
+<h4>Parameters<a class="headerlink" href="#id57" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>patches1<span class="classifier">torch.Tensor</span></dt><dd><p>First set of patches, shape (N*P, C, U, V) where:
+- N*P: Total number of patch pairs
+- C: Number of channels
+- U: Patch height
+- V: Patch width</p>
+</dd>
+<dt>patches2<span class="classifier">torch.Tensor</span></dt><dd><p>Second set of patches, shape (N*P, C, U, V), corresponding patches
+extracted at displaced locations</p>
+</dd>
+<dt>deltas<span class="classifier">torch.Tensor</span></dt><dd><p>Displacement vectors, shape (N*P, 2) containing (dx, dy) for each pair</p>
+</dd>
+<dt>rotations<span class="classifier">Optional[torch.Tensor], optional</span></dt><dd><p>Quarter-turn rotations (0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°) that were
+applied to <cite>patches2</cite>. When provided, each value is used to undo the rotation
+before extracting overlaps so that corresponding pixels align spatially.</p>
+</dd>
+</dl>
+</section>
+<section id="id58">
+<h4>Returns<a class="headerlink" href="#id58" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor]</dt><dd><p>A tuple containing:
+- overlapping1: Overlapping pixel values from patches1, shape (K, C)
+- overlapping2: Overlapping pixel values from patches2, shape (K, C)
+where K is the total number of overlapping pixels across all patch pairs,
+and corresponding pixels are at the same index in both tensors.</p>
+</dd>
+</dl>
+</section>
+<section id="id59">
+<h4>Examples<a class="headerlink" href="#id59" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">patches1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patches2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">deltas</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="o">...</span><span class="p">])</span>  <span class="c1"># shape (10, 2)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">overlapping1</span><span class="p">,</span> <span class="n">overlapping2</span> <span class="o">=</span> <span class="n">extract_overlapping_pixels</span><span class="p">(</span><span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">overlapping1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (K, 3) where K depends on overlap</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">overlapping2</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (K, 3)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># overlapping1[i] and overlapping2[i] correspond to the same spatial location</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs</span><span class="p">,</span> <span class="n">extract_overlapping_pixels</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="c1"># Extract patch pairs</span>
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patch_pairs</span><span class="p">(</span>
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patch_pairs</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">num_patches</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">delta_range</span><span class="o">=</span><span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># Extract overlapping pixels</span>
+<span class="n">overlapping1</span><span class="p">,</span> <span class="n">overlapping2</span> <span class="o">=</span> <span class="n">extract_overlapping_pixels</span><span class="p">(</span>
+    <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span>
+<span class="p">)</span>
+
+<span class="c1"># overlapping1: (K, 3) - overlapping pixels from patches1</span>
+<span class="c1"># overlapping2: (K, 3) - overlapping pixels from patches2</span>
+<span class="c1"># K is the total number of overlapping pixels</span>
+<span class="c1"># Corresponding pixels are at the same index in both tensors</span>
+</pre></div>
+</div>
+</section>
+<section id="extract-patch-pairs-3d">
+<h3>extract_patch_pairs_3d<a class="headerlink" href="#extract-patch-pairs-3d" title="Link to this heading"></a></h3>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs_3d</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>  <span class="c1"># 5 volumes, 1 channel, 64x64x64</span>
+<span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>  <span class="c1"># 16x16x16 patches</span>
+<span class="n">num_patches</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># 10 patch pairs per volume</span>
+<span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">12.0</span><span class="p">)</span>  <span class="c1"># Euclidean distance between 8 and 12 voxels</span>
+
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span> <span class="o">=</span> <span class="n">extract_patch_pairs_3d</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span>
+<span class="p">)</span>
+
+<span class="c1"># patches1: (50, 1, 16, 16, 16) - patches at original locations</span>
+<span class="c1"># patches2: (50, 1, 16, 16, 16) - patches at displaced locations</span>
+<span class="c1"># deltas: (50, 3) - displacement vectors (dx, dy, dz)</span>
+</pre></div>
+</div>
+</section>
+<section id="extract-overlapping-pixels-3d">
+<h3>extract_overlapping_pixels_3d<a class="headerlink" href="#extract-overlapping-pixels-3d" title="Link to this heading"></a></h3>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs_3d</span><span class="p">,</span> <span class="n">extract_overlapping_pixels_3d</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="c1"># Extract patch pairs</span>
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span> <span class="o">=</span> <span class="n">extract_patch_pairs_3d</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">num_patches</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">delta_range</span><span class="o">=</span><span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">12.0</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># Extract overlapping pixels</span>
+<span class="n">overlapping1</span><span class="p">,</span> <span class="n">overlapping2</span> <span class="o">=</span> <span class="n">extract_overlapping_pixels_3d</span><span class="p">(</span>
+    <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span>
+<span class="p">)</span>
+
+<span class="c1"># overlapping1: (K, 1) - overlapping pixels from patches1</span>
+<span class="c1"># overlapping2: (K, 1) - overlapping pixels from patches2</span>
+<span class="c1"># K is the total number of overlapping pixels</span>
+<span class="c1"># Corresponding pixels are at the same index in both tensors</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="parameter-details">
+<h2>Parameter Details<a class="headerlink" href="#parameter-details" title="Link to this heading"></a></h2>
+<section id="window-and-step-sizes">
+<h3>Window and Step Sizes<a class="headerlink" href="#window-and-step-sizes" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>window</strong>: Size of each patch in pixels
+- 2D: <cite>(Y_size, X_size)</cite>
+- 3D: <cite>(Z_size, Y_size, X_size)</cite></p></li>
+<li><p><strong>step</strong>: Distance the window moves between patches
+- 2D: <cite>(Y_step, X_step)</cite>
+- 3D: <cite>(Z_step, Y_step, X_step)</cite>
+- Common: step = window/2 for 50% overlap</p></li>
+</ul>
+</section>
+<section id="border-parameters">
+<h3>Border Parameters<a class="headerlink" href="#border-parameters" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>border</strong>: Size of border region to downweight
+- Can be <cite>int</cite> (same for all dimensions) or <cite>tuple</cite> (per dimension)
+- <cite>None</cite> or <cite>0</cite> means no border
+- Typically 10-20% of window size</p></li>
+<li><p><strong>border_weight</strong>: Weight for border pixels (0.0 to 1.0)
+- 0.0: Completely exclude borders
+- 0.1: Recommended default
+- 1.0: Full weight (not recommended)</p></li>
+</ul>
+</section>
+</section>
+<section id="return-types">
+<h2>Return Types<a class="headerlink" href="#return-types" title="Link to this heading"></a></h2>
+<p>All methods return PyTorch tensors (in-memory classes) or NumPy arrays (Large classes):</p>
+<ul class="simple">
+<li><p><strong>unstitch()</strong>: Returns <cite>torch.Tensor</cite> of shape <cite>(M, C, …)</cite></p></li>
+<li><p><strong>stitch()</strong>: Returns <cite>Tuple[torch.Tensor, torch.Tensor]</cite> (result, weights)</p></li>
+<li><p><strong>border_tensor()</strong>: Returns <cite>torch.Tensor</cite> (in-memory) or <cite>np.ndarray</cite> (Large)</p></li>
+<li><p><strong>get_times()</strong>: Returns <cite>Tuple[int, …]</cite> with number of patches per dimension</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="examples.html" class="btn btn-neutral float-left" title="Examples" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="troubleshooting.html" class="btn btn-neutral float-right" title="Troubleshooting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Petrus H. Zwart.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

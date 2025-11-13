@@ -1,0 +1,394 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qlty.qlty3D &mdash; qlty 1.1.0.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=1c471e8e"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            qlty
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../readme.html">qlty</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../history.html">History</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">qlty</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">qlty.qlty3D</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qlty.qlty3D</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">einops</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">qlty.base</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">compute_border_tensor_torch</span><span class="p">,</span>
+    <span class="n">compute_chunk_times</span><span class="p">,</span>
+    <span class="n">compute_weight_matrix_torch</span><span class="p">,</span>
+    <span class="n">normalize_border</span><span class="p">,</span>
+    <span class="n">validate_border_weight</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="NCZYXQuilt">
+<a class="viewcode-back" href="../../api.html#qlty.qlty3D.NCZYXQuilt">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NCZYXQuilt</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.</span>
+<span class="sd">    This class is aimed at handling tensors of type (N,C,Z,Y,X)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Z</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">Y</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">X</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">window</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">step</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">border</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]],</span>
+        <span class="n">border_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This class allows one to split larger tensors into smaller ones that perhaps do fit into memory.</span>
+<span class="sd">        This class is aimed at handling tensors of type (N,C,Z,Y,X).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        Z : number of elements in the Z direction</span>
+<span class="sd">        Y : number of elements in the Y direction</span>
+<span class="sd">        X : number of elements in the X direction</span>
+<span class="sd">        window: The size of the sliding window, a tuple (Zsub, Ysub, Xsub)</span>
+<span class="sd">        step: The step size at which we want to sample the sliding window (Zstep, Ystep,Xstep)</span>
+<span class="sd">        border: Border pixels of the window we want to &#39;ignore&#39; or down weight when stitching things back</span>
+<span class="sd">        border_weight: The weight for the border pixels, should be between 0 and 1. The default of 0.1 should be fine</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Z</span> <span class="o">=</span> <span class="n">Z</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Y</span> <span class="o">=</span> <span class="n">Y</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="n">X</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">window</span> <span class="o">=</span> <span class="n">window</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="n">step</span>
+
+        <span class="c1"># Normalize and validate border</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">border</span> <span class="o">=</span> <span class="n">normalize_border</span><span class="p">(</span><span class="n">border</span><span class="p">,</span> <span class="n">ndim</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">border_weight</span> <span class="o">=</span> <span class="n">validate_border_weight</span><span class="p">(</span><span class="n">border_weight</span><span class="p">)</span>
+
+        <span class="c1"># Compute chunk times</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nZ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nY</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nX</span> <span class="o">=</span> <span class="n">compute_chunk_times</span><span class="p">(</span>
+            <span class="n">dimension_sizes</span><span class="o">=</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span> <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Compute weight matrix</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">compute_weight_matrix_torch</span><span class="p">(</span>
+            <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span> <span class="n">border</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">border</span><span class="p">,</span> <span class="n">border_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">border_weight</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="NCZYXQuilt.border_tensor">
+<a class="viewcode-back" href="../../api.html#qlty.qlty3D.NCZYXQuilt.border_tensor">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">border_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute border tensor indicating valid (non-border) regions.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">compute_border_tensor_torch</span><span class="p">(</span><span class="n">window</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span> <span class="n">border</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">border</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NCZYXQuilt.get_times">
+<a class="viewcode-back" href="../../api.html#qlty.qlty3D.NCZYXQuilt.get_times">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_times</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes the number of chunks along Z, Y, and X dimensions, ensuring the last chunk</span>
+<span class="sd">        is included by adjusting the starting points.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">compute_chunk_times</span><span class="p">(</span>
+            <span class="n">dimension_sizes</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Z</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">),</span> <span class="n">window</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">step</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NCZYXQuilt.unstitch_data_pair">
+<a class="viewcode-back" href="../../api.html#qlty.qlty3D.NCZYXQuilt.unstitch_data_pair">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unstitch_data_pair</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">tensor_in</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">tensor_out</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Split input and output 3D tensors into smaller overlapping patches.</span>
+
+<span class="sd">        This method is useful for training neural networks on 3D volumes where you need</span>
+<span class="sd">        to process input-output pairs together.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tensor_in : torch.Tensor</span>
+<span class="sd">            Input tensor of shape (N, C, Z, Y, X). The tensor going into the network.</span>
+<span class="sd">        tensor_out : torch.Tensor</span>
+<span class="sd">            Output tensor of shape (N, C, Z, Y, X) or (N, Z, Y, X). The target tensor.</span>
+<span class="sd">            If 4D, will be automatically expanded to 5D.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Tuple[torch.Tensor, torch.Tensor]</span>
+<span class="sd">            A tuple of (input_patches, output_patches) where:</span>
+<span class="sd">            - input_patches: Shape (M, C, window[0], window[1], window[2])</span>
+<span class="sd">            - output_patches: Shape (M, C, window[0], window[1], window[2]) or (M, window[0], window[1], window[2])</span>
+<span class="sd">            where M = N * nZ * nY * nX</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; quilt = NCZYXQuilt(Z=64, Y=64, X=64, window=(32, 32, 32), step=(16, 16, 16))</span>
+<span class="sd">        &gt;&gt;&gt; input_data = torch.randn(5, 1, 64, 64, 64)</span>
+<span class="sd">        &gt;&gt;&gt; target_data = torch.randn(5, 64, 64, 64)</span>
+<span class="sd">        &gt;&gt;&gt; inp_patches, tgt_patches = quilt.unstitch_data_pair(input_data, target_data)</span>
+<span class="sd">        &gt;&gt;&gt; print(inp_patches.shape)  # (M, 1, 32, 32, 32)</span>
+<span class="sd">        &gt;&gt;&gt; print(tgt_patches.shape)  # (M, 32, 32, 32)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rearranged</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor_out</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="n">tensor_out</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">rearrange</span><span class="p">(</span><span class="n">tensor_out</span><span class="p">,</span> <span class="s2">&quot;N Z Y X -&gt; N () Z Y X&quot;</span><span class="p">)</span>
+            <span class="n">rearranged</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor_out</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor_in</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span>
+        <span class="k">assert</span> <span class="n">tensor_in</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">tensor_out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">unstitched_in</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">tensor_in</span><span class="p">)</span>
+        <span class="n">unstitched_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">tensor_out</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rearranged</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">unstitched_out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="n">unstitched_out</span> <span class="o">=</span> <span class="n">unstitched_out</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">unstitched_in</span><span class="p">,</span> <span class="n">unstitched_out</span></div>
+
+
+<div class="viewcode-block" id="NCZYXQuilt.unstitch">
+<a class="viewcode-back" href="../../api.html#qlty.qlty3D.NCZYXQuilt.unstitch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unstitch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Split a 3D tensor into smaller overlapping patches.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tensor : torch.Tensor</span>
+<span class="sd">            Input tensor of shape (N, C, Z, Y, X) where:</span>
+<span class="sd">            - N: Number of volumes</span>
+<span class="sd">            - C: Number of channels</span>
+<span class="sd">            - Z, Y, X: Dimensions (must match self.Z, self.Y, self.X)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        torch.Tensor</span>
+<span class="sd">            Patches tensor of shape (M, C, window[0], window[1], window[2]) where:</span>
+<span class="sd">            - M = N * nZ * nY * nX (total number of patches)</span>
+<span class="sd">            - window[0], window[1], window[2]: Patch dimensions in Z, Y, X</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; quilt = NCZYXQuilt(Z=64, Y=64, X=64, window=(32, 32, 32), step=(16, 16, 16))</span>
+<span class="sd">        &gt;&gt;&gt; volume = torch.randn(5, 1, 64, 64, 64)</span>
+<span class="sd">        &gt;&gt;&gt; patches = quilt.unstitch(volume)</span>
+<span class="sd">        &gt;&gt;&gt; print(patches.shape)  # (M, 1, 32, 32, 32)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">tmp</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">zz</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nZ</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">yy</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nY</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nX</span><span class="p">):</span>
+                        <span class="n">start_z</span> <span class="o">=</span> <span class="n">zz</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">start_y</span> <span class="o">=</span> <span class="n">yy</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="n">start_x</span> <span class="o">=</span> <span class="n">xx</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+                        <span class="n">stop_z</span> <span class="o">=</span> <span class="n">start_z</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">stop_y</span> <span class="o">=</span> <span class="n">start_y</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="n">stop_x</span> <span class="o">=</span> <span class="n">start_x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+                        <span class="n">patch</span> <span class="o">=</span> <span class="n">tmp</span><span class="p">[:,</span> <span class="n">start_z</span><span class="p">:</span><span class="n">stop_z</span><span class="p">,</span> <span class="n">start_y</span><span class="p">:</span><span class="n">stop_y</span><span class="p">,</span> <span class="n">start_x</span><span class="p">:</span><span class="n">stop_x</span><span class="p">]</span>
+                        <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">patch</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">rearrange</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">&quot;M C Z Y X -&gt; M C Z Y X&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="NCZYXQuilt.stitch">
+<a class="viewcode-back" href="../../api.html#qlty.qlty3D.NCZYXQuilt.stitch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stitch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ml_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reassemble 3D patches back into full-size volumes.</span>
+
+<span class="sd">        This method takes patches produced by `unstitch()` and stitches them back</span>
+<span class="sd">        together, averaging overlapping regions using a weight matrix.</span>
+
+<span class="sd">        Typical workflow:</span>
+
+<span class="sd">        1. Unstitch the data::</span>
+
+<span class="sd">           patches = quilt.unstitch(volumes)</span>
+
+<span class="sd">        2. Process patches with your model::</span>
+
+<span class="sd">           output_patches = model(patches)</span>
+
+<span class="sd">        3. Stitch back together::</span>
+
+<span class="sd">           reconstructed, weights = quilt.stitch(output_patches)</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ml_tensor : torch.Tensor</span>
+<span class="sd">            Patches tensor of shape (M, C, window[0], window[1], window[2]) where:</span>
+<span class="sd">            - M must equal N * nZ * nY * nX (number of patches)</span>
+<span class="sd">            - C: Number of channels</span>
+<span class="sd">            - window: Patch dimensions in (Z, Y, X)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Tuple[torch.Tensor, torch.Tensor]</span>
+<span class="sd">            A tuple of (reconstructed, weights) where:</span>
+<span class="sd">            - reconstructed: Shape (N, C, Z, Y, X) - the stitched result</span>
+<span class="sd">            - weights: Shape (Z, Y, X) - normalization weights</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        **Important**: When working with classification outputs:</span>
+
+<span class="sd">        - Apply softmax AFTER stitching, not before</span>
+<span class="sd">        - Averaging softmaxed tensors ≠ softmax of averaged tensors</span>
+<span class="sd">        - Process logits, stitch them, then apply softmax to the final result</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; quilt = NCZYXQuilt(Z=64, Y=64, X=64, window=(32, 32, 32), step=(16, 16, 16))</span>
+<span class="sd">        &gt;&gt;&gt; volume = torch.randn(5, 1, 64, 64, 64)</span>
+<span class="sd">        &gt;&gt;&gt; patches = quilt.unstitch(volume)</span>
+<span class="sd">        &gt;&gt;&gt; processed = model(patches)</span>
+<span class="sd">        &gt;&gt;&gt; reconstructed, weights = quilt.stitch(processed)</span>
+<span class="sd">        &gt;&gt;&gt; print(reconstructed.shape)  # (5, C, 64, 64, 64)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">ml_tensor</span><span class="o">.</span><span class="n">shape</span>
+        <span class="c1"># we now need to figure out how to sticth this back into what dimension</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nZ</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nY</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nX</span>
+        <span class="n">M_images</span> <span class="o">=</span> <span class="n">N</span> <span class="o">//</span> <span class="n">times</span>
+        <span class="k">assert</span> <span class="n">N</span> <span class="o">%</span> <span class="n">times</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">M_images</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Z</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">))</span>
+        <span class="n">norma</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">Z</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">))</span>
+
+        <span class="n">this_image</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">M_images</span><span class="p">):</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">zz</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nZ</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">yy</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nY</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nX</span><span class="p">):</span>
+                        <span class="n">here_and_now</span> <span class="o">=</span> <span class="n">times</span> <span class="o">*</span> <span class="n">this_image</span> <span class="o">+</span> <span class="n">count</span>
+
+                        <span class="n">start_z</span> <span class="o">=</span> <span class="n">zz</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">start_y</span> <span class="o">=</span> <span class="n">yy</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="n">start_x</span> <span class="o">=</span> <span class="n">xx</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                        <span class="n">stop_z</span> <span class="o">=</span> <span class="n">start_z</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">stop_y</span> <span class="o">=</span> <span class="n">start_y</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="n">stop_x</span> <span class="o">=</span> <span class="n">start_x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+                        <span class="n">tmp</span> <span class="o">=</span> <span class="n">ml_tensor</span><span class="p">[</span><span class="n">here_and_now</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+                        <span class="n">result</span><span class="p">[</span>
+                            <span class="n">this_image</span><span class="p">,</span>
+                            <span class="p">:,</span>
+                            <span class="n">start_z</span><span class="p">:</span><span class="n">stop_z</span><span class="p">,</span>
+                            <span class="n">start_y</span><span class="p">:</span><span class="n">stop_y</span><span class="p">,</span>
+                            <span class="n">start_x</span><span class="p">:</span><span class="n">stop_x</span><span class="p">,</span>
+                        <span class="p">]</span> <span class="o">+=</span> <span class="n">tmp</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span>
+                        <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+                        <span class="c1"># get the weight matrix, only compute once</span>
+                        <span class="k">if</span> <span class="n">m</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="n">norma</span><span class="p">[</span>
+                                <span class="n">start_z</span><span class="p">:</span><span class="n">stop_z</span><span class="p">,</span> <span class="n">start_y</span><span class="p">:</span><span class="n">stop_y</span><span class="p">,</span> <span class="n">start_x</span><span class="p">:</span><span class="n">stop_x</span>
+                            <span class="p">]</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span>
+
+            <span class="n">this_image</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">/</span> <span class="n">norma</span>
+        <span class="k">return</span> <span class="n">result</span><span class="p">,</span> <span class="n">norma</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Petrus H. Zwart.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

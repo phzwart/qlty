@@ -1,0 +1,328 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Troubleshooting &mdash; qlty 1.1.0.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=1c471e8e"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Contributing" href="contributing.html" />
+    <link rel="prev" title="API Reference" href="api.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            qlty
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="readme.html">qlty</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Troubleshooting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#common-issues-and-solutions">Common Issues and Solutions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#issue-assertionerror-when-stitching">Issue: AssertionError when stitching</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-memory-errors-with-large-datasets">Issue: Memory errors with large datasets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-border-artifacts-in-reconstructed-images">Issue: Border artifacts in reconstructed images</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-softmax-giving-wrong-results">Issue: Softmax giving wrong results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-numba-compilation-errors">Issue: Numba compilation errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-zarr-cache-files-not-cleaned-up">Issue: Zarr cache files not cleaned up</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-empty-patches-after-filtering">Issue: Empty patches after filtering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-wrong-tensor-shapes">Issue: Wrong tensor shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-slow-stitching-performance">Issue: Slow stitching performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-border-weight-not-working-as-expected">Issue: Border weight not working as expected</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#issue-get-times-returns-unexpected-values">Issue: get_times() returns unexpected values</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-tips">Performance Tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history.html">History</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">qlty</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Troubleshooting</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/troubleshooting.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="troubleshooting">
+<h1>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h1>
+<section id="common-issues-and-solutions">
+<h2>Common Issues and Solutions<a class="headerlink" href="#common-issues-and-solutions" title="Link to this heading"></a></h2>
+<section id="issue-assertionerror-when-stitching">
+<h3>Issue: AssertionError when stitching<a class="headerlink" href="#issue-assertionerror-when-stitching" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Getting <cite>AssertionError</cite> when calling <cite>stitch()</cite>.</p>
+<p><strong>Cause</strong>: The number of patches doesn’t match the expected number based on the quilt configuration.</p>
+<p><strong>Solution</strong>: Make sure the number of patches is exactly <cite>N * nY * nX</cite> (for 2D) or <cite>N * nZ * nY * nX</cite> (for 3D), where N is the number of images:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">nY</span><span class="p">,</span> <span class="n">nX</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">get_times</span><span class="p">()</span>
+<span class="n">expected_patches</span> <span class="o">=</span> <span class="n">num_images</span> <span class="o">*</span> <span class="n">nY</span> <span class="o">*</span> <span class="n">nX</span>
+
+<span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_patches</span><span class="p">,</span> \
+    <span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="n">expected_patches</span><span class="si">}</span><span class="s2"> patches, got </span><span class="si">{</span><span class="n">patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-memory-errors-with-large-datasets">
+<h3>Issue: Memory errors with large datasets<a class="headerlink" href="#issue-memory-errors-with-large-datasets" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Running out of memory when processing large datasets.</p>
+<p><strong>Solution</strong>: Use the Large classes with disk caching:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Instead of:</span>
+<span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Loads everything into memory</span>
+
+<span class="c1"># Use:</span>
+<span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCYXQuilt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>  <span class="c1"># Uses disk caching</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-border-artifacts-in-reconstructed-images">
+<h3>Issue: Border artifacts in reconstructed images<a class="headerlink" href="#issue-border-artifacts-in-reconstructed-images" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Visible artifacts or seams at patch boundaries.</p>
+<p><strong>Solutions</strong>:
+1. Increase overlap (reduce step size):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="n">window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">//</span><span class="mi">2</span><span class="p">,</span> <span class="n">window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">//</span><span class="mi">2</span><span class="p">),</span> <span class="o">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic" start="2">
+<li><p>Increase border size:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="o">...</span><span class="p">)</span>  <span class="c1"># Larger border</span>
+</pre></div>
+</div>
+</li>
+<li><p>Decrease border weight:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">border_weight</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>  <span class="c1"># More downweighting</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="issue-softmax-giving-wrong-results">
+<h3>Issue: Softmax giving wrong results<a class="headerlink" href="#issue-softmax-giving-wrong-results" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Probabilities don’t sum to 1 or seem incorrect after stitching.</p>
+<p><strong>Cause</strong>: Applying softmax before stitching instead of after.</p>
+<p><strong>Solution</strong>: Always stitch logits, then apply softmax:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># WRONG:</span>
+<span class="n">probs</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">patches</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">result</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">probs</span><span class="p">)</span>  <span class="c1"># Averaging probabilities is wrong!</span>
+
+<span class="c1"># CORRECT:</span>
+<span class="n">logits</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patches</span><span class="p">)</span>
+<span class="n">stitched_logits</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">logits</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">stitched_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Apply softmax after</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-numba-compilation-errors">
+<h3>Issue: Numba compilation errors<a class="headerlink" href="#issue-numba-compilation-errors" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Getting Numba compilation warnings or errors.</p>
+<p><strong>Solution</strong>: Disable Numba and use pure PyTorch:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">result</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">use_numba</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-zarr-cache-files-not-cleaned-up">
+<h3>Issue: Zarr cache files not cleaned up<a class="headerlink" href="#issue-zarr-cache-files-not-cleaned-up" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Large Zarr cache files remaining after processing.</p>
+<p><strong>Solution</strong>: Manually clean up cache files:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+
+<span class="k">for</span> <span class="n">suffix</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;_mean_cache.zarr&quot;</span><span class="p">,</span> <span class="s2">&quot;_std_cache.zarr&quot;</span><span class="p">,</span> <span class="s2">&quot;_norma_cache.zarr&quot;</span><span class="p">,</span>
+               <span class="s2">&quot;_mean.zarr&quot;</span><span class="p">,</span> <span class="s2">&quot;_std.zarr&quot;</span><span class="p">]:</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">filename</span> <span class="o">+</span> <span class="n">suffix</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-empty-patches-after-filtering">
+<h3>Issue: Empty patches after filtering<a class="headerlink" href="#issue-empty-patches-after-filtering" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: All patches filtered out when using <cite>weed_sparse_classification_training_pairs_2D</cite>.</p>
+<p><strong>Cause</strong>: No valid data in any patches (all missing labels or only in border regions).</p>
+<p><strong>Solution</strong>: Check your data and border settings:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check if any patches have valid data</span>
+<span class="n">valid_count</span> <span class="o">=</span> <span class="p">(</span><span class="n">labels</span> <span class="o">!=</span> <span class="n">missing_label</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">valid_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Warning: No valid data found!&quot;</span><span class="p">)</span>
+
+<span class="c1"># Check border tensor</span>
+<span class="n">border_tensor</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">border_tensor</span><span class="p">()</span>
+<span class="n">valid_pixels</span> <span class="o">=</span> <span class="n">border_tensor</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Valid (non-border) pixels per patch: </span><span class="si">{</span><span class="n">valid_pixels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-wrong-tensor-shapes">
+<h3>Issue: Wrong tensor shapes<a class="headerlink" href="#issue-wrong-tensor-shapes" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Getting shape mismatch errors.</p>
+<p><strong>Common causes</strong>:
+1. Wrong input shape - expect <cite>(N, C, Y, X)</cite> for 2D or <cite>(N, C, Z, Y, X)</cite> for 3D
+2. Wrong number of dimensions
+3. Mismatch between quilt configuration and actual data size</p>
+<p><strong>Solution</strong>: Verify shapes match:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># 2D: Should be (N, C, Y, X)</span>
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Expected 4D tensor, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">D&quot;</span>
+<span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">quilt</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Y dimension mismatch&quot;</span>
+<span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">==</span> <span class="n">quilt</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;X dimension mismatch&quot;</span>
+
+<span class="c1"># 3D: Should be (N, C, Z, Y, X)</span>
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Expected 5D tensor, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">D&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-slow-stitching-performance">
+<h3>Issue: Slow stitching performance<a class="headerlink" href="#issue-slow-stitching-performance" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Stitching is slow for large numbers of patches.</p>
+<p><strong>Solutions</strong>:
+1. Enable Numba (default for 2D):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">result</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">use_numba</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Use batch processing</p></li>
+<li><p>Consider using Large classes for very large datasets</p></li>
+</ol>
+</section>
+<section id="issue-border-weight-not-working-as-expected">
+<h3>Issue: Border weight not working as expected<a class="headerlink" href="#issue-border-weight-not-working-as-expected" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Border regions still have too much influence.</p>
+<p><strong>Solution</strong>: Check that border is set correctly:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Verify border is set</span>
+<span class="k">assert</span> <span class="n">quilt</span><span class="o">.</span><span class="n">border</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Border is None!&quot;</span>
+
+<span class="c1"># Check weight matrix</span>
+<span class="n">weight</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">weight</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Border weight: </span><span class="si">{</span><span class="n">weight</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># Should be border_weight</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Center weight: </span><span class="si">{</span><span class="n">weight</span><span class="p">[</span><span class="n">quilt</span><span class="o">.</span><span class="n">border</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">quilt</span><span class="o">.</span><span class="n">border</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># Should be 1.0</span>
+</pre></div>
+</div>
+</section>
+<section id="issue-get-times-returns-unexpected-values">
+<h3>Issue: get_times() returns unexpected values<a class="headerlink" href="#issue-get-times-returns-unexpected-values" title="Link to this heading"></a></h3>
+<p><strong>Problem</strong>: Number of patches doesn’t match expectations.</p>
+<p><strong>Cause</strong>: The algorithm ensures the last patch fits, which may require adjusting the starting position.</p>
+<p><strong>Solution</strong>: The algorithm is correct - it ensures full coverage. Verify:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">nY</span><span class="p">,</span> <span class="n">nX</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">get_times</span><span class="p">()</span>
+<span class="c1"># Check that we can cover the full image</span>
+<span class="n">last_y_start</span> <span class="o">=</span> <span class="p">(</span><span class="n">nY</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">quilt</span><span class="o">.</span><span class="n">step</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">last_x_start</span> <span class="o">=</span> <span class="p">(</span><span class="n">nX</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">quilt</span><span class="o">.</span><span class="n">step</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="k">assert</span> <span class="n">last_y_start</span> <span class="o">+</span> <span class="n">quilt</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">Y</span>
+<span class="k">assert</span> <span class="n">last_x_start</span> <span class="o">+</span> <span class="n">quilt</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">X</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="performance-tips">
+<h2>Performance Tips<a class="headerlink" href="#performance-tips" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>Use appropriate batch sizes</strong>: Process patches in batches for better GPU utilization</p></li>
+<li><p><strong>Enable Numba</strong>: For 2D stitching, Numba provides significant speedup</p></li>
+<li><p><strong>Choose step size wisely</strong>:
+- Smaller step = more overlap = smoother results but slower
+- Larger step = less overlap = faster but may have artifacts</p></li>
+<li><p><strong>Memory management</strong>:
+- Use in-memory classes for small datasets
+- Use Large classes for datasets &gt; several GB</p></li>
+<li><p><strong>Zarr chunking</strong>: Large classes automatically optimize Zarr chunk sizes</p></li>
+</ol>
+</section>
+<section id="getting-help">
+<h2>Getting Help<a class="headerlink" href="#getting-help" title="Link to this heading"></a></h2>
+<p>If you encounter issues not covered here:</p>
+<ol class="arabic simple">
+<li><p>Check the examples in <cite>docs/examples.rst</cite></p></li>
+<li><p>Review the API documentation in <cite>docs/api.rst</cite></p></li>
+<li><p>Check existing issues on GitHub</p></li>
+<li><p>Open a new issue with:
+- Minimal reproducible example
+- Error messages
+- Your environment (Python version, PyTorch version, etc.)</p></li>
+</ol>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="api.html" class="btn btn-neutral float-left" title="API Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="contributing.html" class="btn btn-neutral float-right" title="Contributing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Petrus H. Zwart.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

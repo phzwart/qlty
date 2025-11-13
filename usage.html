@@ -1,0 +1,650 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage &mdash; qlty 1.1.0.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=1c471e8e"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Examples" href="examples.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            qlty
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="readme.html">qlty</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#basic-import">Basic Import</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#d-in-memory-processing">2D In-Memory Processing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#basic-example">Basic Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#unstitching-data-pairs">Unstitching Data Pairs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#stitching-back-together">Stitching Back Together</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-numba-acceleration">Using Numba Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#d-volume-processing">3D Volume Processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#large-dataset-processing-disk-cached">Large Dataset Processing (Disk-Cached)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#handling-missing-data">Handling Missing Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#advanced-working-with-border-regions">Advanced: Working with Border Regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#computing-chunk-information">Computing Chunk Information</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#best-practices">Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#common-patterns">Common Patterns</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#training-loop-pattern">Training Loop Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#inference-pattern">Inference Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#large-dataset-pattern">Large Dataset Pattern</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#patch-pair-extraction">Patch Pair Extraction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#basic-usage">Basic Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#delta-range-constraints">Delta Range Constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#use-case-kernel-optimization">Use Case: Kernel Optimization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#how-it-works">How It Works</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mathematical-details">Mathematical Details</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#d-patch-pair-extraction">3D Patch Pair Extraction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#basic-usage-3d">Basic Usage (3D)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#d-mathematical-details">3D Mathematical Details</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authors.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history.html">History</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">qlty</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Usage</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h1>
+<p>qlty provides tools to unstitch and stitch PyTorch tensors efficiently.</p>
+<section id="basic-import">
+<h2>Basic Import<a class="headerlink" href="#basic-import" title="Link to this heading"></a></h2>
+<p>To use qlty in a project, import it:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">qlty</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCYXQuilt</span><span class="p">,</span> <span class="n">NCZYXQuilt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">LargeNCYXQuilt</span><span class="p">,</span> <span class="n">LargeNCZYXQuilt</span>
+</pre></div>
+</div>
+</section>
+<section id="d-in-memory-processing">
+<h2>2D In-Memory Processing<a class="headerlink" href="#d-in-memory-processing" title="Link to this heading"></a></h2>
+<section id="basic-example">
+<h3>Basic Example<a class="headerlink" href="#basic-example" title="Link to this heading"></a></h3>
+<p>Let’s make some mock data and process it:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">einops</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Create sample data</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">))</span>  <span class="c1"># Input images: (N, C, Y, X)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">))</span>  <span class="c1"># Target labels: (N, C, Y, X)</span>
+</pre></div>
+</div>
+<p>Assume that x and y are data whose relation you are trying to learn using some network, such that after training, you have:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">y_guess</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y_guess</span> <span class="o">-</span> <span class="n">y</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">a_small_number</span>
+</pre></div>
+</div>
+<p>If the data you have is large and doesn’t fit onto your GPU card, or if you need to chop things up into smaller bits for boundary detection, qlty can be used. Let’s take the above data and chop it into smaller bits:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quilt</span> <span class="o">=</span> <span class="n">qlty</span><span class="o">.</span><span class="n">NCYXQuilt</span><span class="p">(</span>
+    <span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>      <span class="c1"># Patch size</span>
+    <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>          <span class="c1"># Step size (creates overlap)</span>
+    <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>        <span class="c1"># Border region</span>
+    <span class="n">border_weight</span><span class="o">=</span><span class="mf">0.1</span>     <span class="c1"># Weight for border pixels</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>This object now allows one to cut any input tensor with shape (N, C, Y, X) into smaller, overlapping patches of size (M, C, Y_window, X_window). The moving window, in this case a 16x16 patch, is moved along the input tensor with steps (4, 4). In addition, we define a border region in these patches of 4 pixels wide. Pixels in this area will be assigned weight border_weight (0.1 in this case) when data is stitched back together.</p>
+</section>
+<section id="unstitching-data-pairs">
+<h3>Unstitching Data Pairs<a class="headerlink" href="#unstitching-data-pairs" title="Link to this heading"></a></h3>
+<p>Let’s unstitch the (x, y) training data pair:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x_bits</span><span class="p">,</span> <span class="n">y_bits</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_data_pair</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;x shape: &quot;</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;y shape: &quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;x_bits shape:&quot;</span><span class="p">,</span> <span class="n">x_bits</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;y_bits shape:&quot;</span><span class="p">,</span> <span class="n">y_bits</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Yielding:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="n">shape</span><span class="p">:</span>  <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">])</span>
+<span class="n">y</span> <span class="n">shape</span><span class="p">:</span>  <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">])</span>
+<span class="n">x_bits</span> <span class="n">shape</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8410</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">])</span>
+<span class="n">y_bits</span> <span class="n">shape</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">8410</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+<section id="stitching-back-together">
+<h3>Stitching Back Together<a class="headerlink" href="#stitching-back-together" title="Link to this heading"></a></h3>
+<p>If we now make some mock data that a neural network has returned:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">y_mock</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">((</span><span class="mi">8410</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>we can stitch it back together into the right shape, averaging overlapping areas, excluding or downweighting border areas:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">y_stitched</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">y_mock</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>which gives:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">y_stitched</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>The ‘weights’ tensor encodes how many contributors there were for each pixel.</p>
+</section>
+<section id="using-numba-acceleration">
+<h3>Using Numba Acceleration<a class="headerlink" href="#using-numba-acceleration" title="Link to this heading"></a></h3>
+<p>The 2D stitch method can use Numba JIT compilation for faster processing:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">result</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">use_numba</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Default</span>
+<span class="n">result</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">use_numba</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># Pure PyTorch</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="d-volume-processing">
+<h2>3D Volume Processing<a class="headerlink" href="#d-volume-processing" title="Link to this heading"></a></h2>
+<p>For 3D volumes, use NCZYXQuilt:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCZYXQuilt</span>
+
+<span class="c1"># Create 3D quilt object</span>
+<span class="n">quilt</span> <span class="o">=</span> <span class="n">NCZYXQuilt</span><span class="p">(</span>
+    <span class="n">Z</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+    <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span>   <span class="c1"># 3D patch size</span>
+    <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>     <span class="c1"># Step in Z, Y, X</span>
+    <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>      <span class="c1"># Border in each dimension</span>
+    <span class="n">border_weight</span><span class="o">=</span><span class="mf">0.1</span>
+<span class="p">)</span>
+
+<span class="c1"># Process 3D volume</span>
+<span class="n">volume</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>  <span class="c1"># (N, C, Z, Y, X)</span>
+<span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">volume</span><span class="p">)</span>
+
+<span class="c1"># Process patches...</span>
+<span class="n">processed</span> <span class="o">=</span> <span class="n">your_model</span><span class="p">(</span><span class="n">patches</span><span class="p">)</span>
+
+<span class="c1"># Stitch back</span>
+<span class="n">reconstructed</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="large-dataset-processing-disk-cached">
+<h2>Large Dataset Processing (Disk-Cached)<a class="headerlink" href="#large-dataset-processing-disk-cached" title="Link to this heading"></a></h2>
+<p>For very large datasets that don’t fit in memory, use the Large classes:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">LargeNCYXQuilt</span>
+
+<span class="c1"># Create temporary directory for cache</span>
+<span class="n">temp_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+<span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">,</span> <span class="s2">&quot;my_dataset&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create Large quilt object</span>
+<span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCYXQuilt</span><span class="p">(</span>
+    <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span>
+    <span class="n">N</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>              <span class="c1"># Number of images</span>
+    <span class="n">Y</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>       <span class="c1"># Image dimensions</span>
+    <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span>
+    <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span>
+    <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+    <span class="n">border_weight</span><span class="o">=</span><span class="mf">0.1</span>
+<span class="p">)</span>
+
+<span class="c1"># Load your data</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
+
+<span class="c1"># Process all chunks</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">quilt</span><span class="o">.</span><span class="n">N_chunks</span><span class="p">):</span>
+    <span class="n">index</span><span class="p">,</span> <span class="n">patch</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_next</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="c1"># Process patch (e.g., with neural network)</span>
+    <span class="n">processed</span> <span class="o">=</span> <span class="n">your_model</span><span class="p">(</span><span class="n">patch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+
+    <span class="c1"># Accumulate result</span>
+    <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+
+<span class="c1"># Get final result</span>
+<span class="n">mean_result</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">return_mean</span><span class="p">()</span>
+<span class="n">mean_with_std</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">return_mean</span><span class="p">(</span><span class="n">std</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="handling-missing-data">
+<h2>Handling Missing Data<a class="headerlink" href="#handling-missing-data" title="Link to this heading"></a></h2>
+<p>When working with sparse or incomplete data, you can filter out patches with no valid data:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCYXQuilt</span><span class="p">,</span> <span class="n">weed_sparse_classification_training_pairs_2D</span>
+
+<span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span>
+    <span class="n">Y</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span>
+    <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+    <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+    <span class="n">border_weight</span><span class="o">=</span><span class="mf">0.1</span>
+<span class="p">)</span>
+
+<span class="c1"># Create data with missing labels</span>
+<span class="n">input_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Missing label = -1</span>
+<span class="n">labels</span><span class="p">[:,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">108</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">108</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>            <span class="c1"># Some valid data</span>
+
+<span class="c1"># Unstitch with missing label handling</span>
+<span class="n">input_patches</span><span class="p">,</span> <span class="n">label_patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_data_pair</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">missing_label</span><span class="o">=-</span><span class="mi">1</span>
+<span class="p">)</span>
+
+<span class="c1"># Filter out patches with no valid data</span>
+<span class="n">border_tensor</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">border_tensor</span><span class="p">()</span>
+<span class="n">valid_input</span><span class="p">,</span> <span class="n">valid_labels</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">weed_sparse_classification_training_pairs_2D</span><span class="p">(</span>
+    <span class="n">input_patches</span><span class="p">,</span> <span class="n">label_patches</span><span class="p">,</span> <span class="n">missing_label</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">border_tensor</span><span class="o">=</span><span class="n">border_tensor</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Original patches: </span><span class="si">{</span><span class="n">input_patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Valid patches: </span><span class="si">{</span><span class="n">valid_input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="advanced-working-with-border-regions">
+<h2>Advanced: Working with Border Regions<a class="headerlink" href="#advanced-working-with-border-regions" title="Link to this heading"></a></h2>
+<p>The border tensor indicates which pixels are in the border region:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">border_mask</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">border_tensor</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">border_mask</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (window_height, window_width)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">border_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>  <span class="c1"># Number of valid (non-border) pixels</span>
+</pre></div>
+</div>
+<p>Border regions are set to 0.0, valid regions to 1.0. This can be used to mask out border regions during training.</p>
+</section>
+<section id="computing-chunk-information">
+<h2>Computing Chunk Information<a class="headerlink" href="#computing-chunk-information" title="Link to this heading"></a></h2>
+<p>To know how many patches will be created:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">nY</span><span class="p">,</span> <span class="n">nX</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">get_times</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Patches in Y direction: </span><span class="si">{</span><span class="n">nY</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Patches in X direction: </span><span class="si">{</span><span class="n">nX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total patches per image: </span><span class="si">{</span><span class="n">nY</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">nX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For a tensor with N images, the total number of patches will be N * nY * nX.</p>
+</section>
+<section id="best-practices">
+<h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>Overlap Strategy</strong>:
+- Use step size = window/2 for 50% overlap (common choice)
+- More overlap = smoother results but more computation
+- Less overlap = faster but may have artifacts</p></li>
+<li><p><strong>Border Size</strong>:
+- Typically 10-20% of window size
+- Larger for networks sensitive to edge effects
+- Smaller for networks with good edge handling</p></li>
+<li><p><strong>Border Weight</strong>:
+- 0.1 is a good default
+- 0.0 completely excludes borders
+- 1.0 gives equal weight (not recommended)</p></li>
+<li><p><strong>Memory Management</strong>:
+- Use in-memory classes (NCYXQuilt, NCZYXQuilt) if data fits in RAM
+- Use Large classes for datasets &gt; several GB
+- Large classes use Zarr for efficient disk caching</p></li>
+<li><p><strong>Softmax Warning</strong>:
+- Apply softmax AFTER stitching, not before
+- Averaging softmaxed tensors ≠ softmax of averaged tensors
+- Process logits, then apply softmax to final result</p></li>
+</ol>
+</section>
+<section id="common-patterns">
+<h2>Common Patterns<a class="headerlink" href="#common-patterns" title="Link to this heading"></a></h2>
+<section id="training-loop-pattern">
+<h3>Training Loop Pattern<a class="headerlink" href="#training-loop-pattern" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">images</span><span class="p">,</span> <span class="n">labels</span> <span class="ow">in</span> <span class="n">dataloader</span><span class="p">:</span>
+        <span class="c1"># Unstitch</span>
+        <span class="n">img_patches</span><span class="p">,</span> <span class="n">lbl_patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_data_pair</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+
+        <span class="c1"># Train</span>
+        <span class="k">for</span> <span class="n">img</span><span class="p">,</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">img_patches</span><span class="p">,</span> <span class="n">lbl_patches</span><span class="p">):</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">lbl</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+            <span class="c1"># ...</span>
+</pre></div>
+</div>
+</section>
+<section id="inference-pattern">
+<h3>Inference Pattern<a class="headerlink" href="#inference-pattern" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+
+<span class="c1"># Unstitch</span>
+<span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">test_image</span><span class="p">)</span>
+
+<span class="c1"># Process</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patches</span><span class="p">)</span>
+
+<span class="c1"># Stitch</span>
+<span class="n">result</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="large-dataset-pattern">
+<h3>Large Dataset Pattern<a class="headerlink" href="#large-dataset-pattern" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quilt</span> <span class="o">=</span> <span class="n">LargeNCYXQuilt</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+                      <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="n">border</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
+
+<span class="c1"># Process in chunks</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">quilt</span><span class="o">.</span><span class="n">N_chunks</span><span class="p">):</span>
+    <span class="n">idx</span><span class="p">,</span> <span class="n">patch</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch_next</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">processed</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">quilt</span><span class="o">.</span><span class="n">stitch</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span>
+
+<span class="c1"># Get results</span>
+<span class="n">mean</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">return_mean</span><span class="p">()</span>
+<span class="n">mean</span><span class="p">,</span> <span class="n">std</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">return_mean</span><span class="p">(</span><span class="n">std</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="patch-pair-extraction">
+<h2>Patch Pair Extraction<a class="headerlink" href="#patch-pair-extraction" title="Link to this heading"></a></h2>
+<p>The patch pair extraction feature allows you to extract pairs of patches from images with controlled displacement between them. This is useful for training models that learn relationships between nearby image regions, such as self-supervised learning, contrastive learning, or learning spatial correspondences.</p>
+<section id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
+<p>The patch pair extraction works by:</p>
+<ol class="arabic simple">
+<li><p><strong>Extracting patch pairs</strong>: For each image, randomly samples pairs of patches where the displacement between patch centers follows a specified Euclidean distance constraint.</p></li>
+<li><p><strong>Finding overlapping regions</strong>: Given the displacement vectors, identifies which pixels in the two patches correspond to the same spatial location in the original image.</p></li>
+<li><p><strong>Gradient-friendly</strong>: All operations preserve gradients, making it suitable for end-to-end training.</p></li>
+</ol>
+</section>
+<section id="basic-usage">
+<h3>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading"></a></h3>
+<p>Extract patch pairs from a tensor:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs</span><span class="p">,</span> <span class="n">extract_overlapping_pixels</span>
+
+<span class="c1"># Create input tensor: (N, C, Y, X)</span>
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+
+<span class="c1"># Extract patch pairs</span>
+<span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>  <span class="c1"># 32x32 patches</span>
+<span class="n">num_patches</span> <span class="o">=</span> <span class="mi">5</span>    <span class="c1"># 5 patch pairs per image</span>
+<span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">)</span>  <span class="c1"># Euclidean distance between 8 and 16 pixels</span>
+
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patch_pairs</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span>
+<span class="p">)</span>
+
+<span class="c1"># patches1: (50, 3, 32, 32) - first patches</span>
+<span class="c1"># patches2: (50, 3, 32, 32) - second patches (displaced)</span>
+<span class="c1"># deltas: (50, 2) - displacement vectors (dx, dy)</span>
+<span class="c1"># rotations: (50,) - quarter-turn rotation applied to second patch (all zeros by default)</span>
+</pre></div>
+</div>
+<p>Extract overlapping pixels:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get overlapping pixels from patch pairs</span>
+<span class="n">overlapping1</span><span class="p">,</span> <span class="n">overlapping2</span> <span class="o">=</span> <span class="n">extract_overlapping_pixels</span><span class="p">(</span>
+    <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span><span class="o">=</span><span class="n">rotations</span>
+<span class="p">)</span>
+
+<span class="c1"># overlapping1: (K, 3) - overlapping pixels from patches1</span>
+<span class="c1"># overlapping2: (K, 3) - overlapping pixels from patches2</span>
+<span class="c1"># K is the total number of overlapping pixels across all pairs</span>
+<span class="c1"># Corresponding pixels are at the same index in both tensors</span>
+</pre></div>
+</div>
+</section>
+<section id="delta-range-constraints">
+<h3>Delta Range Constraints<a class="headerlink" href="#delta-range-constraints" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">delta_range</span></code> parameter specifies the Euclidean distance constraint for displacement vectors:</p>
+<ul class="simple">
+<li><p><strong>Constraint</strong>: <code class="docutils literal notranslate"><span class="pre">low</span> <span class="pre">&lt;=</span> <span class="pre">sqrt(dx²</span> <span class="pre">+</span> <span class="pre">dy²)</span> <span class="pre">&lt;=</span> <span class="pre">high</span></code></p></li>
+<li><p><strong>Range requirement</strong>: <code class="docutils literal notranslate"><span class="pre">window//4</span> <span class="pre">&lt;=</span> <span class="pre">low</span> <span class="pre">&lt;=</span> <span class="pre">high</span> <span class="pre">&lt;=</span> <span class="pre">3*window//4</span></code>
+where <code class="docutils literal notranslate"><span class="pre">window</span></code> is the maximum of patch height and width</p></li>
+</ul>
+<p>This ensures that:
+- Displacements are not too small (patches would be nearly identical)
+- Displacements are not too large (patches would have no overlap)
+- There’s meaningful overlap for learning correspondences</p>
+<p>Example: For a 32x32 window, valid delta_range is approximately (8, 24).</p>
+</section>
+<section id="use-case-kernel-optimization">
+<h3>Use Case: Kernel Optimization<a class="headerlink" href="#use-case-kernel-optimization" title="Link to this heading"></a></h3>
+<p>A common use case is optimizing neural network kernels using L1 loss on overlapping pixels:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs</span><span class="p">,</span> <span class="n">extract_overlapping_pixels</span>
+
+<span class="c1"># Create input tensor</span>
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+
+<span class="c1"># Extract patch pairs</span>
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patch_pairs</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="n">num_patches</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">delta_range</span><span class="o">=</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">patches1</span> <span class="o">=</span> <span class="n">patches1</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+<span class="n">patches2</span> <span class="o">=</span> <span class="n">patches2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+
+<span class="c1"># Create two Conv2D layers</span>
+<span class="n">conv1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">padding_mode</span><span class="o">=</span><span class="s1">&#39;reflect&#39;</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">conv2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">padding_mode</span><span class="o">=</span><span class="s1">&#39;reflect&#39;</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="c1"># Optimize conv2 to match conv1 using L1 loss on overlapping pixels</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">conv2</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">iteration</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+    <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+
+    <span class="n">output1</span> <span class="o">=</span> <span class="n">conv1</span><span class="p">(</span><span class="n">patches1</span><span class="p">)</span>
+    <span class="n">output2</span> <span class="o">=</span> <span class="n">conv2</span><span class="p">(</span><span class="n">patches2</span><span class="p">)</span>
+
+    <span class="c1"># Extract overlapping pixels</span>
+    <span class="n">overlapping1</span><span class="p">,</span> <span class="n">overlapping2</span> <span class="o">=</span> <span class="n">extract_overlapping_pixels</span><span class="p">(</span>
+        <span class="n">output1</span><span class="p">,</span> <span class="n">output2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span><span class="o">=</span><span class="n">rotations</span>
+    <span class="p">)</span>
+
+    <span class="c1"># L1 loss on corresponding pixels</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">l1_loss</span><span class="p">(</span><span class="n">overlapping1</span><span class="p">,</span> <span class="n">overlapping2</span><span class="p">)</span>
+    <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="how-it-works">
+<h3>How It Works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h3>
+<p><strong>Patch Pair Extraction:</strong></p>
+<ol class="arabic simple">
+<li><p>For each image in the input tensor, randomly samples <code class="docutils literal notranslate"><span class="pre">num_patches</span></code> locations.</p></li>
+<li><p>For each location <code class="docutils literal notranslate"><span class="pre">(x_i,</span> <span class="pre">y_i)</span></code>, samples a displacement vector <code class="docutils literal notranslate"><span class="pre">(dx_i,</span> <span class="pre">dy_i)</span></code> such that the Euclidean distance <code class="docutils literal notranslate"><span class="pre">sqrt(dx_i²</span> <span class="pre">+</span> <span class="pre">dy_i²)</span></code> is within <code class="docutils literal notranslate"><span class="pre">delta_range</span></code>.</p></li>
+<li><p>Extracts two patches:
+- Patch 1 at <code class="docutils literal notranslate"><span class="pre">(x_i,</span> <span class="pre">y_i)</span></code>
+- Patch 2 at <code class="docutils literal notranslate"><span class="pre">(x_i</span> <span class="pre">+</span> <span class="pre">dx_i,</span> <span class="pre">y_i</span> <span class="pre">+</span> <span class="pre">dy_i)</span></code></p></li>
+<li><p>Ensures both patches fit within image boundaries.</p></li>
+</ol>
+<p><strong>Overlapping Pixel Extraction:</strong></p>
+<ol class="arabic simple">
+<li><p>For each patch pair, computes which pixels have valid correspondences:
+- A pixel at <code class="docutils literal notranslate"><span class="pre">(u1,</span> <span class="pre">v1)</span></code> in patch1 corresponds to <code class="docutils literal notranslate"><span class="pre">(u1</span> <span class="pre">-</span> <span class="pre">dy,</span> <span class="pre">v1</span> <span class="pre">-</span> <span class="pre">dx)</span></code> in patch2
+- Only pixels where both coordinates are valid (within patch bounds) are included</p></li>
+<li><p>Extracts the overlapping regions from both patches.</p></li>
+<li><p>Flattens and concatenates all overlapping pixels into <code class="docutils literal notranslate"><span class="pre">(K,</span> <span class="pre">C)</span></code> tensors.</p></li>
+</ol>
+<p><strong>Key Properties:</strong></p>
+<ul class="simple">
+<li><p><strong>Partial overlap</strong>: Typically 30-70% of pixels overlap, depending on displacement</p></li>
+<li><p><strong>Gradient preservation</strong>: All operations maintain the computation graph</p></li>
+<li><p><strong>GPU-friendly</strong>: Optimized for GPU execution with minimal CPU-GPU transfers</p></li>
+<li><p><strong>Reproducible</strong>: Optional random seed for consistent results</p></li>
+</ul>
+</section>
+<section id="mathematical-details">
+<h3>Mathematical Details<a class="headerlink" href="#mathematical-details" title="Link to this heading"></a></h3>
+<p>Given:
+- Patch 1 extracted at <code class="docutils literal notranslate"><span class="pre">(x,</span> <span class="pre">y)</span></code> with size <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">V)</span></code>
+- Patch 2 extracted at <code class="docutils literal notranslate"><span class="pre">(x</span> <span class="pre">+</span> <span class="pre">dx,</span> <span class="pre">y</span> <span class="pre">+</span> <span class="pre">dy)</span></code> with size <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">V)</span></code>
+- Displacement vector <code class="docutils literal notranslate"><span class="pre">(dx,</span> <span class="pre">dy)</span></code></p>
+<p>A pixel at <code class="docutils literal notranslate"><span class="pre">(u1,</span> <span class="pre">v1)</span></code> in patch1 corresponds to the same spatial location as pixel <code class="docutils literal notranslate"><span class="pre">(u2,</span> <span class="pre">v2)</span></code> in patch2 when:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">u2</span> <span class="pre">=</span> <span class="pre">u1</span> <span class="pre">-</span> <span class="pre">dy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v2</span> <span class="pre">=</span> <span class="pre">v1</span> <span class="pre">-</span> <span class="pre">dx</span></code></p></li>
+</ul>
+<p>The overlap region in patch1 coordinates is:
+- <code class="docutils literal notranslate"><span class="pre">u1</span> <span class="pre">in</span> <span class="pre">[max(0,</span> <span class="pre">dy),</span> <span class="pre">min(U,</span> <span class="pre">U</span> <span class="pre">+</span> <span class="pre">dy))</span></code>
+- <code class="docutils literal notranslate"><span class="pre">v1</span> <span class="pre">in</span> <span class="pre">[max(0,</span> <span class="pre">dx),</span> <span class="pre">min(V,</span> <span class="pre">V</span> <span class="pre">+</span> <span class="pre">dx))</span></code></p>
+<p>This ensures both corresponding pixels are within their respective patch bounds.</p>
+</section>
+</section>
+<section id="d-patch-pair-extraction">
+<h2>3D Patch Pair Extraction<a class="headerlink" href="#d-patch-pair-extraction" title="Link to this heading"></a></h2>
+<p>The same functionality is available for 3D volumes (volumetric data).</p>
+<section id="basic-usage-3d">
+<h3>Basic Usage (3D)<a class="headerlink" href="#basic-usage-3d" title="Link to this heading"></a></h3>
+<p>Extract patch pairs from a 3D tensor:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs_3d</span><span class="p">,</span> <span class="n">extract_overlapping_pixels_3d</span>
+
+<span class="c1"># Create input tensor: (N, C, Z, Y, X)</span>
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>  <span class="c1"># 5 volumes, 1 channel, 64x64x64</span>
+
+<span class="c1"># Extract patch pairs</span>
+<span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>  <span class="c1"># 16x16x16 patches</span>
+<span class="n">num_patches</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># 10 patch pairs per volume</span>
+<span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">12.0</span><span class="p">)</span>  <span class="c1"># Euclidean distance between 8 and 12 voxels</span>
+
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span> <span class="o">=</span> <span class="n">extract_patch_pairs_3d</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span>
+<span class="p">)</span>
+
+<span class="c1"># patches1: (50, 1, 16, 16, 16) - first patches</span>
+<span class="c1"># patches2: (50, 1, 16, 16, 16) - second patches (displaced)</span>
+<span class="c1"># deltas: (50, 3) - displacement vectors (dx, dy, dz)</span>
+</pre></div>
+</div>
+<p>Extract overlapping pixels from 3D patches:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get overlapping pixels from patch pairs</span>
+<span class="n">overlapping1</span><span class="p">,</span> <span class="n">overlapping2</span> <span class="o">=</span> <span class="n">extract_overlapping_pixels_3d</span><span class="p">(</span>
+    <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span>
+<span class="p">)</span>
+
+<span class="c1"># overlapping1: (K, 1) - overlapping pixels from patches1</span>
+<span class="c1"># overlapping2: (K, 1) - overlapping pixels from patches2</span>
+<span class="c1"># K is the total number of overlapping pixels across all pairs</span>
+</pre></div>
+</div>
+</section>
+<section id="d-mathematical-details">
+<h3>3D Mathematical Details<a class="headerlink" href="#d-mathematical-details" title="Link to this heading"></a></h3>
+<p>Given:
+- Patch 1 extracted at <code class="docutils literal notranslate"><span class="pre">(x,</span> <span class="pre">y,</span> <span class="pre">z)</span></code> with size <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">V,</span> <span class="pre">W)</span></code>
+- Patch 2 extracted at <code class="docutils literal notranslate"><span class="pre">(x</span> <span class="pre">+</span> <span class="pre">dx,</span> <span class="pre">y</span> <span class="pre">+</span> <span class="pre">dy,</span> <span class="pre">z</span> <span class="pre">+</span> <span class="pre">dz)</span></code> with size <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">V,</span> <span class="pre">W)</span></code>
+- Displacement vector <code class="docutils literal notranslate"><span class="pre">(dx,</span> <span class="pre">dy,</span> <span class="pre">dz)</span></code></p>
+<p>A pixel at <code class="docutils literal notranslate"><span class="pre">(u1,</span> <span class="pre">v1,</span> <span class="pre">w1)</span></code> in patch1 corresponds to the same spatial location as pixel <code class="docutils literal notranslate"><span class="pre">(u2,</span> <span class="pre">v2,</span> <span class="pre">w2)</span></code> in patch2 when:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">u2</span> <span class="pre">=</span> <span class="pre">u1</span> <span class="pre">-</span> <span class="pre">dz</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v2</span> <span class="pre">=</span> <span class="pre">v1</span> <span class="pre">-</span> <span class="pre">dy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">w2</span> <span class="pre">=</span> <span class="pre">w1</span> <span class="pre">-</span> <span class="pre">dx</span></code></p></li>
+</ul>
+<p>The overlap region in patch1 coordinates is:
+- <code class="docutils literal notranslate"><span class="pre">u1</span> <span class="pre">in</span> <span class="pre">[max(0,</span> <span class="pre">dz),</span> <span class="pre">min(U,</span> <span class="pre">U</span> <span class="pre">+</span> <span class="pre">dz))</span></code>
+- <code class="docutils literal notranslate"><span class="pre">v1</span> <span class="pre">in</span> <span class="pre">[max(0,</span> <span class="pre">dy),</span> <span class="pre">min(V,</span> <span class="pre">V</span> <span class="pre">+</span> <span class="pre">dy))</span></code>
+- <code class="docutils literal notranslate"><span class="pre">w1</span> <span class="pre">in</span> <span class="pre">[max(0,</span> <span class="pre">dx),</span> <span class="pre">min(W,</span> <span class="pre">W</span> <span class="pre">+</span> <span class="pre">dx))</span></code></p>
+<p>The Euclidean distance constraint is: <code class="docutils literal notranslate"><span class="pre">low</span> <span class="pre">&lt;=</span> <span class="pre">sqrt(dx²</span> <span class="pre">+</span> <span class="pre">dy²</span> <span class="pre">+</span> <span class="pre">dz²)</span> <span class="pre">&lt;=</span> <span class="pre">high</span></code></p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="examples.html" class="btn btn-neutral float-right" title="Examples" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Petrus H. Zwart.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
