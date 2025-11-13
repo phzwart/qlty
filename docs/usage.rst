@@ -335,19 +335,20 @@ Extract patch pairs from a tensor::
     num_patches = 5    # 5 patch pairs per image
     delta_range = (8.0, 16.0)  # Euclidean distance between 8 and 16 pixels
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=42
     )
 
     # patches1: (50, 3, 32, 32) - first patches
     # patches2: (50, 3, 32, 32) - second patches (displaced)
     # deltas: (50, 2) - displacement vectors (dx, dy)
+    # rotations: (50,) - quarter-turn rotation applied to second patch (all zeros by default)
 
 Extract overlapping pixels::
 
     # Get overlapping pixels from patch pairs
     overlapping1, overlapping2 = extract_overlapping_pixels(
-        patches1, patches2, deltas
+        patches1, patches2, deltas, rotations=rotations
     )
 
     # overlapping1: (K, 3) - overlapping pixels from patches1
@@ -384,7 +385,7 @@ A common use case is optimizing neural network kernels using L1 loss on overlapp
     tensor = torch.randn(10, 1, 32, 32)
 
     # Extract patch pairs
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window=(9, 9), num_patches=5, delta_range=(3.0, 6.0)
     )
     patches1 = patches1.detach()
@@ -405,7 +406,7 @@ A common use case is optimizing neural network kernels using L1 loss on overlapp
 
         # Extract overlapping pixels
         overlapping1, overlapping2 = extract_overlapping_pixels(
-            output1, output2, deltas
+            output1, output2, deltas, rotations=rotations
         )
 
         # L1 loss on corresponding pixels

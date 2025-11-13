@@ -35,7 +35,7 @@ def test_kernel_optimization_with_overlapping_pixels():
     num_patches = 5  # 5 patch pairs per image = 50 total pairs
     delta_range = (3.0, 6.0)  # Valid range for 9x9 window (9//4=2, 3*9//4=6)
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, _ = extract_patch_pairs(
         input_tensor, window, num_patches, delta_range, random_seed=42
     )
 
@@ -164,7 +164,7 @@ def test_kernel_optimization_different_initialization():
     num_patches = 3
     delta_range = (3.0, 6.0)
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, _ = extract_patch_pairs(
         input_tensor, window, num_patches, delta_range, random_seed=123
     )
 
@@ -247,7 +247,7 @@ def test_alternating_kernel_optimization():
     num_patches = 5  # 5 patch pairs per image = 50 total pairs
     delta_range = (3.0, 6.0)
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, _ = extract_patch_pairs(
         input_tensor, window, num_patches, delta_range, random_seed=456
     )
 
@@ -272,12 +272,12 @@ def test_alternating_kernel_optimization():
     print(f"  Pixels per patch: {total_pixels_per_patch}")
     print(f"  Total possible pixels: {total_possible_pixels}")
     print(f"  Overlapping pixels: {overlapping_pixels_count}")
-    print(f"  Overlap fraction: {overlap_fraction:.4f} ({overlap_fraction*100:.2f}%)")
+    print(f"  Overlap fraction: {overlap_fraction:.4f} ({overlap_fraction * 100:.2f}%)")
 
     # Verify overlap is less than 100%
     assert (
         overlap_fraction < 1.0
-    ), f"Overlap fraction should be less than 100%, got {overlap_fraction*100:.2f}%"
+    ), f"Overlap fraction should be less than 100%, got {overlap_fraction * 100:.2f}%"
     assert (
         overlapping_pixels_count < total_possible_pixels
     ), f"Overlapping pixels ({overlapping_pixels_count}) should be less than total possible ({total_possible_pixels})"

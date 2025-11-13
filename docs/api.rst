@@ -177,7 +177,8 @@ extract_overlapping_pixels
     import torch
 
     # Extract patch pairs
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window=(32, 32), num_patches=10, delta_range=(8.0, 16.0)
     )
 

@@ -16,7 +16,7 @@ def test_extract_patch_pairs_basic():
     num_patches = 5
     delta_range = (6.0, 10.0)  # Valid range within [4, 12]
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window, num_patches, delta_range
     )
 
@@ -24,6 +24,7 @@ def test_extract_patch_pairs_basic():
     assert patches1.shape == (2 * num_patches, 3, 16, 16)
     assert patches2.shape == (2 * num_patches, 3, 16, 16)
     assert deltas.shape == (2 * num_patches, 2)
+    assert rotations.shape == (2 * num_patches,)
 
     # Check that deltas are floats
     assert deltas.dtype == torch.float32
@@ -40,7 +41,7 @@ def test_extract_patch_pairs_delta_constraints():
     num_patches = 20
     delta_range = (10.0, 20.0)
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=42
     )
 
@@ -51,6 +52,7 @@ def test_extract_patch_pairs_delta_constraints():
         assert (
             delta_range[0] <= distance <= delta_range[1]
         ), f"Delta {i}: ({dx}, {dy}) has distance {distance}, not in [{delta_range[0]}, {delta_range[1]}]"
+    assert torch.all(rotations == 0)
 
 
 def test_extract_patch_pairs_reproducibility():
@@ -61,10 +63,10 @@ def test_extract_patch_pairs_reproducibility():
     delta_range = (5.0, 10.0)
 
     # Extract with same seed twice
-    patches1_a, patches2_a, deltas_a = extract_patch_pairs(
+    patches1_a, patches2_a, deltas_a, rotations_a = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=123
     )
-    patches1_b, patches2_b, deltas_b = extract_patch_pairs(
+    patches1_b, patches2_b, deltas_b, rotations_b = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=123
     )
 
@@ -72,6 +74,7 @@ def test_extract_patch_pairs_reproducibility():
     assert torch.allclose(patches1_a, patches1_b)
     assert torch.allclose(patches2_a, patches2_b)
     assert torch.allclose(deltas_a, deltas_b)
+    assert torch.equal(rotations_a, rotations_b)
 
 
 def test_extract_patch_pairs_different_seeds():
@@ -81,10 +84,10 @@ def test_extract_patch_pairs_different_seeds():
     num_patches = 5
     delta_range = (5.0, 10.0)
 
-    patches1_a, patches2_a, deltas_a = extract_patch_pairs(
+    patches1_a, patches2_a, deltas_a, rotations_a = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=1
     )
-    patches1_b, patches2_b, deltas_b = extract_patch_pairs(
+    patches1_b, patches2_b, deltas_b, rotations_b = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=2
     )
 
@@ -99,7 +102,7 @@ def test_extract_patch_pairs_multiple_images():
     num_patches = 3
     delta_range = (8.0, 16.0)
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window, num_patches, delta_range
     )
 
@@ -107,6 +110,7 @@ def test_extract_patch_pairs_multiple_images():
     assert patches1.shape[0] == 5 * num_patches
     assert patches2.shape[0] == 5 * num_patches
     assert deltas.shape[0] == 5 * num_patches
+    assert rotations.shape[0] == 5 * num_patches
 
 
 def test_extract_patch_pairs_invalid_input_shape():
@@ -162,13 +166,14 @@ def test_extract_patch_pairs_rectangular_window():
     num_patches = 5
     delta_range = (8.0, 16.0)  # max_window = 32, so constraints are based on 32
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window, num_patches, delta_range
     )
 
     # Check output shapes match window
     assert patches1.shape == (2 * num_patches, 2, 16, 32)
     assert patches2.shape == (2 * num_patches, 2, 16, 32)
+    assert rotations.shape == (2 * num_patches,)
 
 
 def test_extract_patch_pairs_negative_displacements():
@@ -178,7 +183,7 @@ def test_extract_patch_pairs_negative_displacements():
     num_patches = 20
     delta_range = (10.0, 20.0)
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=42
     )
 
@@ -187,6 +192,30 @@ def test_extract_patch_pairs_negative_displacements():
         dx, dy = deltas[i, 0].item(), deltas[i, 1].item()
         distance = (dx**2 + dy**2) ** 0.5
         assert delta_range[0] <= distance <= delta_range[1]
+
+
+def test_extract_patch_pairs_rotation_choices():
+    """Ensure rotations drawn from allowed set."""
+    tensor = torch.arange(64 * 64, dtype=torch.float32).reshape(1, 1, 64, 64)
+    window = (16, 16)
+    num_patches = 12
+    delta_range = (8.0, 12.0)
+    rotation_choices = (0, 1, 3)
+
+    _, _, _, rotations = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=0,
+        rotation_choices=rotation_choices,
+    )
+
+    allowed = set(rotation_choices)
+    observed = set(rotations.cpu().tolist())
+    assert observed.issubset(allowed)
+    assert rotations.shape == (num_patches,)
+    assert torch.any(rotations != 0)
 
 
 def test_extract_patch_pairs_patches_within_bounds():
@@ -200,13 +229,14 @@ def test_extract_patch_pairs_patches_within_bounds():
     num_patches = 10
     delta_range = (5.0, 10.0)
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=42
     )
 
     # All patches should be valid (non-NaN, finite)
     assert torch.all(torch.isfinite(patches1))
     assert torch.all(torch.isfinite(patches2))
+    assert torch.all(rotations == 0)
 
     # Patches should be within reasonable value range (0 to 1 in this case)
     assert torch.all(patches1 >= 0)
@@ -222,13 +252,14 @@ def test_extract_patch_pairs_device_consistency():
         num_patches = 3
         delta_range = (5.0, 10.0)
 
-        patches1, patches2, deltas = extract_patch_pairs(
+        patches1, patches2, deltas, rotations = extract_patch_pairs(
             tensor, window, num_patches, delta_range
         )
 
         assert patches1.device == device
         assert patches2.device == device
         assert deltas.device == device
+        assert rotations.device == device
 
 
 def test_extract_patch_pairs_edge_case_minimum_delta():
@@ -238,7 +269,7 @@ def test_extract_patch_pairs_edge_case_minimum_delta():
     num_patches = 5
     delta_range = (8.0, 8.0)  # Minimum at boundary
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=42
     )
 
@@ -248,6 +279,7 @@ def test_extract_patch_pairs_edge_case_minimum_delta():
         distance = (dx**2 + dy**2) ** 0.5
         # Allow small tolerance for integer rounding
         assert abs(distance - 8.0) < 1.0, f"Distance {distance} not close to 8.0"
+    assert torch.all(rotations == 0)
 
 
 def test_extract_patch_pairs_edge_case_maximum_delta():
@@ -257,7 +289,7 @@ def test_extract_patch_pairs_edge_case_maximum_delta():
     num_patches = 5
     delta_range = (24.0, 24.0)  # Maximum at boundary
 
-    patches1, patches2, deltas = extract_patch_pairs(
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
         tensor, window, num_patches, delta_range, random_seed=42
     )
 
@@ -267,6 +299,7 @@ def test_extract_patch_pairs_edge_case_maximum_delta():
         distance = (dx**2 + dy**2) ** 0.5
         # Allow tolerance for integer rounding
         assert abs(distance - 24.0) < 1.0, f"Distance {distance} not close to 24.0"
+    assert torch.all(rotations == 0)
 
 
 def test_extract_overlapping_pixels_basic():
@@ -298,6 +331,22 @@ def test_extract_overlapping_pixels_basic():
     # Check that all values are finite
     assert torch.all(torch.isfinite(overlapping1))
     assert torch.all(torch.isfinite(overlapping2))
+
+
+def test_extract_overlapping_pixels_with_rotations():
+    """Verify overlaps align when rotations are provided."""
+    base = torch.arange(16, dtype=torch.float32).reshape(1, 4, 4)
+    patches1 = base.unsqueeze(0)  # (1,1,4,4)
+    patches2 = torch.rot90(base, k=1, dims=(-2, -1)).unsqueeze(0)
+    deltas = torch.zeros(1, 2)
+    rotations = torch.tensor([1])
+
+    overlapping1, overlapping2 = extract_overlapping_pixels(
+        patches1, patches2, deltas, rotations=rotations
+    )
+
+    assert torch.allclose(overlapping1, overlapping2)
+    assert overlapping1.shape == (16, 1)
 
 
 def test_extract_overlapping_pixels_no_overlap():
@@ -368,6 +417,13 @@ def test_extract_overlapping_pixels_invalid_inputs():
     deltas_wrong = torch.tensor([1.0, 1.0, 2.0, 2.0])
     with pytest.raises(ValueError, match="must be 2D tensor"):
         extract_overlapping_pixels(patches1, patches2, deltas_wrong)
+
+    rotations_wrong = torch.tensor([0, 1])
+    deltas_valid = torch.tensor([[1.0, 1.0]] * patches1.shape[0])
+    with pytest.raises(ValueError, match="Number of rotations"):
+        extract_overlapping_pixels(
+            patches1, patches2, deltas_valid, rotations=rotations_wrong
+        )
 
 
 def test_extract_overlapping_pixels_partial_overlap():

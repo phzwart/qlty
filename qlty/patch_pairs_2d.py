@@ -5,7 +5,7 @@ This module provides functionality to extract pairs of patches from 2D tensors
 where the displacement between patch centers follows specified constraints.
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 import torch
 
@@ -16,7 +16,8 @@ def extract_patch_pairs(
     num_patches: int,
     delta_range: Tuple[float, float],
     random_seed: Optional[int] = None,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    rotation_choices: Optional[Sequence[int]] = None,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Extract pairs of patches from 2D image tensors with controlled displacement.
 
@@ -47,14 +48,20 @@ def extract_patch_pairs(
     random_seed : Optional[int], optional
         Random seed for reproducibility. If None, uses current random state.
         Default is None.
+    rotation_choices : Optional[Sequence[int]], optional
+        Allowed quarter-turn rotations (0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°) to apply
+        to the second patch in each pair. If provided, a rotation from this set is
+        sampled uniformly per pair and tracked in the returned `rotations` tensor.
+        When None (default), no rotations are applied.
 
     Returns
     -------
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
         A tuple containing:
         - patches1: Tensor of shape (N*P, C, U, V) containing patches at (x_i, y_i)
         - patches2: Tensor of shape (N*P, C, U, V) containing patches at (x_i + dx_i, y_i + dy_i)
         - deltas: Tensor of shape (N*P, 2) containing (dx_i, dy_i) displacement vectors
+        - rotations: Tensor of shape (N*P,) containing quarter-turn rotations applied to patches2
 
     Raises
     ------
@@ -68,10 +75,13 @@ def extract_patch_pairs(
     >>> window = (32, 32)  # 32x32 patches
     >>> num_patches = 10  # 10 patch pairs per image
     >>> delta_range = (8.0, 16.0)  # Euclidean distance between 8 and 16 pixels
-    >>> patches1, patches2, deltas = extract_patch_pairs(tensor, window, num_patches, delta_range)
-    >>> print(patches1.shape)  # (50, 3, 32, 32)
-    >>> print(patches2.shape)  # (50, 3, 32, 32)
-    >>> print(deltas.shape)    # (50, 2)
+    >>> patches1, patches2, deltas, rotations = extract_patch_pairs(
+    ...     tensor, window, num_patches, delta_range
+    ... )
+    >>> print(patches1.shape)   # (50, 3, 32, 32)
+    >>> print(patches2.shape)   # (50, 3, 32, 32)
+    >>> print(deltas.shape)     # (50, 2)
+    >>> print(rotations.shape)  # (50,)
     """
     # Validate input tensor shape
     if len(tensor.shape) != 4:
@@ -123,6 +133,20 @@ def extract_patch_pairs(
     deltas_tensor = torch.empty(
         (total_patches, 2), dtype=torch.float32, device=tensor.device
     )
+    rotations_tensor = torch.zeros(
+        total_patches, dtype=torch.int64, device=tensor.device
+    )
+
+    if rotation_choices is None:
+        rotation_choices = (0,)
+    else:
+        rotation_choices = tuple(int(choice) % 4 for choice in rotation_choices)
+        if len(rotation_choices) == 0:
+            rotation_choices = (0,)
+    rotation_choices_tensor = torch.tensor(
+        rotation_choices, dtype=torch.int64, device=tensor.device
+    )
+    allow_rotations = any(choice != 0 for choice in rotation_choices)
 
     patch_idx = 0
 
@@ -193,15 +217,32 @@ def extract_patch_pairs(
                 :, y_int + dy : y_int + dy + U, x_int + dx : x_int + dx + V
             ]  # Shape: (C, U, V)
 
+            if allow_rotations:
+                rotation_idx_tensor = torch.randint(
+                    0,
+                    rotation_choices_tensor.numel(),
+                    (1,),
+                    generator=generator,
+                    device=tensor.device,
+                )[0]
+                rotation_idx = int(rotation_idx_tensor)
+                rotation = int(rotation_choices_tensor[rotation_idx])
+            else:
+                rotation = 0
+
+            if rotation != 0:
+                patch2 = torch.rot90(patch2, k=rotation, dims=(-2, -1))
+
             # Store patches and delta directly in pre-allocated tensors
             patches1[patch_idx] = patch1
             patches2[patch_idx] = patch2
             deltas_tensor[patch_idx, 0] = float(dx)
             deltas_tensor[patch_idx, 1] = float(dy)
+            rotations_tensor[patch_idx] = rotation
 
             patch_idx += 1
 
-    return patches1, patches2, deltas_tensor
+    return patches1, patches2, deltas_tensor, rotations_tensor
 
 
 def _sample_displacement_vector(
@@ -298,6 +339,7 @@ def extract_overlapping_pixels(
     patches1: torch.Tensor,
     patches2: torch.Tensor,
     deltas: torch.Tensor,
+    rotations: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Extract overlapping pixels from patch pairs based on displacement vectors.
@@ -319,6 +361,10 @@ def extract_overlapping_pixels(
         extracted at displaced locations
     deltas : torch.Tensor
         Displacement vectors, shape (N*P, 2) containing (dx, dy) for each pair
+    rotations : Optional[torch.Tensor], optional
+        Quarter-turn rotations (0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°) that were
+        applied to `patches2`. When provided, each value is used to undo the rotation
+        before extracting overlaps so that corresponding pixels align spatially.
 
     Returns
     -------
@@ -364,6 +410,15 @@ def extract_overlapping_pixels(
             f"Number of deltas ({deltas.shape[0]}) must match number of patch pairs ({num_pairs})"
         )
 
+    if rotations is not None:
+        if rotations.shape[0] != num_pairs:
+            raise ValueError(
+                f"Number of rotations ({rotations.shape[0]}) must match number of patch pairs ({num_pairs})"
+            )
+        rotations_int = rotations.int()
+    else:
+        rotations_int = None
+
     # Convert deltas to integers for indexing (keep on same device)
     deltas_int = deltas.int()
 
@@ -382,6 +437,11 @@ def extract_overlapping_pixels(
         # Get the two patches
         patch1 = patches1[i]  # Shape: (C, U, V)
         patch2 = patches2[i]  # Shape: (C, U, V)
+        rotation = 0
+        if rotations_int is not None:
+            rotation = int(rotations_int[i] % 4)
+            if rotation != 0:
+                patch2 = torch.rot90(patch2, k=-rotation, dims=(-2, -1))
 
         # Find valid overlap region in patch1 coordinates
         # A pixel at (u1, v1) in patch1 corresponds to (u1 - dy, v1 - dx) in patch2
