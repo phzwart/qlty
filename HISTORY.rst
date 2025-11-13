@@ -2,6 +2,12 @@
 History
 =======
 
+1.2.0 (2025-11-13)
+------------------
+
+* Added optional rotation-aware extraction for 2D patch pairs with matching overlap handling.
+* Expanded tests and documentation to cover rotated patch workflows.
+
 1.1.0 (2025-11-12)
 ------------------
 
