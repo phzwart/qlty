@@ -2,6 +2,16 @@
 History
 =======
 
+1.3.0 (2025-01-XX)
+------------------
+
+* Added ``pretokenizer_2d`` module for pre-tokenization of patches with sequence model support (2D).
+* New functions: ``tokenize_patch()`` and ``build_sequence_pair()`` for converting patches
+  into token sequences with overlap information.
+* Optimized batch processing with numba JIT compilation and parallel execution.
+* Supports both single patches and batched processing for efficient training workflows.
+* Designed for self-supervised learning, contrastive learning, and transformer-based models.
+
 1.2.0 (2025-11-13)
 ------------------
 

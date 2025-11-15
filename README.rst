@@ -23,7 +23,8 @@ Features
 * 2D and 3D tensor support
 * Sparse data handling utilities
 * Patch pair extraction helpers for partially overlapping regions in 2D and 3D
-* Numba acceleration for 2D stitching with race-free colored parallelism
+* Pre-tokenization utilities (``pretokenizer_2d``) for preparing patches for sequence models
+* Numba acceleration for 2D stitching and batch token processing with parallel execution
 
 Quick Start
 -----------

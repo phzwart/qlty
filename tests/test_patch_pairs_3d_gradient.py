@@ -174,12 +174,12 @@ def test_alternating_kernel_optimization_3d():
     print(f"  Pixels per patch: {total_pixels_per_patch}")
     print(f"  Total possible pixels: {total_possible_pixels}")
     print(f"  Overlapping pixels: {overlapping_pixels_count}")
-    print(f"  Overlap fraction: {overlap_fraction:.4f} ({overlap_fraction*100:.2f}%)")
+    print(f"  Overlap fraction: {overlap_fraction:.4f} ({overlap_fraction * 100:.2f}%)")
 
     # Verify overlap is less than 100%
     assert (
         overlap_fraction < 1.0
-    ), f"Overlap fraction should be less than 100%, got {overlap_fraction*100:.2f}%"
+    ), f"Overlap fraction should be less than 100%, got {overlap_fraction * 100:.2f}%"
 
     # Create two trainable Conv3D layers
     kernel_size = 3
