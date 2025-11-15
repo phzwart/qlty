@@ -1,0 +1,968 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qlty.pretokenizer_2d.sequences &mdash; qlty 1.2.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=ca842793"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            qlty
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../readme.html">qlty</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../authors.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../history.html">History</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">qlty</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">qlty.pretokenizer_2d.sequences</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qlty.pretokenizer_2d.sequences</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Pre-tokenization utilities for patch processing.</span>
+
+<span class="sd">This module provides functions to prepare patches for tokenization by splitting them</span>
+<span class="sd">into subpatches (tokens) and computing overlap information between patch pairs.</span>
+<span class="sd">The actual tokenization (conversion to embeddings) is done by downstream models.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">qlty.qlty2D</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCYXQuilt</span>
+
+<span class="c1"># Try to import numba for JIT compilation</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">njit</span><span class="p">,</span> <span class="n">prange</span>
+
+    <span class="n">HAS_NUMBA</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">HAS_NUMBA</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<div class="viewcode-block" id="tokenize_patch">
+<a class="viewcode-back" href="../../../api.html#qlty.pretokenizer_2d.sequences.tokenize_patch">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tokenize_patch</span><span class="p">(</span>
+    <span class="n">patch</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">stride</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Pre-tokenize a patch by splitting it into a sequence of subpatches with absolute coordinates.</span>
+
+<span class="sd">    This is a pre-tokenization step that splits the patch into square subpatches</span>
+<span class="sd">    (potentially overlapping) using a sliding window approach. The subpatches are</span>
+<span class="sd">    returned as a sequence with their absolute coordinates within the patch.</span>
+<span class="sd">    These subpatches can then be tokenized (converted to embeddings) by downstream</span>
+<span class="sd">    models. Subpatches are extracted such that they never extend beyond patch boundaries.</span>
+
+<span class="sd">    This function uses qlty&#39;s NCYXQuilt framework for patch extraction, ensuring</span>
+<span class="sd">    consistency with the rest of the qlty codebase.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    patch : torch.Tensor</span>
+<span class="sd">        Input patch of shape (C, H, W) where:</span>
+<span class="sd">        - C: Number of channels</span>
+<span class="sd">        - H: Height of patch</span>
+<span class="sd">        - W: Width of patch</span>
+<span class="sd">    patch_size : int</span>
+<span class="sd">        Size of each token in pixels</span>
+<span class="sd">    stride : int, optional</span>
+<span class="sd">        Stride for sliding window extraction. Defaults to patch_size // 2.</span>
+<span class="sd">        Must be positive and &lt;= patch_size.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple[torch.Tensor, torch.Tensor]</span>
+<span class="sd">        A tuple containing:</span>
+<span class="sd">        - tokens: Tensor of shape (T, C * patch_size * patch_size) where T is</span>
+<span class="sd">          the number of tokens. Tokens are in row-major order.</span>
+<span class="sd">        - coords: Tensor of shape (T, 2) containing absolute pixel coordinates</span>
+<span class="sd">          (y, x) of the top-left corner of each token within the patch.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; patch = torch.randn(3, 16, 16)  # 3 channels, 16x16 patch</span>
+<span class="sd">    &gt;&gt;&gt; tokens, coords = tokenize_patch(patch, patch_size=4)</span>
+<span class="sd">    &gt;&gt;&gt; print(tokens.shape)  # (25, 48) - 25 tokens with stride=2, each 3*4*4=48 dims</span>
+<span class="sd">    &gt;&gt;&gt; print(coords.shape)  # (25, 2) - coordinates for each token</span>
+<span class="sd">    &gt;&gt;&gt; # coords[0] = [0, 0] for top-left token</span>
+<span class="sd">    &gt;&gt;&gt; # coords[1] = [0, 2] for next token to the right (with stride=2)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">patch</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;patch must be 3D (C, H, W), got shape </span><span class="si">{</span><span class="n">patch</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">C</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">patch</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="k">if</span> <span class="n">patch_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;patch_size must be positive, got </span><span class="si">{</span><span class="n">patch_size</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">stride</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stride</span> <span class="o">=</span> <span class="n">patch_size</span> <span class="o">//</span> <span class="mi">2</span>
+
+    <span class="k">if</span> <span class="n">stride</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stride must be positive, got </span><span class="si">{</span><span class="n">stride</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">stride</span> <span class="o">&gt;</span> <span class="n">patch_size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stride (</span><span class="si">{</span><span class="n">stride</span><span class="si">}</span><span class="s2">) must be &lt;= patch_size (</span><span class="si">{</span><span class="n">patch_size</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">patch_size</span> <span class="o">&gt;</span> <span class="n">H</span> <span class="ow">or</span> <span class="n">patch_size</span> <span class="o">&gt;</span> <span class="n">W</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;patch_size (</span><span class="si">{</span><span class="n">patch_size</span><span class="si">}</span><span class="s2">) must be &lt;= patch dimensions (</span><span class="si">{</span><span class="n">H</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">W</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Use qlty&#39;s NCYXQuilt framework for patch extraction</span>
+    <span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span>
+        <span class="n">Y</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
+        <span class="n">X</span><span class="o">=</span><span class="n">W</span><span class="p">,</span>
+        <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="n">patch_size</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">),</span>
+        <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="n">stride</span><span class="p">,</span> <span class="n">stride</span><span class="p">),</span>
+        <span class="n">border</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># No border weighting needed for tokenization</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Add batch dimension: (C, H, W) -&gt; (1, C, H, W)</span>
+    <span class="n">patch_batch</span> <span class="o">=</span> <span class="n">patch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># Extract patches using qlty&#39;s unstitch: (1, C, H, W) -&gt; (T, C, patch_size, patch_size)</span>
+    <span class="n">patches</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">patch_batch</span><span class="p">)</span>
+
+    <span class="c1"># Flatten patches: (T, C, patch_size, patch_size) -&gt; (T, C * patch_size * patch_size)</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="n">patches</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">tokens</span> <span class="o">=</span> <span class="n">patches</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">C</span> <span class="o">*</span> <span class="n">patch_size</span> <span class="o">*</span> <span class="n">patch_size</span><span class="p">)</span>
+
+    <span class="c1"># Compute coordinates using the same logic as NCYXQuilt.unstitch()</span>
+    <span class="c1"># This ensures consistency with how patches are extracted</span>
+    <span class="n">coords_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">nY</span><span class="p">,</span> <span class="n">nX</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">get_times</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">yy</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nY</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nX</span><span class="p">):</span>
+            <span class="n">start_y</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">yy</span> <span class="o">*</span> <span class="n">stride</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">patch_size</span><span class="p">)</span>
+            <span class="n">start_x</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">xx</span> <span class="o">*</span> <span class="n">stride</span><span class="p">,</span> <span class="n">W</span> <span class="o">-</span> <span class="n">patch_size</span><span class="p">)</span>
+            <span class="n">coords_list</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">start_y</span><span class="p">,</span> <span class="n">start_x</span><span class="p">])</span>
+
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">coords_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">tokens</span><span class="p">,</span> <span class="n">coords</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_overlapping_tokens</span><span class="p">(</span>
+    <span class="n">coords1</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">coords2</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">dy</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">rot_k90</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">patch_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find overlapping tokens between two patches given their geometric relationship.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    coords1 : torch.Tensor</span>
+<span class="sd">        Token coordinates from patch1, shape (T1, 2) with (y, x) pixel coordinates</span>
+<span class="sd">    coords2 : torch.Tensor</span>
+<span class="sd">        Token coordinates from patch2, shape (T2, 2) with (y, x) pixel coordinates</span>
+<span class="sd">    dx : float</span>
+<span class="sd">        Translation in pixels along x-axis</span>
+<span class="sd">    dy : float</span>
+<span class="sd">        Translation in pixels along y-axis</span>
+<span class="sd">    rot_k90 : int</span>
+<span class="sd">        Rotation applied to patch2 in 90-degree increments (0, 1, 2, or 3)</span>
+<span class="sd">    patch_size : int</span>
+<span class="sd">        Size of each token in pixels</span>
+<span class="sd">    patch_shape : Tuple[int, int]</span>
+<span class="sd">        Shape of the patch (H, W) in pixels</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
+<span class="sd">        A tuple containing:</span>
+<span class="sd">        - overlap_mask1: Boolean tensor of shape (T1,) indicating which tokens</span>
+<span class="sd">          in patch1 have overlaps in patch2</span>
+<span class="sd">        - overlap_indices1_to_2: Long tensor of shape (T1,) where overlap_indices1_to_2[i]</span>
+<span class="sd">          is the index into coords2/tokens2 for the overlapping token, or -1</span>
+<span class="sd">          if no overlap exists</span>
+<span class="sd">        - overlap_mask2: Boolean tensor of shape (T2,) indicating which tokens</span>
+<span class="sd">          in patch2 have overlaps in patch1</span>
+<span class="sd">        - overlap_indices2_to_1: Long tensor of shape (T2,) where overlap_indices2_to_1[j]</span>
+<span class="sd">          is the index into coords1/tokens1 for the overlapping token, or -1</span>
+<span class="sd">          if no overlap exists</span>
+<span class="sd">        - overlap_fractions: Float tensor of shape (T1,) containing the fraction</span>
+<span class="sd">          of overlap for each token in patch1 (0.0 to 1.0), or 0.0 if no overlap</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">T1</span> <span class="o">=</span> <span class="n">coords1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">T2</span> <span class="o">=</span> <span class="n">coords2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">patch_shape</span>
+    <span class="n">rot_k90</span> <span class="o">=</span> <span class="n">rot_k90</span> <span class="o">%</span> <span class="mi">4</span>
+
+    <span class="n">overlap_mask1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">T1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">coords1</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">overlap_indices1_to_2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">T1</span><span class="p">,),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">coords1</span><span class="o">.</span><span class="n">device</span>
+    <span class="p">)</span>
+    <span class="n">overlap_mask2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">T2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">coords2</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">overlap_indices2_to_1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">T2</span><span class="p">,),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">coords2</span><span class="o">.</span><span class="n">device</span>
+    <span class="p">)</span>
+    <span class="n">overlap_fractions</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">T1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">coords1</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="n">token_area</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">patch_size</span> <span class="o">*</span> <span class="n">patch_size</span><span class="p">)</span>
+
+    <span class="c1"># For each token in patch1, find if it overlaps with any token in patch2</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">T1</span><span class="p">):</span>
+        <span class="n">y1</span> <span class="o">=</span> <span class="n">coords1</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">coords1</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+        <span class="c1"># Token region in patch1: [y1, y1+patch_size) x [x1, x1+patch_size)</span>
+        <span class="c1"># Transform the four corners of this token to patch2&#39;s coordinate system</span>
+        <span class="n">corners1</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">),</span>  <span class="c1"># top-left</span>
+            <span class="p">(</span><span class="n">x1</span> <span class="o">+</span> <span class="n">patch_size</span><span class="p">,</span> <span class="n">y1</span><span class="p">),</span>  <span class="c1"># top-right</span>
+            <span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span> <span class="o">+</span> <span class="n">patch_size</span><span class="p">),</span>  <span class="c1"># bottom-left</span>
+            <span class="p">(</span><span class="n">x1</span> <span class="o">+</span> <span class="n">patch_size</span><span class="p">,</span> <span class="n">y1</span> <span class="o">+</span> <span class="n">patch_size</span><span class="p">),</span>  <span class="c1"># bottom-right</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Transform corners to patch2&#39;s coordinate system</span>
+        <span class="n">corners2</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">corners1</span><span class="p">:</span>
+            <span class="c1"># Apply inverse translation</span>
+            <span class="n">x_unrot</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">dx</span>
+            <span class="n">y_unrot</span> <span class="o">=</span> <span class="n">y</span> <span class="o">-</span> <span class="n">dy</span>
+
+            <span class="c1"># Apply inverse rotation</span>
+            <span class="k">if</span> <span class="n">rot_k90</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">x2</span> <span class="o">=</span> <span class="n">x_unrot</span>
+                <span class="n">y2</span> <span class="o">=</span> <span class="n">y_unrot</span>
+            <span class="k">elif</span> <span class="n">rot_k90</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># 90° clockwise rotation: (x, y) -&gt; (y, W - x)</span>
+                <span class="c1"># Inverse: (x, y) -&gt; (W - y, x)</span>
+                <span class="n">x2</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">y_unrot</span>
+                <span class="n">y2</span> <span class="o">=</span> <span class="n">x_unrot</span>
+            <span class="k">elif</span> <span class="n">rot_k90</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="c1"># 180° rotation: (x, y) -&gt; (W - x, H - y)</span>
+                <span class="n">x2</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">x_unrot</span>
+                <span class="n">y2</span> <span class="o">=</span> <span class="n">H</span> <span class="o">-</span> <span class="n">y_unrot</span>
+            <span class="k">elif</span> <span class="n">rot_k90</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="c1"># 270° clockwise: (x, y) -&gt; (H - y, x)</span>
+                <span class="c1"># Inverse: (x, y) -&gt; (y, H - x)</span>
+                <span class="n">x2</span> <span class="o">=</span> <span class="n">y_unrot</span>
+                <span class="n">y2</span> <span class="o">=</span> <span class="n">H</span> <span class="o">-</span> <span class="n">x_unrot</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid rotation: </span><span class="si">{</span><span class="n">rot_k90</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">corners2</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">))</span>
+
+        <span class="c1"># Find bounding box of transformed token in patch2</span>
+        <span class="n">x2_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">corners2</span><span class="p">)</span>
+        <span class="n">x2_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">corners2</span><span class="p">)</span>
+        <span class="n">y2_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">y</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">corners2</span><span class="p">)</span>
+        <span class="n">y2_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">y</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">corners2</span><span class="p">)</span>
+
+        <span class="c1"># Check which tokens in patch2 overlap with this bounding box</span>
+        <span class="n">best_overlap</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">best_j</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">coords2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="n">y2</span> <span class="o">=</span> <span class="n">coords2</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="n">x2</span> <span class="o">=</span> <span class="n">coords2</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+            <span class="c1"># Token region in patch2: [y2, y2+patch_size) x [x2, x2+patch_size)</span>
+            <span class="c1"># Compute intersection with transformed token from patch1</span>
+            <span class="c1"># Intersection in patch2 coordinates</span>
+            <span class="n">intersect_x_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">x2_min</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+            <span class="n">intersect_x_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">x2_max</span><span class="p">,</span> <span class="n">x2</span> <span class="o">+</span> <span class="n">patch_size</span><span class="p">)</span>
+            <span class="n">intersect_y_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">y2_min</span><span class="p">,</span> <span class="n">y2</span><span class="p">)</span>
+            <span class="n">intersect_y_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">y2_max</span><span class="p">,</span> <span class="n">y2</span> <span class="o">+</span> <span class="n">patch_size</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">intersect_x_min</span> <span class="o">&lt;</span> <span class="n">intersect_x_max</span> <span class="ow">and</span> <span class="n">intersect_y_min</span> <span class="o">&lt;</span> <span class="n">intersect_y_max</span><span class="p">:</span>
+                <span class="c1"># There is an intersection</span>
+                <span class="c1"># Transform intersection back to patch1 coordinates to compute area</span>
+                <span class="c1"># For simplicity, approximate using the intersection in patch2</span>
+                <span class="c1"># (this is exact for integer translations and rotations)</span>
+                <span class="n">intersect_area</span> <span class="o">=</span> <span class="p">(</span><span class="n">intersect_x_max</span> <span class="o">-</span> <span class="n">intersect_x_min</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+                    <span class="n">intersect_y_max</span> <span class="o">-</span> <span class="n">intersect_y_min</span>
+                <span class="p">)</span>
+                <span class="n">overlap_frac</span> <span class="o">=</span> <span class="n">intersect_area</span> <span class="o">/</span> <span class="n">token_area</span>
+
+                <span class="k">if</span> <span class="n">overlap_frac</span> <span class="o">&gt;</span> <span class="n">best_overlap</span><span class="p">:</span>
+                    <span class="n">best_overlap</span> <span class="o">=</span> <span class="n">overlap_frac</span>
+                    <span class="n">best_j</span> <span class="o">=</span> <span class="n">j</span>
+
+        <span class="k">if</span> <span class="n">best_overlap</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">overlap_mask1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">overlap_indices1_to_2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_j</span>
+            <span class="n">overlap_fractions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_overlap</span>
+            <span class="c1"># Also set reverse mapping (use same fraction since tokens are same size)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">overlap_mask2</span><span class="p">[</span><span class="n">best_j</span><span class="p">]:</span>
+                <span class="n">overlap_mask2</span><span class="p">[</span><span class="n">best_j</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">overlap_indices2_to_1</span><span class="p">[</span><span class="n">best_j</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">overlap_mask1</span><span class="p">,</span>
+        <span class="n">overlap_indices1_to_2</span><span class="p">,</span>
+        <span class="n">overlap_mask2</span><span class="p">,</span>
+        <span class="n">overlap_indices2_to_1</span><span class="p">,</span>
+        <span class="n">overlap_fractions</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">if</span> <span class="n">HAS_NUMBA</span><span class="p">:</span>
+
+    <span class="nd">@njit</span><span class="p">(</span><span class="n">parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fastmath</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_numba_find_overlaps_batch</span><span class="p">(</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># (T, 2) float64</span>
+        <span class="n">dx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># (N,) float32</span>
+        <span class="n">dy</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># (N,) float32</span>
+        <span class="n">rot_k90</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># (N,) int64</span>
+        <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">H</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">W</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">overlap_mask1_out</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># (N, T) bool</span>
+        <span class="n">overlap_indices1_to_2_out</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># (N, T) int64</span>
+        <span class="n">overlap_mask2_out</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># (N, T) bool</span>
+        <span class="n">overlap_indices2_to_1_out</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># (N, T) int64</span>
+        <span class="n">overlap_fractions_out</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># (N, T) float32</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Numba-accelerated batch overlap computation.</span>
+
+<span class="sd">        Processes all pairs in parallel using prange.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">dx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">token_area</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">patch_size</span> <span class="o">*</span> <span class="n">patch_size</span><span class="p">)</span>
+
+        <span class="c1"># Process each patch pair in parallel</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">prange</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">dx_val</span> <span class="o">=</span> <span class="n">dx</span><span class="p">[</span><span class="n">n</span><span class="p">]</span>
+            <span class="n">dy_val</span> <span class="o">=</span> <span class="n">dy</span><span class="p">[</span><span class="n">n</span><span class="p">]</span>
+            <span class="n">rot</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rot_k90</span><span class="p">[</span><span class="n">n</span><span class="p">])</span> <span class="o">%</span> <span class="mi">4</span>
+
+            <span class="c1"># For each token in patch1, find best overlap in patch2</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">T</span><span class="p">):</span>
+                <span class="n">y1</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+                <span class="n">x1</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+                <span class="c1"># Transform four corners to patch2&#39;s coordinate system</span>
+                <span class="c1"># Corner coordinates: top-left, top-right, bottom-left, bottom-right</span>
+                <span class="n">x1_tl</span> <span class="o">=</span> <span class="n">x1</span>
+                <span class="n">y1_tl</span> <span class="o">=</span> <span class="n">y1</span>
+                <span class="n">x1_tr</span> <span class="o">=</span> <span class="n">x1</span> <span class="o">+</span> <span class="n">patch_size</span>
+                <span class="n">y1_tr</span> <span class="o">=</span> <span class="n">y1</span>
+                <span class="n">x1_bl</span> <span class="o">=</span> <span class="n">x1</span>
+                <span class="n">y1_bl</span> <span class="o">=</span> <span class="n">y1</span> <span class="o">+</span> <span class="n">patch_size</span>
+                <span class="n">x1_br</span> <span class="o">=</span> <span class="n">x1</span> <span class="o">+</span> <span class="n">patch_size</span>
+                <span class="n">y1_br</span> <span class="o">=</span> <span class="n">y1</span> <span class="o">+</span> <span class="n">patch_size</span>
+
+                <span class="c1"># Apply inverse translation and rotation to each corner</span>
+                <span class="c1"># Transform corner 1 (top-left)</span>
+                <span class="n">x_unrot_tl</span> <span class="o">=</span> <span class="n">x1_tl</span> <span class="o">-</span> <span class="n">dx_val</span>
+                <span class="n">y_unrot_tl</span> <span class="o">=</span> <span class="n">y1_tl</span> <span class="o">-</span> <span class="n">dy_val</span>
+                <span class="k">if</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">x2_tl</span><span class="p">,</span> <span class="n">y2_tl</span> <span class="o">=</span> <span class="n">x_unrot_tl</span><span class="p">,</span> <span class="n">y_unrot_tl</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">x2_tl</span><span class="p">,</span> <span class="n">y2_tl</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">y_unrot_tl</span><span class="p">,</span> <span class="n">x_unrot_tl</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">x2_tl</span><span class="p">,</span> <span class="n">y2_tl</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">x_unrot_tl</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">y_unrot_tl</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="n">x2_tl</span><span class="p">,</span> <span class="n">y2_tl</span> <span class="o">=</span> <span class="n">y_unrot_tl</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">x_unrot_tl</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">x2_tl</span><span class="p">,</span> <span class="n">y2_tl</span> <span class="o">=</span> <span class="n">x_unrot_tl</span><span class="p">,</span> <span class="n">y_unrot_tl</span>
+
+                <span class="c1"># Transform corner 2 (top-right)</span>
+                <span class="n">x_unrot_tr</span> <span class="o">=</span> <span class="n">x1_tr</span> <span class="o">-</span> <span class="n">dx_val</span>
+                <span class="n">y_unrot_tr</span> <span class="o">=</span> <span class="n">y1_tr</span> <span class="o">-</span> <span class="n">dy_val</span>
+                <span class="k">if</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">x2_tr</span><span class="p">,</span> <span class="n">y2_tr</span> <span class="o">=</span> <span class="n">x_unrot_tr</span><span class="p">,</span> <span class="n">y_unrot_tr</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">x2_tr</span><span class="p">,</span> <span class="n">y2_tr</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">y_unrot_tr</span><span class="p">,</span> <span class="n">x_unrot_tr</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">x2_tr</span><span class="p">,</span> <span class="n">y2_tr</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">x_unrot_tr</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">y_unrot_tr</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="n">x2_tr</span><span class="p">,</span> <span class="n">y2_tr</span> <span class="o">=</span> <span class="n">y_unrot_tr</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">x_unrot_tr</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">x2_tr</span><span class="p">,</span> <span class="n">y2_tr</span> <span class="o">=</span> <span class="n">x_unrot_tr</span><span class="p">,</span> <span class="n">y_unrot_tr</span>
+
+                <span class="c1"># Transform corner 3 (bottom-left)</span>
+                <span class="n">x_unrot_bl</span> <span class="o">=</span> <span class="n">x1_bl</span> <span class="o">-</span> <span class="n">dx_val</span>
+                <span class="n">y_unrot_bl</span> <span class="o">=</span> <span class="n">y1_bl</span> <span class="o">-</span> <span class="n">dy_val</span>
+                <span class="k">if</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">x2_bl</span><span class="p">,</span> <span class="n">y2_bl</span> <span class="o">=</span> <span class="n">x_unrot_bl</span><span class="p">,</span> <span class="n">y_unrot_bl</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">x2_bl</span><span class="p">,</span> <span class="n">y2_bl</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">y_unrot_bl</span><span class="p">,</span> <span class="n">x_unrot_bl</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">x2_bl</span><span class="p">,</span> <span class="n">y2_bl</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">x_unrot_bl</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">y_unrot_bl</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="n">x2_bl</span><span class="p">,</span> <span class="n">y2_bl</span> <span class="o">=</span> <span class="n">y_unrot_bl</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">x_unrot_bl</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">x2_bl</span><span class="p">,</span> <span class="n">y2_bl</span> <span class="o">=</span> <span class="n">x_unrot_bl</span><span class="p">,</span> <span class="n">y_unrot_bl</span>
+
+                <span class="c1"># Transform corner 4 (bottom-right)</span>
+                <span class="n">x_unrot_br</span> <span class="o">=</span> <span class="n">x1_br</span> <span class="o">-</span> <span class="n">dx_val</span>
+                <span class="n">y_unrot_br</span> <span class="o">=</span> <span class="n">y1_br</span> <span class="o">-</span> <span class="n">dy_val</span>
+                <span class="k">if</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">x2_br</span><span class="p">,</span> <span class="n">y2_br</span> <span class="o">=</span> <span class="n">x_unrot_br</span><span class="p">,</span> <span class="n">y_unrot_br</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">x2_br</span><span class="p">,</span> <span class="n">y2_br</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">y_unrot_br</span><span class="p">,</span> <span class="n">x_unrot_br</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">x2_br</span><span class="p">,</span> <span class="n">y2_br</span> <span class="o">=</span> <span class="n">W</span> <span class="o">-</span> <span class="n">x_unrot_br</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">y_unrot_br</span>
+                <span class="k">elif</span> <span class="n">rot</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="n">x2_br</span><span class="p">,</span> <span class="n">y2_br</span> <span class="o">=</span> <span class="n">y_unrot_br</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">x_unrot_br</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">x2_br</span><span class="p">,</span> <span class="n">y2_br</span> <span class="o">=</span> <span class="n">x_unrot_br</span><span class="p">,</span> <span class="n">y_unrot_br</span>
+
+                <span class="c1"># Find bounding box</span>
+                <span class="n">x2_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">x2_tl</span><span class="p">,</span> <span class="n">x2_tr</span><span class="p">,</span> <span class="n">x2_bl</span><span class="p">,</span> <span class="n">x2_br</span><span class="p">)</span>
+                <span class="n">x2_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">x2_tl</span><span class="p">,</span> <span class="n">x2_tr</span><span class="p">,</span> <span class="n">x2_bl</span><span class="p">,</span> <span class="n">x2_br</span><span class="p">)</span>
+                <span class="n">y2_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">y2_tl</span><span class="p">,</span> <span class="n">y2_tr</span><span class="p">,</span> <span class="n">y2_bl</span><span class="p">,</span> <span class="n">y2_br</span><span class="p">)</span>
+                <span class="n">y2_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">y2_tl</span><span class="p">,</span> <span class="n">y2_tr</span><span class="p">,</span> <span class="n">y2_bl</span><span class="p">,</span> <span class="n">y2_br</span><span class="p">)</span>
+
+                <span class="c1"># Find best overlap with tokens in patch2</span>
+                <span class="n">best_overlap</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">best_j</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">T</span><span class="p">):</span>
+                    <span class="n">y2</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+                    <span class="n">x2</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+                    <span class="c1"># Compute intersection</span>
+                    <span class="n">intersect_x_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">x2_min</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+                    <span class="n">intersect_x_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">x2_max</span><span class="p">,</span> <span class="n">x2</span> <span class="o">+</span> <span class="n">patch_size</span><span class="p">)</span>
+                    <span class="n">intersect_y_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">y2_min</span><span class="p">,</span> <span class="n">y2</span><span class="p">)</span>
+                    <span class="n">intersect_y_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">y2_max</span><span class="p">,</span> <span class="n">y2</span> <span class="o">+</span> <span class="n">patch_size</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="p">(</span>
+                        <span class="n">intersect_x_min</span> <span class="o">&lt;</span> <span class="n">intersect_x_max</span>
+                        <span class="ow">and</span> <span class="n">intersect_y_min</span> <span class="o">&lt;</span> <span class="n">intersect_y_max</span>
+                    <span class="p">):</span>
+                        <span class="n">intersect_area</span> <span class="o">=</span> <span class="p">(</span><span class="n">intersect_x_max</span> <span class="o">-</span> <span class="n">intersect_x_min</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+                            <span class="n">intersect_y_max</span> <span class="o">-</span> <span class="n">intersect_y_min</span>
+                        <span class="p">)</span>
+                        <span class="n">overlap_frac</span> <span class="o">=</span> <span class="n">intersect_area</span> <span class="o">/</span> <span class="n">token_area</span>
+
+                        <span class="k">if</span> <span class="n">overlap_frac</span> <span class="o">&gt;</span> <span class="n">best_overlap</span><span class="p">:</span>
+                            <span class="n">best_overlap</span> <span class="o">=</span> <span class="n">overlap_frac</span>
+                            <span class="n">best_j</span> <span class="o">=</span> <span class="n">j</span>
+
+                <span class="c1"># Store results</span>
+                <span class="k">if</span> <span class="n">best_overlap</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="n">overlap_mask1_out</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="n">overlap_indices1_to_2_out</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_j</span>
+                    <span class="n">overlap_fractions_out</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_overlap</span>
+                    <span class="c1"># Set reverse mapping (only if not already set by another token)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">overlap_mask2_out</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">best_j</span><span class="p">]:</span>
+                        <span class="n">overlap_mask2_out</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">best_j</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="n">overlap_indices2_to_1_out</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">best_j</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_to_tensor_batch</span><span class="p">(</span>
+    <span class="n">value</span><span class="p">,</span> <span class="n">N</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert a value (scalar, tensor, or numpy array) to a batched tensor.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    value : scalar, torch.Tensor, or numpy.ndarray</span>
+<span class="sd">        Input value to convert</span>
+<span class="sd">    N : int</span>
+<span class="sd">        Batch size</span>
+<span class="sd">    dtype : torch.dtype</span>
+<span class="sd">        Target dtype</span>
+<span class="sd">    device : torch.device</span>
+<span class="sd">        Target device</span>
+<span class="sd">    name : str</span>
+<span class="sd">        Name of parameter (for error messages)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    torch.Tensor</span>
+<span class="sd">        Tensor of shape (N,) on the specified device</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">N</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> must have shape (</span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2">,) or be scalar, got </span><span class="si">{</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="c1"># Handle numpy arrays or scalars</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">N</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> must have shape (</span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2">,) or be scalar, got </span><span class="si">{</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">value</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+    <span class="c1"># Scalar: broadcast to batch</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">value</span><span class="p">]</span> <span class="o">*</span> <span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="build_sequence_pair">
+<a class="viewcode-back" href="../../../api.html#qlty.pretokenizer_2d.sequences.build_sequence_pair">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_sequence_pair</span><span class="p">(</span>
+    <span class="n">patch1</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">patch2</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">dx</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="n">dy</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="n">rot_k90</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">stride</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build sequence pair from two patches with overlap information.</span>
+
+<span class="sd">    This function pre-tokenizes both patches (splits them into subpatches), finds</span>
+<span class="sd">    overlapping subpatches, and returns sequences with absolute coordinates suitable</span>
+<span class="sd">    for downstream tokenization and embedding methods.</span>
+
+<span class="sd">    Supports both single patches and batches:</span>
+<span class="sd">    - Single: patch1/patch2 shape (C, H, W), dx/dy/rot_k90 are scalars</span>
+<span class="sd">    - Batch: patch1/patch2 shape (N, C, H, W), dx/dy/rot_k90 are (N,) tensors</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    patch1 : torch.Tensor</span>
+<span class="sd">        First patch of shape (C, H, W) or batch of shape (N, C, H, W)</span>
+<span class="sd">    patch2 : torch.Tensor</span>
+<span class="sd">        Second patch of shape (C, H, W) or batch of shape (N, C, H, W)</span>
+<span class="sd">    dx : float or torch.Tensor</span>
+<span class="sd">        Translation in pixels along x-axis. Scalar for single patch, (N,) tensor for batch.</span>
+<span class="sd">    dy : float or torch.Tensor</span>
+<span class="sd">        Translation in pixels along y-axis. Scalar for single patch, (N,) tensor for batch.</span>
+<span class="sd">    rot_k90 : int or torch.Tensor</span>
+<span class="sd">        Rotation applied to patch2 in 90-degree increments (0, 1, 2, or 3).</span>
+<span class="sd">        Scalar for single patch, (N,) tensor for batch.</span>
+<span class="sd">    patch_size : int</span>
+<span class="sd">        Size of each token in pixels</span>
+<span class="sd">    stride : int, optional</span>
+<span class="sd">        Stride for sliding window token extraction. Defaults to patch_size // 2.</span>
+<span class="sd">        Must be positive and &lt;= patch_size.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict[str, torch.Tensor]</span>
+<span class="sd">        Dictionary containing:</span>
+
+<span class="sd">        For single patch:</span>
+<span class="sd">        - &quot;tokens1&quot;: Token vectors from patch1, shape (T1, D)</span>
+<span class="sd">        - &quot;tokens2&quot;: Token vectors from patch2, shape (T2, D)</span>
+<span class="sd">        - &quot;coords1&quot;: Absolute pixel coordinates (y, x) for patch1 tokens, shape (T1, 2)</span>
+<span class="sd">        - &quot;coords2&quot;: Absolute pixel coordinates (y, x) for patch2 tokens, shape (T2, 2)</span>
+<span class="sd">        - &quot;overlap_mask1&quot;: Boolean mask indicating which patch1 tokens overlap, shape (T1,)</span>
+<span class="sd">        - &quot;overlap_mask2&quot;: Boolean mask indicating which patch2 tokens overlap, shape (T2,)</span>
+<span class="sd">        - &quot;overlap_indices1_to_2&quot;: Mapping from patch1 to patch2 tokens, shape (T1,)</span>
+<span class="sd">        - &quot;overlap_indices2_to_1&quot;: Mapping from patch2 to patch1 tokens, shape (T2,)</span>
+<span class="sd">        - &quot;overlap_fractions&quot;: Fraction of overlap for each patch1 token (0.0 to 1.0), shape (T1,)</span>
+<span class="sd">        - &quot;overlap_pairs&quot;: Tensor of shape (N_overlaps, 2) containing (i, j) pairs</span>
+
+<span class="sd">        For batch (all tensors are padded to max length):</span>
+<span class="sd">        - &quot;tokens1&quot;: Token vectors from patch1, shape (N, T_max, D)</span>
+<span class="sd">        - &quot;tokens2&quot;: Token vectors from patch2, shape (N, T_max, D)</span>
+<span class="sd">        - &quot;coords1&quot;: Absolute pixel coordinates for patch1 tokens, shape (N, T_max, 2)</span>
+<span class="sd">        - &quot;coords2&quot;: Absolute pixel coordinates for patch2 tokens, shape (N, T_max, 2)</span>
+<span class="sd">        - &quot;overlap_mask1&quot;: Boolean mask for patch1 tokens, shape (N, T_max)</span>
+<span class="sd">        - &quot;overlap_mask2&quot;: Boolean mask for patch2 tokens, shape (N, T_max)</span>
+<span class="sd">        - &quot;overlap_indices1_to_2&quot;: Mapping from patch1 to patch2, shape (N, T_max), -1 for padding</span>
+<span class="sd">        - &quot;overlap_indices2_to_1&quot;: Mapping from patch2 to patch1, shape (N, T_max), -1 for padding</span>
+<span class="sd">        - &quot;overlap_fractions&quot;: Fraction of overlap, shape (N, T_max)</span>
+<span class="sd">        - &quot;overlap_pairs&quot;: Overlap pairs, shape (N, max_pairs, 2), -1 for padding</span>
+<span class="sd">        - &quot;sequence_lengths&quot;: Actual sequence lengths (same for both patches), shape (N,)</span>
+<span class="sd">        - &quot;overlap_pair_counts&quot;: Number of overlap pairs per sample, shape (N,)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Check if inputs are batched</span>
+    <span class="n">is_batched</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">patch1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">patch2</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span>
+
+    <span class="k">if</span> <span class="n">is_batched</span><span class="p">:</span>
+        <span class="c1"># Batch processing</span>
+        <span class="n">N</span><span class="p">,</span> <span class="n">C1</span><span class="p">,</span> <span class="n">H1</span><span class="p">,</span> <span class="n">W1</span> <span class="o">=</span> <span class="n">patch1</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">N2</span><span class="p">,</span> <span class="n">C2</span><span class="p">,</span> <span class="n">H2</span><span class="p">,</span> <span class="n">W2</span> <span class="o">=</span> <span class="n">patch2</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="k">if</span> <span class="n">N</span> <span class="o">!=</span> <span class="n">N2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Batch sizes must match: patch1 has </span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2"> patches, patch2 has </span><span class="si">{</span><span class="n">N2</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">C1</span> <span class="o">!=</span> <span class="n">C2</span> <span class="ow">or</span> <span class="n">H1</span> <span class="o">!=</span> <span class="n">H2</span> <span class="ow">or</span> <span class="n">W1</span> <span class="o">!=</span> <span class="n">W2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Patches must have same shape, got </span><span class="si">{</span><span class="n">patch1</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">patch2</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Convert dx, dy, rot_k90 to tensors if needed</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="n">_to_tensor_batch</span><span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;dx&quot;</span><span class="p">)</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="n">_to_tensor_batch</span><span class="p">(</span><span class="n">dy</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;dy&quot;</span><span class="p">)</span>
+        <span class="n">rot_k90</span> <span class="o">=</span> <span class="n">_to_tensor_batch</span><span class="p">(</span><span class="n">rot_k90</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;rot_k90&quot;</span><span class="p">)</span>
+
+        <span class="c1"># OPTIMIZATION: Batch tokenize all patches at once</span>
+        <span class="c1"># Since all patches have the same shape, we can use a single quilt object</span>
+        <span class="n">C</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">patch1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+
+        <span class="c1"># Determine stride (same logic as tokenize_patch)</span>
+        <span class="k">if</span> <span class="n">stride</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">stride_val</span> <span class="o">=</span> <span class="n">patch_size</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">stride_val</span> <span class="o">=</span> <span class="n">stride</span>
+
+        <span class="c1"># Create quilt object once (same for all patches)</span>
+        <span class="n">quilt</span> <span class="o">=</span> <span class="n">NCYXQuilt</span><span class="p">(</span>
+            <span class="n">Y</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
+            <span class="n">X</span><span class="o">=</span><span class="n">W</span><span class="p">,</span>
+            <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="n">patch_size</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">),</span>
+            <span class="n">step</span><span class="o">=</span><span class="p">(</span><span class="n">stride_val</span><span class="p">,</span> <span class="n">stride_val</span><span class="p">),</span>
+            <span class="n">border</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Batch tokenize: (N, C, H, W) -&gt; (N*T, C, patch_size, patch_size)</span>
+        <span class="n">patches1_flat</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">patch1</span><span class="p">)</span>  <span class="c1"># (N*T, C, patch_size, patch_size)</span>
+        <span class="n">patches2_flat</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">patch2</span><span class="p">)</span>  <span class="c1"># (N*T, C, patch_size, patch_size)</span>
+
+        <span class="c1"># Get number of tokens per patch</span>
+        <span class="n">nY</span><span class="p">,</span> <span class="n">nX</span> <span class="o">=</span> <span class="n">quilt</span><span class="o">.</span><span class="n">get_times</span><span class="p">()</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">nY</span> <span class="o">*</span> <span class="n">nX</span>  <span class="c1"># Same for all patches</span>
+
+        <span class="c1"># Compute coordinates once (same for all patches)</span>
+        <span class="c1"># Use the same logic as NCYXQuilt.unstitch() to ensure consistency</span>
+        <span class="n">coords_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">yy</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nY</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nX</span><span class="p">):</span>
+                <span class="n">start_y</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">yy</span> <span class="o">*</span> <span class="n">stride_val</span><span class="p">,</span> <span class="n">H</span> <span class="o">-</span> <span class="n">patch_size</span><span class="p">)</span>
+                <span class="n">start_x</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">xx</span> <span class="o">*</span> <span class="n">stride_val</span><span class="p">,</span> <span class="n">W</span> <span class="o">-</span> <span class="n">patch_size</span><span class="p">)</span>
+                <span class="n">coords_list</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">start_y</span><span class="p">,</span> <span class="n">start_x</span><span class="p">])</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="n">coords_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>  <span class="c1"># (T, 2)</span>
+
+        <span class="c1"># Flatten patches to tokens: (N*T, C, patch_size, patch_size) -&gt; (N*T, C*patch_size*patch_size)</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">C</span> <span class="o">*</span> <span class="n">patch_size</span> <span class="o">*</span> <span class="n">patch_size</span>
+        <span class="n">tokens1_flat</span> <span class="o">=</span> <span class="n">patches1_flat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">N</span> <span class="o">*</span> <span class="n">T</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>  <span class="c1"># (N*T, D)</span>
+        <span class="n">tokens2_flat</span> <span class="o">=</span> <span class="n">patches2_flat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">N</span> <span class="o">*</span> <span class="n">T</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>  <span class="c1"># (N*T, D)</span>
+
+        <span class="c1"># Reshape to (N, T, D)</span>
+        <span class="n">tokens1_batch</span> <span class="o">=</span> <span class="n">tokens1_flat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
+        <span class="n">tokens2_batch</span> <span class="o">=</span> <span class="n">tokens2_flat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
+
+        <span class="c1"># Expand coordinates for all patches: (T, 2) -&gt; (N, T, 2)</span>
+        <span class="n">coords1_batch</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">coords2_batch</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Initialize overlap tensors</span>
+        <span class="n">overlap_mask1_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="n">overlap_mask2_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="n">overlap_indices1_to_2_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="n">overlap_indices2_to_1_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="n">overlap_fractions_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Process overlaps - use numba-accelerated batch processing if available</span>
+        <span class="c1"># Otherwise fall back to sequential or threading</span>
+        <span class="n">use_numba</span> <span class="o">=</span> <span class="n">HAS_NUMBA</span> <span class="ow">and</span> <span class="n">N</span> <span class="o">&gt;</span> <span class="mi">5</span>  <span class="c1"># Use numba for batches larger than 5</span>
+
+        <span class="k">if</span> <span class="n">use_numba</span><span class="p">:</span>
+            <span class="c1"># Use numba-accelerated batch processing with parallel execution</span>
+            <span class="c1"># Convert tensors to numpy for numba</span>
+            <span class="n">coords_np</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">dx_np</span> <span class="o">=</span> <span class="n">dx</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">dy_np</span> <span class="o">=</span> <span class="n">dy</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="n">rot_k90_np</span> <span class="o">=</span> <span class="n">rot_k90</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+            <span class="c1"># Initialize output arrays</span>
+            <span class="n">overlap_mask1_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">)</span>
+            <span class="n">overlap_indices1_to_2_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="n">overlap_mask2_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">)</span>
+            <span class="n">overlap_indices2_to_1_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="n">overlap_fractions_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">T</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+            <span class="c1"># Run numba-accelerated batch computation</span>
+            <span class="n">_numba_find_overlaps_batch</span><span class="p">(</span>
+                <span class="n">coords_np</span><span class="p">,</span>
+                <span class="n">dx_np</span><span class="p">,</span>
+                <span class="n">dy_np</span><span class="p">,</span>
+                <span class="n">rot_k90_np</span><span class="p">,</span>
+                <span class="n">patch_size</span><span class="p">,</span>
+                <span class="n">H</span><span class="p">,</span>
+                <span class="n">W</span><span class="p">,</span>
+                <span class="n">overlap_mask1_np</span><span class="p">,</span>
+                <span class="n">overlap_indices1_to_2_np</span><span class="p">,</span>
+                <span class="n">overlap_mask2_np</span><span class="p">,</span>
+                <span class="n">overlap_indices2_to_1_np</span><span class="p">,</span>
+                <span class="n">overlap_fractions_np</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Convert back to PyTorch tensors on the original device</span>
+            <span class="n">overlap_mask1_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">overlap_mask1_np</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">overlap_mask2_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">overlap_mask2_np</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">overlap_indices1_to_2_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">overlap_indices1_to_2_np</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+                <span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+            <span class="p">)</span>
+            <span class="n">overlap_indices2_to_1_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">overlap_indices2_to_1_np</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+                <span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+            <span class="p">)</span>
+            <span class="n">overlap_fractions_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">overlap_fractions_np</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+                <span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Build overlap pairs (vectorized for all pairs)</span>
+            <span class="n">overlap_pairs_all</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="n">overlap_mask1_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="n">indices1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">)[</span><span class="n">mask</span><span class="p">]</span>
+                    <span class="n">indices2</span> <span class="o">=</span> <span class="n">overlap_indices1_to_2_batch</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
+                    <span class="n">pairs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">indices1</span><span class="p">,</span> <span class="n">indices2</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">overlap_pairs_all</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">overlap_pairs_all</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                    <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Sequential processing (for small batches or when numba unavailable)</span>
+            <span class="n">overlap_pairs_all</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+                <span class="p">(</span>
+                    <span class="n">overlap_mask1</span><span class="p">,</span>
+                    <span class="n">overlap_indices1_to_2</span><span class="p">,</span>
+                    <span class="n">overlap_mask2</span><span class="p">,</span>
+                    <span class="n">overlap_indices2_to_1</span><span class="p">,</span>
+                    <span class="n">overlap_fractions</span><span class="p">,</span>
+                <span class="p">)</span> <span class="o">=</span> <span class="n">_find_overlapping_tokens</span><span class="p">(</span>
+                    <span class="n">coords</span><span class="p">,</span>
+                    <span class="n">coords</span><span class="p">,</span>
+                    <span class="n">dx</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+                    <span class="n">dy</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+                    <span class="n">rot_k90</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+                    <span class="n">patch_size</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">),</span>
+                <span class="p">)</span>
+
+                <span class="n">overlap_mask1_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlap_mask1</span>
+                <span class="n">overlap_mask2_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlap_mask2</span>
+                <span class="n">overlap_indices1_to_2_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlap_indices1_to_2</span>
+                <span class="n">overlap_indices2_to_1_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlap_indices2_to_1</span>
+                <span class="n">overlap_fractions_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlap_fractions</span>
+
+                <span class="c1"># Build overlap pairs (vectorized)</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="n">overlap_mask1</span>
+                <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="n">indices1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">)[</span><span class="n">mask</span><span class="p">]</span>
+                    <span class="n">indices2</span> <span class="o">=</span> <span class="n">overlap_indices1_to_2</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+                    <span class="n">pairs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">indices1</span><span class="p">,</span> <span class="n">indices2</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">overlap_pairs_all</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">overlap_pairs_all</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                    <span class="p">)</span>
+
+        <span class="c1"># Find maximum number of overlap pairs</span>
+        <span class="n">max_pairs</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">max</span><span class="p">(</span><span class="n">pairs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">pairs</span> <span class="ow">in</span> <span class="n">overlap_pairs_all</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">overlap_pairs_all</span>
+            <span class="k">else</span> <span class="mi">0</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Create overlap_pairs_batch tensor</span>
+        <span class="k">if</span> <span class="n">max_pairs</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">overlap_pairs_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">overlap_pairs_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">max_pairs</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pairs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">overlap_pairs_all</span><span class="p">):</span>
+                <span class="n">num_pairs</span> <span class="o">=</span> <span class="n">pairs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">num_pairs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">overlap_pairs_batch</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:</span><span class="n">num_pairs</span><span class="p">]</span> <span class="o">=</span> <span class="n">pairs</span>
+
+        <span class="c1"># Create sequence lengths and pair counts</span>
+        <span class="n">sequence_lengths</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">N</span><span class="p">,),</span> <span class="n">T</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">overlap_pair_counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">pairs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">pairs</span> <span class="ow">in</span> <span class="n">overlap_pairs_all</span><span class="p">],</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">patch1</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;tokens1&quot;</span><span class="p">:</span> <span class="n">tokens1_batch</span><span class="p">,</span>  <span class="c1"># (N, T_max, D)</span>
+            <span class="s2">&quot;tokens2&quot;</span><span class="p">:</span> <span class="n">tokens2_batch</span><span class="p">,</span>  <span class="c1"># (N, T_max, D)</span>
+            <span class="s2">&quot;coords1&quot;</span><span class="p">:</span> <span class="n">coords1_batch</span><span class="p">,</span>  <span class="c1"># (N, T_max, 2)</span>
+            <span class="s2">&quot;coords2&quot;</span><span class="p">:</span> <span class="n">coords2_batch</span><span class="p">,</span>  <span class="c1"># (N, T_max, 2)</span>
+            <span class="s2">&quot;overlap_mask1&quot;</span><span class="p">:</span> <span class="n">overlap_mask1_batch</span><span class="p">,</span>  <span class="c1"># (N, T_max)</span>
+            <span class="s2">&quot;overlap_mask2&quot;</span><span class="p">:</span> <span class="n">overlap_mask2_batch</span><span class="p">,</span>  <span class="c1"># (N, T_max)</span>
+            <span class="s2">&quot;overlap_indices1_to_2&quot;</span><span class="p">:</span> <span class="n">overlap_indices1_to_2_batch</span><span class="p">,</span>  <span class="c1"># (N, T_max)</span>
+            <span class="s2">&quot;overlap_indices2_to_1&quot;</span><span class="p">:</span> <span class="n">overlap_indices2_to_1_batch</span><span class="p">,</span>  <span class="c1"># (N, T_max)</span>
+            <span class="s2">&quot;overlap_fractions&quot;</span><span class="p">:</span> <span class="n">overlap_fractions_batch</span><span class="p">,</span>  <span class="c1"># (N, T_max)</span>
+            <span class="s2">&quot;overlap_pairs&quot;</span><span class="p">:</span> <span class="n">overlap_pairs_batch</span><span class="p">,</span>  <span class="c1"># (N, max_pairs, 2)</span>
+            <span class="s2">&quot;sequence_lengths&quot;</span><span class="p">:</span> <span class="n">sequence_lengths</span><span class="p">,</span>  <span class="c1"># (N,) - actual sequence lengths (same for both patches)</span>
+            <span class="s2">&quot;overlap_pair_counts&quot;</span><span class="p">:</span> <span class="n">overlap_pair_counts</span><span class="p">,</span>  <span class="c1"># (N,) - number of overlap pairs per sample</span>
+        <span class="p">}</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Single patch processing (original behavior)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">patch1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">patch2</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Both patches must be 3D (C, H, W) or 4D (N, C, H, W), &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got shapes </span><span class="si">{</span><span class="n">patch1</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">patch2</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">C1</span><span class="p">,</span> <span class="n">H1</span><span class="p">,</span> <span class="n">W1</span> <span class="o">=</span> <span class="n">patch1</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">C2</span><span class="p">,</span> <span class="n">H2</span><span class="p">,</span> <span class="n">W2</span> <span class="o">=</span> <span class="n">patch2</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="k">if</span> <span class="n">C1</span> <span class="o">!=</span> <span class="n">C2</span> <span class="ow">or</span> <span class="n">H1</span> <span class="o">!=</span> <span class="n">H2</span> <span class="ow">or</span> <span class="n">W1</span> <span class="o">!=</span> <span class="n">W2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Patches must have same shape, got </span><span class="si">{</span><span class="n">patch1</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">patch2</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Convert scalars to floats/ints if they&#39;re tensors</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">dx</span> <span class="o">=</span> <span class="n">dx</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dy</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">dy</span> <span class="o">=</span> <span class="n">dy</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rot_k90</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">rot_k90</span> <span class="o">=</span> <span class="n">rot_k90</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+        <span class="c1"># Tokenize both patches</span>
+        <span class="n">tokens1</span><span class="p">,</span> <span class="n">coords1</span> <span class="o">=</span> <span class="n">tokenize_patch</span><span class="p">(</span><span class="n">patch1</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="n">stride</span><span class="p">)</span>
+        <span class="n">tokens2</span><span class="p">,</span> <span class="n">coords2</span> <span class="o">=</span> <span class="n">tokenize_patch</span><span class="p">(</span><span class="n">patch2</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="n">stride</span><span class="p">)</span>
+
+        <span class="c1"># Find overlapping tokens</span>
+        <span class="p">(</span>
+            <span class="n">overlap_mask1</span><span class="p">,</span>
+            <span class="n">overlap_indices1_to_2</span><span class="p">,</span>
+            <span class="n">overlap_mask2</span><span class="p">,</span>
+            <span class="n">overlap_indices2_to_1</span><span class="p">,</span>
+            <span class="n">overlap_fractions</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">_find_overlapping_tokens</span><span class="p">(</span>
+            <span class="n">coords1</span><span class="p">,</span> <span class="n">coords2</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">rot_k90</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">,</span> <span class="p">(</span><span class="n">H1</span><span class="p">,</span> <span class="n">W1</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Build list of overlap pairs: [(i, j), ...] where token i in patch1 overlaps with token j in patch2</span>
+        <span class="n">overlap_pairs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">overlap_mask1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="n">overlap_mask1</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                <span class="n">j</span> <span class="o">=</span> <span class="n">overlap_indices1_to_2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                <span class="n">overlap_pairs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span>
+        <span class="n">overlap_pairs_tensor</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">overlap_pairs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tokens1</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">overlap_pairs</span>
+            <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tokens1</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;tokens1&quot;</span><span class="p">:</span> <span class="n">tokens1</span><span class="p">,</span>
+            <span class="s2">&quot;tokens2&quot;</span><span class="p">:</span> <span class="n">tokens2</span><span class="p">,</span>
+            <span class="s2">&quot;coords1&quot;</span><span class="p">:</span> <span class="n">coords1</span><span class="p">,</span>
+            <span class="s2">&quot;coords2&quot;</span><span class="p">:</span> <span class="n">coords2</span><span class="p">,</span>
+            <span class="s2">&quot;overlap_mask1&quot;</span><span class="p">:</span> <span class="n">overlap_mask1</span><span class="p">,</span>
+            <span class="s2">&quot;overlap_mask2&quot;</span><span class="p">:</span> <span class="n">overlap_mask2</span><span class="p">,</span>
+            <span class="s2">&quot;overlap_indices1_to_2&quot;</span><span class="p">:</span> <span class="n">overlap_indices1_to_2</span><span class="p">,</span>
+            <span class="s2">&quot;overlap_indices2_to_1&quot;</span><span class="p">:</span> <span class="n">overlap_indices2_to_1</span><span class="p">,</span>
+            <span class="s2">&quot;overlap_fractions&quot;</span><span class="p">:</span> <span class="n">overlap_fractions</span><span class="p">,</span>  <span class="c1"># Fraction of overlap for each patch1 token (0.0 to 1.0)</span>
+            <span class="s2">&quot;overlap_pairs&quot;</span><span class="p">:</span> <span class="n">overlap_pairs_tensor</span><span class="p">,</span>  <span class="c1"># Shape (N_overlaps, 2) with (i, j) pairs</span>
+        <span class="p">}</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Petrus H. Zwart.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

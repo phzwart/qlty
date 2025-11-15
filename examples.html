@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Examples &mdash; qlty 1.2.0 documentation</title>
+  <title>Examples &mdash; qlty 1.2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=6efca38a"></script>
+      <script src="_static/documentation_options.js?v=ca842793"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -58,6 +58,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#example-8-batch-processing-for-efficiency">Example 8: Batch Processing for Efficiency</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#example-9-combining-with-dataloaders">Example 9: Combining with DataLoaders</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#example-10-error-handling-and-validation">Example 10: Error Handling and Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-11-pre-tokenization-for-patch-processing-2d">Example 11: Pre-Tokenization for Patch Processing (2D)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
@@ -415,6 +416,183 @@
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Caught error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+</section>
+<section id="example-11-pre-tokenization-for-patch-processing-2d">
+<h2>Example 11: Pre-Tokenization for Patch Processing (2D)<a class="headerlink" href="#example-11-pre-tokenization-for-patch-processing-2d" title="Link to this heading"></a></h2>
+<p><strong>What and Why</strong>: The <code class="docutils literal notranslate"><span class="pre">pretokenizer_2d</span></code> module prepares patches for tokenization by
+enabling sequence-based models (like transformers) to work with image patches. This is
+useful for:</p>
+<ul class="simple">
+<li><p><strong>Self-supervised learning</strong>: Learning representations from patch pairs with known
+geometric relationships</p></li>
+<li><p><strong>Contrastive learning</strong>: Using overlapping tokens as positive pairs</p></li>
+<li><p><strong>Sequence models</strong>: Converting 2D patches into token sequences with spatial awareness</p></li>
+<li><p><strong>Efficient batch processing</strong>: Processing many patch pairs in parallel with numba
+acceleration</p></li>
+</ul>
+<p>The key innovation is that it identifies which tokens overlap between two patches
+that have undergone a known rigid transformation (translation + rotation), providing
+the overlap information needed for training sequence-based models.</p>
+<p><strong>Basic Usage - Single Patch Pair</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs</span><span class="p">,</span> <span class="n">build_sequence_pair</span><span class="p">,</span> <span class="n">tokenize_patch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="c1"># Step 1: Extract patch pairs using qlty&#39;s existing functionality</span>
+<span class="n">images</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patch_pairs</span><span class="p">(</span>
+    <span class="n">images</span><span class="p">,</span>
+    <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span>
+    <span class="n">num_patches</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="n">delta_range</span><span class="o">=</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">),</span>
+    <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 2: Build sequence pairs with overlap information</span>
+<span class="c1"># This tokenizes both patches and finds overlapping tokens</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">build_sequence_pair</span><span class="p">(</span>
+    <span class="n">patches1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>           <span class="c1"># First patch: (3, 64, 64)</span>
+    <span class="n">patches2</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>           <span class="c1"># Second patch: (3, 64, 64)</span>
+    <span class="n">dx</span><span class="o">=</span><span class="n">deltas</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>  <span class="c1"># Translation in x</span>
+    <span class="n">dy</span><span class="o">=</span><span class="n">deltas</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>  <span class="c1"># Translation in y</span>
+    <span class="n">rot_k90</span><span class="o">=</span><span class="n">rotations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>  <span class="c1"># Rotation (0, 1, 2, or 3 for 0°, 90°, 180°, 270°)</span>
+    <span class="n">patch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>         <span class="c1"># Size of each token</span>
+    <span class="n">stride</span><span class="o">=</span><span class="mi">8</span>               <span class="c1"># Stride for overlapping tokens (default: patch_size//2)</span>
+<span class="p">)</span>
+
+<span class="c1"># Result contains:</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tokens from patch1: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;tokens1&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># (T, D) where T=number of tokens</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tokens from patch2: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;tokens2&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># (T, D)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Overlapping tokens: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;overlap_mask1&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">}</span><span class="s2"> out of </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;tokens1&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Use for training:</span>
+<span class="c1"># - tokens1, tokens2: Input to your sequence model (e.g., transformer)</span>
+<span class="c1"># - coords1, coords2: Absolute coordinates for positional encoding</span>
+<span class="c1"># - overlap_mask1, overlap_mask2: Which tokens have corresponding overlaps</span>
+<span class="c1"># - overlap_indices1_to_2: Mapping from patch1 tokens to patch2 tokens</span>
+<span class="c1"># - overlap_fractions: How much each token overlaps (0.0 to 1.0)</span>
+</pre></div>
+</div>
+<p><strong>Batch Processing - Efficient for Large Datasets</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Process all patch pairs at once (much faster!)</span>
+<span class="n">batch_result</span> <span class="o">=</span> <span class="n">build_sequence_pair</span><span class="p">(</span>
+    <span class="n">patches1</span><span class="p">,</span>              <span class="c1"># (50, 3, 64, 64) - batch of patches</span>
+    <span class="n">patches2</span><span class="p">,</span>              <span class="c1"># (50, 3, 64, 64)</span>
+    <span class="n">dx</span><span class="o">=</span><span class="n">deltas</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>       <span class="c1"># (50,) - x translations</span>
+    <span class="n">dy</span><span class="o">=</span><span class="n">deltas</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>       <span class="c1"># (50,) - y translations</span>
+    <span class="n">rot_k90</span><span class="o">=</span><span class="n">rotations</span><span class="p">,</span>     <span class="c1"># (50,) - rotations</span>
+    <span class="n">patch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+    <span class="n">stride</span><span class="o">=</span><span class="mi">8</span>
+<span class="p">)</span>
+
+<span class="c1"># Batch result has padded tensors for efficient processing</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Batch tokens1: </span><span class="si">{</span><span class="n">batch_result</span><span class="p">[</span><span class="s1">&#39;tokens1&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># (50, T_max, D)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sequence lengths: </span><span class="si">{</span><span class="n">batch_result</span><span class="p">[</span><span class="s1">&#39;sequence_lengths&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># (50,) - actual lengths</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Overlap counts: </span><span class="si">{</span><span class="n">batch_result</span><span class="p">[</span><span class="s1">&#39;overlap_pair_counts&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># (50,) - overlaps per pair</span>
+
+<span class="c1"># Use sequence_lengths to mask padding in your model</span>
+<span class="c1"># Use overlap_pair_counts to understand data distribution</span>
+</pre></div>
+</div>
+<p><strong>Tokenization Only - When You Just Need Tokens</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># If you only need to tokenize a patch (no overlap computation)</span>
+<span class="n">patch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="n">tokens</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">tokenize_patch</span><span class="p">(</span><span class="n">patch</span><span class="p">,</span> <span class="n">patch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created </span><span class="si">{</span><span class="n">tokens</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> tokens&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Token shape: </span><span class="si">{</span><span class="n">tokens</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># 3*16*16 = 768 dimensions</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Coordinates shape: </span><span class="si">{</span><span class="n">coords</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># (T, 2) - (y, x) for each token</span>
+
+<span class="c1"># Use tokens as input to sequence models</span>
+<span class="c1"># Use coords for positional encoding</span>
+</pre></div>
+</div>
+<p><strong>Real-World Use Case - Self-Supervised Learning</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs</span><span class="p">,</span> <span class="n">build_sequence_pair</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+
+<span class="c1"># Extract patch pairs from unlabeled images</span>
+<span class="n">images</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patch_pairs</span><span class="p">(</span>
+    <span class="n">images</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="n">num_patches</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">delta_range</span><span class="o">=</span><span class="p">(</span><span class="mf">20.0</span><span class="p">,</span> <span class="mf">40.0</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># Build sequence pairs</span>
+<span class="n">batch_result</span> <span class="o">=</span> <span class="n">build_sequence_pair</span><span class="p">(</span>
+    <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">deltas</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">rotations</span><span class="p">,</span>
+    <span class="n">patch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">16</span>
+<span class="p">)</span>
+
+<span class="c1"># Train a transformer to predict overlapping tokens</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PatchTransformer</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">token_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transformer</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">TransformerEncoder</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">TransformerEncoderLayer</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">nhead</span><span class="o">=</span><span class="mi">8</span><span class="p">),</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">6</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">predictor</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">token_dim</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">mask</span><span class="p">):</span>
+        <span class="c1"># Add positional encoding from coords</span>
+        <span class="n">pos_enc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">positional_encoding</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">+</span> <span class="n">pos_enc</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformer</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">predictor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">PatchTransformer</span><span class="p">(</span><span class="n">token_dim</span><span class="o">=</span><span class="mi">3</span><span class="o">*</span><span class="mi">32</span><span class="o">*</span><span class="mi">32</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
+
+<span class="c1"># Training loop</span>
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">patches1</span><span class="p">),</span> <span class="mi">32</span><span class="p">):</span>  <span class="c1"># Process in batches</span>
+        <span class="n">batch_idx</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mi">32</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">build_sequence_pair</span><span class="p">(</span>
+            <span class="n">patches1</span><span class="p">[</span><span class="n">batch_idx</span><span class="p">],</span> <span class="n">patches2</span><span class="p">[</span><span class="n">batch_idx</span><span class="p">],</span>
+            <span class="n">deltas</span><span class="p">[</span><span class="n">batch_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">deltas</span><span class="p">[</span><span class="n">batch_idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">rotations</span><span class="p">[</span><span class="n">batch_idx</span><span class="p">],</span>
+            <span class="n">patch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">16</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Get overlapping tokens</span>
+        <span class="n">tokens1</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;tokens1&#39;</span><span class="p">]</span>  <span class="c1"># (32, T_max, D)</span>
+        <span class="n">tokens2</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;tokens2&#39;</span><span class="p">]</span>  <span class="c1"># (32, T_max, D)</span>
+        <span class="n">overlap_mask</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;overlap_mask1&#39;</span><span class="p">]</span>  <span class="c1"># (32, T_max)</span>
+        <span class="n">overlap_indices</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;overlap_indices1_to_2&#39;</span><span class="p">]</span>  <span class="c1"># (32, T_max)</span>
+
+        <span class="c1"># Predict tokens2 from tokens1</span>
+        <span class="n">predicted</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">tokens1</span><span class="p">,</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;coords1&#39;</span><span class="p">],</span> <span class="n">overlap_mask</span><span class="p">)</span>
+
+        <span class="c1"># Loss only on overlapping tokens</span>
+        <span class="c1"># (simplified - actual implementation would handle padding)</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span>
+            <span class="n">predicted</span><span class="p">[</span><span class="n">overlap_mask</span><span class="p">],</span>
+            <span class="n">tokens2</span><span class="p">[</span><span class="n">overlap_mask</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Backprop and update...</span>
+</pre></div>
+</div>
+<p><strong>Performance Notes</strong>:</p>
+<ul class="simple">
+<li><p><strong>Batch processing is highly optimized</strong>: Uses numba JIT compilation and parallel
+processing for large batches (N &gt; 5)</p></li>
+<li><p><strong>Automatic fallback</strong>: Falls back to sequential processing for small batches or
+when numba is unavailable</p></li>
+<li><p><strong>Memory efficient</strong>: Batch tokenization reuses a single <code class="docutils literal notranslate"><span class="pre">NCYXQuilt</span></code> object</p></li>
+<li><p><strong>GPU support</strong>: All tensors maintain device placement (CPU/GPU)</p></li>
+</ul>
+<p><strong>When to Use</strong>:</p>
+<ul class="simple">
+<li><p>✅ Training sequence models (transformers) on image patches</p></li>
+<li><p>✅ Self-supervised learning with geometric augmentations</p></li>
+<li><p>✅ Contrastive learning with patch pairs</p></li>
+<li><p>✅ Any task requiring token-level overlap information</p></li>
+</ul>
+<p><strong>When NOT to Use</strong>:</p>
+<ul class="simple">
+<li><p>❌ Simple patch extraction (use <code class="docutils literal notranslate"><span class="pre">NCYXQuilt.unstitch()</span></code> instead)</p></li>
+<li><p>❌ Stitching patches back together (use <code class="docutils literal notranslate"><span class="pre">NCYXQuilt.stitch()</span></code> instead)</p></li>
+<li><p>❌ When you don’t need overlap information</p></li>
+</ul>
 </section>
 </section>
 

@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>qlty.patch_pairs_2d &mdash; qlty 1.2.1 documentation</title>
+  <title>qlty.patch_pairs_3d &mdash; qlty 1.2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
 
@@ -67,7 +67,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">qlty.patch_pairs_2d</li>
+      <li class="breadcrumb-item active">qlty.patch_pairs_3d</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -76,105 +76,97 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for qlty.patch_pairs_2d</h1><div class="highlight"><pre>
+  <h1>Source code for qlty.patch_pairs_3d</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Extract pairs of patches from 2D image tensors with controlled displacement.</span>
+<span class="sd">Extract pairs of patches from 3D image tensors with controlled displacement.</span>
 
-<span class="sd">This module provides functionality to extract pairs of patches from 2D tensors</span>
+<span class="sd">This module provides functionality to extract pairs of patches from 3D tensors</span>
 <span class="sd">where the displacement between patch centers follows specified constraints.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 
-<div class="viewcode-block" id="extract_patch_pairs">
-<a class="viewcode-back" href="../../api.html#qlty.patch_pairs_2d.extract_patch_pairs">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">extract_patch_pairs</span><span class="p">(</span>
+<div class="viewcode-block" id="extract_patch_pairs_3d">
+<a class="viewcode-back" href="../../api.html#qlty.patch_pairs_3d.extract_patch_pairs_3d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_patch_pairs_3d</span><span class="p">(</span>
     <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-    <span class="n">window</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">window</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
     <span class="n">num_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">delta_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
     <span class="n">random_seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">rotation_choices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Extract pairs of patches from 2D image tensors with controlled displacement.</span>
+<span class="sd">    Extract pairs of patches from 3D image tensors with controlled displacement.</span>
 
-<span class="sd">    For each image in the input tensor, this function extracts P pairs of patches.</span>
-<span class="sd">    Each pair consists of two patches: one at location (x_i, y_i) and another at</span>
-<span class="sd">    (x_i + dx_i, y_i + dy_i), where the Euclidean distance between the locations</span>
-<span class="sd">    is constrained to be within the specified delta_range.</span>
+<span class="sd">    For each volume in the input tensor, this function extracts P pairs of patches.</span>
+<span class="sd">    Each pair consists of two patches: one at location (x_i, y_i, z_i) and another at</span>
+<span class="sd">    (x_i + dx_i, y_i + dy_i, z_i + dz_i), where the Euclidean distance between the</span>
+<span class="sd">    locations is constrained to be within the specified delta_range.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    tensor : torch.Tensor</span>
-<span class="sd">        Input tensor of shape (N, C, Y, X) where:</span>
-<span class="sd">        - N: Number of images</span>
+<span class="sd">        Input tensor of shape (N, C, Z, Y, X) where:</span>
+<span class="sd">        - N: Number of volumes</span>
 <span class="sd">        - C: Number of channels</span>
-<span class="sd">        - Y: Height of images</span>
-<span class="sd">        - X: Width of images</span>
-<span class="sd">    window : Tuple[int, int]</span>
-<span class="sd">        Window shape (U, V) where:</span>
-<span class="sd">        - U: Height of patches</span>
-<span class="sd">        - V: Width of patches</span>
+<span class="sd">        - Z: Depth of volumes</span>
+<span class="sd">        - Y: Height of volumes</span>
+<span class="sd">        - X: Width of volumes</span>
+<span class="sd">    window : Tuple[int, int, int]</span>
+<span class="sd">        Window shape (U, V, W) where:</span>
+<span class="sd">        - U: Depth of patches</span>
+<span class="sd">        - V: Height of patches</span>
+<span class="sd">        - W: Width of patches</span>
 <span class="sd">    num_patches : int</span>
-<span class="sd">        Number of patch pairs P to extract per image</span>
+<span class="sd">        Number of patch pairs P to extract per volume</span>
 <span class="sd">    delta_range : Tuple[float, float]</span>
 <span class="sd">        Range (low, high) for the Euclidean distance of displacement vectors.</span>
-<span class="sd">        The constraint is: low &lt;= sqrt(dx_i² + dy_i²) &lt;= high</span>
+<span class="sd">        The constraint is: low &lt;= sqrt(dx_i² + dy_i² + dz_i²) &lt;= high</span>
 <span class="sd">        Additionally, low and high must satisfy: window//4 &lt;= low &lt;= high &lt;= 3*window//4</span>
-<span class="sd">        where window is the maximum of U and V.</span>
+<span class="sd">        where window is the maximum of U, V, and W.</span>
 <span class="sd">    random_seed : Optional[int], optional</span>
 <span class="sd">        Random seed for reproducibility. If None, uses current random state.</span>
 <span class="sd">        Default is None.</span>
-<span class="sd">    rotation_choices : Optional[Sequence[int]], optional</span>
-<span class="sd">        Allowed quarter-turn rotations (0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°) to apply</span>
-<span class="sd">        to the second patch in each pair. If provided, a rotation from this set is</span>
-<span class="sd">        sampled uniformly per pair and tracked in the returned `rotations` tensor.</span>
-<span class="sd">        When None (default), no rotations are applied.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
+<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor]</span>
 <span class="sd">        A tuple containing:</span>
-<span class="sd">        - patches1: Tensor of shape (N*P, C, U, V) containing patches at (x_i, y_i)</span>
-<span class="sd">        - patches2: Tensor of shape (N*P, C, U, V) containing patches at (x_i + dx_i, y_i + dy_i)</span>
-<span class="sd">        - deltas: Tensor of shape (N*P, 2) containing (dx_i, dy_i) displacement vectors</span>
-<span class="sd">        - rotations: Tensor of shape (N*P,) containing quarter-turn rotations applied to patches2</span>
+<span class="sd">        - patches1: Tensor of shape (N*P, C, U, V, W) containing patches at (x_i, y_i, z_i)</span>
+<span class="sd">        - patches2: Tensor of shape (N*P, C, U, V, W) containing patches at (x_i + dx_i, y_i + dy_i, z_i + dz_i)</span>
+<span class="sd">        - deltas: Tensor of shape (N*P, 3) containing (dx_i, dy_i, dz_i) displacement vectors</span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
-<span class="sd">        If delta_range constraints are violated or image dimensions are too small</span>
+<span class="sd">        If delta_range constraints are violated or volume dimensions are too small</span>
 <span class="sd">        for the specified window and delta range.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; tensor = torch.randn(5, 3, 128, 128)  # 5 images, 3 channels, 128x128</span>
-<span class="sd">    &gt;&gt;&gt; window = (32, 32)  # 32x32 patches</span>
-<span class="sd">    &gt;&gt;&gt; num_patches = 10  # 10 patch pairs per image</span>
-<span class="sd">    &gt;&gt;&gt; delta_range = (8.0, 16.0)  # Euclidean distance between 8 and 16 pixels</span>
-<span class="sd">    &gt;&gt;&gt; patches1, patches2, deltas, rotations = extract_patch_pairs(</span>
-<span class="sd">    ...     tensor, window, num_patches, delta_range</span>
-<span class="sd">    ... )</span>
-<span class="sd">    &gt;&gt;&gt; print(patches1.shape)   # (50, 3, 32, 32)</span>
-<span class="sd">    &gt;&gt;&gt; print(patches2.shape)   # (50, 3, 32, 32)</span>
-<span class="sd">    &gt;&gt;&gt; print(deltas.shape)     # (50, 2)</span>
-<span class="sd">    &gt;&gt;&gt; print(rotations.shape)  # (50,)</span>
+<span class="sd">    &gt;&gt;&gt; tensor = torch.randn(5, 1, 64, 64, 64)  # 5 volumes, 1 channel, 64x64x64</span>
+<span class="sd">    &gt;&gt;&gt; window = (16, 16, 16)  # 16x16x16 patches</span>
+<span class="sd">    &gt;&gt;&gt; num_patches = 10  # 10 patch pairs per volume</span>
+<span class="sd">    &gt;&gt;&gt; delta_range = (8.0, 16.0)  # Euclidean distance between 8 and 16 voxels</span>
+<span class="sd">    &gt;&gt;&gt; patches1, patches2, deltas = extract_patch_pairs_3d(tensor, window, num_patches, delta_range)</span>
+<span class="sd">    &gt;&gt;&gt; print(patches1.shape)  # (50, 1, 16, 16, 16)</span>
+<span class="sd">    &gt;&gt;&gt; print(patches2.shape)  # (50, 1, 16, 16, 16)</span>
+<span class="sd">    &gt;&gt;&gt; print(deltas.shape)    # (50, 3)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Validate input tensor shape</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">5</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Input tensor must be 4D (N, C, Y, X), got shape </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Input tensor must be 5D (N, C, Z, Y, X), got shape </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
-    <span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
-    <span class="n">U</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">window</span>
+    <span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">window</span>
 
     <span class="c1"># Validate delta_range constraints</span>
-    <span class="n">max_window</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+    <span class="n">max_window</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">W</span><span class="p">)</span>
     <span class="n">window_quarter</span> <span class="o">=</span> <span class="n">max_window</span> <span class="o">//</span> <span class="mi">4</span>
     <span class="n">window_three_quarters</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">max_window</span> <span class="o">//</span> <span class="mi">4</span>
 
@@ -187,13 +179,14 @@
     <span class="k">if</span> <span class="n">low</span> <span class="o">&gt;</span> <span class="n">high</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;delta_range low (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">) must be &lt;= high (</span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 
-    <span class="c1"># Check if image is large enough for window and delta range</span>
-    <span class="n">min_y</span> <span class="o">=</span> <span class="n">U</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span>
-    <span class="n">min_x</span> <span class="o">=</span> <span class="n">V</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">Y</span> <span class="o">&lt;</span> <span class="n">min_y</span> <span class="ow">or</span> <span class="n">X</span> <span class="o">&lt;</span> <span class="n">min_x</span><span class="p">:</span>
+    <span class="c1"># Check if volume is large enough for window and delta range</span>
+    <span class="n">min_z</span> <span class="o">=</span> <span class="n">U</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span>
+    <span class="n">min_y</span> <span class="o">=</span> <span class="n">V</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span>
+    <span class="n">min_x</span> <span class="o">=</span> <span class="n">W</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">Z</span> <span class="o">&lt;</span> <span class="n">min_z</span> <span class="ow">or</span> <span class="n">Y</span> <span class="o">&lt;</span> <span class="n">min_y</span> <span class="ow">or</span> <span class="n">X</span> <span class="o">&lt;</span> <span class="n">min_x</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Image dimensions (</span><span class="si">{</span><span class="n">Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">X</span><span class="si">}</span><span class="s2">) are too small for window (</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">) &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;and delta_range (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">). Minimum required: (</span><span class="si">{</span><span class="n">min_y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">min_x</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Volume dimensions (</span><span class="si">{</span><span class="n">Z</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">X</span><span class="si">}</span><span class="s2">) are too small for window (</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">W</span><span class="si">}</span><span class="s2">) &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;and delta_range (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">). Minimum required: (</span><span class="si">{</span><span class="n">min_z</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">min_y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">min_x</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="p">)</span>
 
     <span class="c1"># Set random seed if provided</span>
@@ -206,75 +199,60 @@
     <span class="c1"># Pre-allocate output tensors</span>
     <span class="n">total_patches</span> <span class="o">=</span> <span class="n">N</span> <span class="o">*</span> <span class="n">num_patches</span>
     <span class="n">patches1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">W</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
     <span class="p">)</span>
     <span class="n">patches2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">W</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
     <span class="p">)</span>
     <span class="n">deltas_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
     <span class="p">)</span>
-    <span class="n">rotations_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-        <span class="n">total_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
-    <span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">rotation_choices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">rotation_choices</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">rotation_choices</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">choice</span><span class="p">)</span> <span class="o">%</span> <span class="mi">4</span> <span class="k">for</span> <span class="n">choice</span> <span class="ow">in</span> <span class="n">rotation_choices</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rotation_choices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">rotation_choices</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
-    <span class="n">rotation_choices_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
-        <span class="n">rotation_choices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
-    <span class="p">)</span>
-    <span class="n">allow_rotations</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">choice</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">choice</span> <span class="ow">in</span> <span class="n">rotation_choices</span><span class="p">)</span>
 
     <span class="n">patch_idx</span> <span class="o">=</span> <span class="mi">0</span>
 
-    <span class="c1"># Process each image</span>
+    <span class="c1"># Process each volume</span>
     <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-        <span class="n">image</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">[</span><span class="n">n</span><span class="p">]</span>  <span class="c1"># Shape: (C, Y, X)</span>
+        <span class="n">volume</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">[</span><span class="n">n</span><span class="p">]</span>  <span class="c1"># Shape: (C, Z, Y, X)</span>
 
-        <span class="c1"># Extract P patch pairs for this image</span>
+        <span class="c1"># Extract P patch pairs for this volume</span>
         <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_patches</span><span class="p">):</span>
-            <span class="c1"># Sample displacement vector (dx, dy) with Euclidean distance constraint</span>
-            <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">_sample_displacement_vector</span><span class="p">(</span>
+            <span class="c1"># Sample displacement vector (dx, dy, dz) with Euclidean distance constraint</span>
+            <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span> <span class="o">=</span> <span class="n">_sample_displacement_vector_3d</span><span class="p">(</span>
                 <span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
             <span class="p">)</span>
 
-            <span class="c1"># Sample first patch location (x, y) ensuring both patches fit</span>
-            <span class="c1"># Valid x range: [0, X - V - max(|dx|, 0)]</span>
-            <span class="c1"># Valid y range: [0, Y - U - max(|dy|, 0)]</span>
-            <span class="c1"># But we need to ensure both patches fit, so:</span>
-            <span class="c1"># x in [max(0, -dx), min(X - V, X - V - dx)]</span>
-            <span class="c1"># y in [max(0, -dy), min(Y - U, Y - U - dy)]</span>
-
+            <span class="c1"># Sample first patch location (x, y, z) ensuring both patches fit</span>
             <span class="n">x_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dx</span><span class="p">)</span>
-            <span class="n">x_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">V</span><span class="p">,</span> <span class="n">X</span> <span class="o">-</span> <span class="n">V</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span>
+            <span class="n">x_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">W</span><span class="p">,</span> <span class="n">X</span> <span class="o">-</span> <span class="n">W</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span>
             <span class="n">y_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dy</span><span class="p">)</span>
-            <span class="n">y_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Y</span> <span class="o">-</span> <span class="n">U</span><span class="p">,</span> <span class="n">Y</span> <span class="o">-</span> <span class="n">U</span> <span class="o">-</span> <span class="n">dy</span><span class="p">)</span>
+            <span class="n">y_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Y</span> <span class="o">-</span> <span class="n">V</span><span class="p">,</span> <span class="n">Y</span> <span class="o">-</span> <span class="n">V</span> <span class="o">-</span> <span class="n">dy</span><span class="p">)</span>
+            <span class="n">z_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dz</span><span class="p">)</span>
+            <span class="n">z_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Z</span> <span class="o">-</span> <span class="n">U</span><span class="p">,</span> <span class="n">Z</span> <span class="o">-</span> <span class="n">U</span> <span class="o">-</span> <span class="n">dz</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span> <span class="ow">or</span> <span class="n">z_min</span> <span class="o">&gt;=</span> <span class="n">z_max</span><span class="p">:</span>
                 <span class="c1"># If displacement is too large, try again with a smaller one</span>
-                <span class="c1"># This shouldn&#39;t happen often if delta_range is reasonable</span>
                 <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
-                <span class="k">while</span> <span class="p">(</span><span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span><span class="p">)</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
-                    <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">_sample_displacement_vector</span><span class="p">(</span>
+                <span class="k">while</span> <span class="p">(</span>
+                    <span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span> <span class="ow">or</span> <span class="n">z_min</span> <span class="o">&gt;=</span> <span class="n">z_max</span>
+                <span class="p">)</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
+                    <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span> <span class="o">=</span> <span class="n">_sample_displacement_vector_3d</span><span class="p">(</span>
                         <span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
                     <span class="p">)</span>
                     <span class="n">x_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dx</span><span class="p">)</span>
-                    <span class="n">x_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">V</span><span class="p">,</span> <span class="n">X</span> <span class="o">-</span> <span class="n">V</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span>
+                    <span class="n">x_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">W</span><span class="p">,</span> <span class="n">X</span> <span class="o">-</span> <span class="n">W</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span>
                     <span class="n">y_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dy</span><span class="p">)</span>
-                    <span class="n">y_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Y</span> <span class="o">-</span> <span class="n">U</span><span class="p">,</span> <span class="n">Y</span> <span class="o">-</span> <span class="n">U</span> <span class="o">-</span> <span class="n">dy</span><span class="p">)</span>
+                    <span class="n">y_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Y</span> <span class="o">-</span> <span class="n">V</span><span class="p">,</span> <span class="n">Y</span> <span class="o">-</span> <span class="n">V</span> <span class="o">-</span> <span class="n">dy</span><span class="p">)</span>
+                    <span class="n">z_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dz</span><span class="p">)</span>
+                    <span class="n">z_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Z</span> <span class="o">-</span> <span class="n">U</span><span class="p">,</span> <span class="n">Z</span> <span class="o">-</span> <span class="n">U</span> <span class="o">-</span> <span class="n">dz</span><span class="p">)</span>
                     <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
 
-                <span class="k">if</span> <span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span> <span class="ow">or</span> <span class="n">z_min</span> <span class="o">&gt;=</span> <span class="n">z_max</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Could not find valid patch locations for displacement (</span><span class="si">{</span><span class="n">dx</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">dy</span><span class="si">}</span><span class="s2">) &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;in image of size (</span><span class="si">{</span><span class="n">Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">X</span><span class="si">}</span><span class="s2">) with window (</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">)&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Could not find valid patch locations for displacement (</span><span class="si">{</span><span class="n">dx</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">dy</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">dz</span><span class="si">}</span><span class="s2">) &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;in volume of size (</span><span class="si">{</span><span class="n">Z</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">X</span><span class="si">}</span><span class="s2">) with window (</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">W</span><span class="si">}</span><span class="s2">)&quot;</span>
                     <span class="p">)</span>
 
-            <span class="c1"># Sample random location for first patch (keep on GPU if possible)</span>
+            <span class="c1"># Sample random location for first patch</span>
             <span class="k">if</span> <span class="n">generator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
                     <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
@@ -282,59 +260,53 @@
                 <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
                     <span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
                 <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
+                    <span class="n">z_min</span><span class="p">,</span> <span class="n">z_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+                <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">z_min</span><span class="p">,</span> <span class="n">z_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
-            <span class="c1"># Convert to Python int for slicing (necessary for indexing)</span>
+            <span class="c1"># Convert to Python int for slicing</span>
             <span class="n">x_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
             <span class="n">y_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="n">z_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
 
-            <span class="c1"># Extract first patch at (x, y)</span>
-            <span class="n">patch1</span> <span class="o">=</span> <span class="n">image</span><span class="p">[:,</span> <span class="n">y_int</span> <span class="p">:</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_int</span> <span class="p">:</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">V</span><span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
+            <span class="c1"># Extract first patch at (x, y, z)</span>
+            <span class="n">patch1</span> <span class="o">=</span> <span class="n">volume</span><span class="p">[</span>
+                <span class="p">:,</span> <span class="n">z_int</span> <span class="p">:</span> <span class="n">z_int</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span> <span class="n">y_int</span> <span class="p">:</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">V</span><span class="p">,</span> <span class="n">x_int</span> <span class="p">:</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">W</span>
+            <span class="p">]</span>  <span class="c1"># Shape: (C, U, V, W)</span>
 
-            <span class="c1"># Extract second patch at (x + dx, y + dy)</span>
-            <span class="n">patch2</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span>
-                <span class="p">:,</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="p">:</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="p">:</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">V</span>
-            <span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
-
-            <span class="k">if</span> <span class="n">allow_rotations</span><span class="p">:</span>
-                <span class="n">rotation_idx_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
-                    <span class="mi">0</span><span class="p">,</span>
-                    <span class="n">rotation_choices_tensor</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span>
-                    <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
-                    <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
-                    <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
-                <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">rotation_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rotation_idx_tensor</span><span class="p">)</span>
-                <span class="n">rotation</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rotation_choices_tensor</span><span class="p">[</span><span class="n">rotation_idx</span><span class="p">])</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">rotation</span> <span class="o">=</span> <span class="mi">0</span>
-
-            <span class="k">if</span> <span class="n">rotation</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">patch2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">patch2</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">rotation</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+            <span class="c1"># Extract second patch at (x + dx, y + dy, z + dz)</span>
+            <span class="n">patch2</span> <span class="o">=</span> <span class="n">volume</span><span class="p">[</span>
+                <span class="p">:,</span>
+                <span class="n">z_int</span> <span class="o">+</span> <span class="n">dz</span> <span class="p">:</span> <span class="n">z_int</span> <span class="o">+</span> <span class="n">dz</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span>
+                <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="p">:</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">+</span> <span class="n">V</span><span class="p">,</span>
+                <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="p">:</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">W</span><span class="p">,</span>
+            <span class="p">]</span>  <span class="c1"># Shape: (C, U, V, W)</span>
 
             <span class="c1"># Store patches and delta directly in pre-allocated tensors</span>
             <span class="n">patches1</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch1</span>
             <span class="n">patches2</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2</span>
             <span class="n">deltas_tensor</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span>
             <span class="n">deltas_tensor</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dy</span><span class="p">)</span>
-            <span class="n">rotations_tensor</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation</span>
+            <span class="n">deltas_tensor</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dz</span><span class="p">)</span>
 
             <span class="n">patch_idx</span> <span class="o">+=</span> <span class="mi">1</span>
 
-    <span class="k">return</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas_tensor</span><span class="p">,</span> <span class="n">rotations_tensor</span></div>
+    <span class="k">return</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas_tensor</span></div>
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_sample_displacement_vector</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_sample_displacement_vector_3d</span><span class="p">(</span>
     <span class="n">low</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">high</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">generator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Sample a displacement vector (dx, dy) such that low &lt;= sqrt(dx² + dy²) &lt;= high.</span>
+<span class="sd">    Sample a displacement vector (dx, dy, dz) such that low &lt;= sqrt(dx² + dy² + dz²) &lt;= high.</span>
 
 <span class="sd">    Uses rejection sampling to ensure the Euclidean distance constraint is satisfied.</span>
 
@@ -346,16 +318,16 @@
 <span class="sd">        Maximum Euclidean distance</span>
 <span class="sd">    generator : Optional[torch.Generator]</span>
 <span class="sd">        Random number generator for reproducibility</span>
+<span class="sd">    device : Optional[torch.device]</span>
+<span class="sd">        Device for tensor operations</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Tuple[int, int]</span>
-<span class="sd">        Displacement vector (dx, dy) as integers</span>
+<span class="sd">    Tuple[int, int, int]</span>
+<span class="sd">        Displacement vector (dx, dy, dz) as integers</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">max_attempts</span> <span class="o">=</span> <span class="mi">1000</span>
     <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_attempts</span><span class="p">):</span>
-        <span class="c1"># Sample dx and dy in a range that could potentially satisfy the constraint</span>
-        <span class="c1"># We sample from a larger range to ensure we can find valid vectors</span>
         <span class="n">max_delta</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
 
         <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -368,87 +340,96 @@
             <span class="n">dy_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
                 <span class="o">-</span><span class="n">max_delta</span><span class="p">,</span> <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
             <span class="p">)</span>
+            <span class="n">dz_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
+                <span class="o">-</span><span class="n">max_delta</span><span class="p">,</span> <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">dx_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="n">max_delta</span><span class="p">,</span> <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
             <span class="n">dy_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="n">max_delta</span><span class="p">,</span> <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">dz_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="n">max_delta</span><span class="p">,</span> <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
         <span class="n">dx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dx_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">dy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dy_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">dz</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dz_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
         <span class="c1"># Check Euclidean distance constraint</span>
-        <span class="n">distance</span> <span class="o">=</span> <span class="p">(</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="p">(</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dz</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
         <span class="k">if</span> <span class="n">low</span> <span class="o">&lt;=</span> <span class="n">distance</span> <span class="o">&lt;=</span> <span class="n">high</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span>
+            <span class="k">return</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span>
 
     <span class="c1"># If we couldn&#39;t find a valid vector after many attempts, use a fallback</span>
-    <span class="c1"># Sample angle uniformly and distance uniformly in [low, high]</span>
+    <span class="c1"># Sample using spherical coordinates</span>
     <span class="k">if</span> <span class="n">generator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">angle_tensor</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">theta_tensor</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mf">3.141592653589793</span>
+        <span class="p">)</span>
+        <span class="n">phi_tensor</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="o">*</span> <span class="mf">3.141592653589793</span>
         <span class="p">)</span>
         <span class="n">distance_tensor</span> <span class="o">=</span> <span class="n">low</span> <span class="o">+</span> <span class="p">(</span><span class="n">high</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span>
             <span class="mi">1</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">angle_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mf">3.141592653589793</span>
+        <span class="n">theta_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mf">3.141592653589793</span>
+        <span class="n">phi_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="o">*</span> <span class="mf">3.141592653589793</span>
         <span class="n">distance_tensor</span> <span class="o">=</span> <span class="n">low</span> <span class="o">+</span> <span class="p">(</span><span class="n">high</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
     <span class="n">distance</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">distance_tensor</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
-    <span class="c1"># Compute cos and sin on GPU if device is GPU</span>
-    <span class="n">cos_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">angle_tensor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">sin_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">angle_tensor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">dx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">cos_val</span><span class="p">)))</span>
-    <span class="n">dy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">sin_val</span><span class="p">)))</span>
+    <span class="c1"># Compute dx, dy, dz from spherical coordinates</span>
+    <span class="n">cos_theta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta_tensor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sin_theta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta_tensor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">cos_phi</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">phi_tensor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sin_phi</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">phi_tensor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">dx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">sin_phi</span><span class="p">)</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">cos_theta</span><span class="p">)))</span>
+    <span class="n">dy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">sin_phi</span><span class="p">)</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">sin_theta</span><span class="p">)))</span>
+    <span class="n">dz</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">cos_phi</span><span class="p">)))</span>
 
     <span class="c1"># Ensure distance is still in range (may have been affected by rounding)</span>
-    <span class="n">actual_distance</span> <span class="o">=</span> <span class="p">(</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
+    <span class="n">actual_distance</span> <span class="o">=</span> <span class="p">(</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dz</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
     <span class="k">if</span> <span class="n">actual_distance</span> <span class="o">&lt;</span> <span class="n">low</span><span class="p">:</span>
-        <span class="c1"># Scale up to meet minimum</span>
         <span class="n">scale</span> <span class="o">=</span> <span class="n">low</span> <span class="o">/</span> <span class="n">actual_distance</span>
         <span class="n">dx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dx</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
         <span class="n">dy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dy</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
+        <span class="n">dz</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dz</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
     <span class="k">elif</span> <span class="n">actual_distance</span> <span class="o">&gt;</span> <span class="n">high</span><span class="p">:</span>
-        <span class="c1"># Scale down to meet maximum</span>
         <span class="n">scale</span> <span class="o">=</span> <span class="n">high</span> <span class="o">/</span> <span class="n">actual_distance</span>
         <span class="n">dx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dx</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
         <span class="n">dy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dy</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
+        <span class="n">dz</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dz</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
 
-    <span class="k">return</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span>
+    <span class="k">return</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span>
 
 
-<div class="viewcode-block" id="extract_overlapping_pixels">
-<a class="viewcode-back" href="../../api.html#qlty.patch_pairs_2d.extract_overlapping_pixels">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">extract_overlapping_pixels</span><span class="p">(</span>
+<div class="viewcode-block" id="extract_overlapping_pixels_3d">
+<a class="viewcode-back" href="../../api.html#qlty.patch_pairs_3d.extract_overlapping_pixels_3d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_overlapping_pixels_3d</span><span class="p">(</span>
     <span class="n">patches1</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">patches2</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">deltas</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-    <span class="n">rotations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Extract overlapping pixels from patch pairs based on displacement vectors.</span>
+<span class="sd">    Extract overlapping pixels from 3D patch pairs based on displacement vectors.</span>
 
 <span class="sd">    For each patch pair, this function finds pixels that have valid correspondences</span>
 <span class="sd">    between the two patches (i.e., pixels that represent the same spatial location</span>
-<span class="sd">    in the original image). Only overlapping pixels are returned.</span>
+<span class="sd">    in the original volume). Only overlapping pixels are returned.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    patches1 : torch.Tensor</span>
-<span class="sd">        First set of patches, shape (N*P, C, U, V) where:</span>
+<span class="sd">        First set of patches, shape (N*P, C, U, V, W) where:</span>
 <span class="sd">        - N*P: Total number of patch pairs</span>
 <span class="sd">        - C: Number of channels</span>
-<span class="sd">        - U: Patch height</span>
-<span class="sd">        - V: Patch width</span>
+<span class="sd">        - U: Patch depth</span>
+<span class="sd">        - V: Patch height</span>
+<span class="sd">        - W: Patch width</span>
 <span class="sd">    patches2 : torch.Tensor</span>
-<span class="sd">        Second set of patches, shape (N*P, C, U, V), corresponding patches</span>
+<span class="sd">        Second set of patches, shape (N*P, C, U, V, W), corresponding patches</span>
 <span class="sd">        extracted at displaced locations</span>
 <span class="sd">    deltas : torch.Tensor</span>
-<span class="sd">        Displacement vectors, shape (N*P, 2) containing (dx, dy) for each pair</span>
-<span class="sd">    rotations : Optional[torch.Tensor], optional</span>
-<span class="sd">        Quarter-turn rotations (0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°) that were</span>
-<span class="sd">        applied to `patches2`. When provided, each value is used to undo the rotation</span>
-<span class="sd">        before extracting overlaps so that corresponding pixels align spatially.</span>
+<span class="sd">        Displacement vectors, shape (N*P, 3) containing (dx, dy, dz) for each pair</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -461,18 +442,18 @@
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; patches1 = torch.randn(10, 3, 32, 32)</span>
-<span class="sd">    &gt;&gt;&gt; patches2 = torch.randn(10, 3, 32, 32)</span>
-<span class="sd">    &gt;&gt;&gt; deltas = torch.tensor([[5, 3], [-2, 4], ...])  # shape (10, 2)</span>
-<span class="sd">    &gt;&gt;&gt; overlapping1, overlapping2 = extract_overlapping_pixels(patches1, patches2, deltas)</span>
-<span class="sd">    &gt;&gt;&gt; print(overlapping1.shape)  # (K, 3) where K depends on overlap</span>
-<span class="sd">    &gt;&gt;&gt; print(overlapping2.shape)  # (K, 3)</span>
+<span class="sd">    &gt;&gt;&gt; patches1 = torch.randn(10, 1, 16, 16, 16)</span>
+<span class="sd">    &gt;&gt;&gt; patches2 = torch.randn(10, 1, 16, 16, 16)</span>
+<span class="sd">    &gt;&gt;&gt; deltas = torch.tensor([[5, 3, 2], [-2, 4, 1], ...])  # shape (10, 3)</span>
+<span class="sd">    &gt;&gt;&gt; overlapping1, overlapping2 = extract_overlapping_pixels_3d(patches1, patches2, deltas)</span>
+<span class="sd">    &gt;&gt;&gt; print(overlapping1.shape)  # (K, 1) where K depends on overlap</span>
+<span class="sd">    &gt;&gt;&gt; print(overlapping2.shape)  # (K, 1)</span>
 <span class="sd">    &gt;&gt;&gt; # overlapping1[i] and overlapping2[i] correspond to the same spatial location</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Validate input shapes</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">5</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">5</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Both patches1 and patches2 must be 4D tensors (N*P, C, U, V), &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Both patches1 and patches2 must be 5D tensors (N*P, C, U, V, W), &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;got shapes </span><span class="si">{</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
@@ -482,26 +463,17 @@
             <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;deltas must be 2D tensor of shape (N*P, 2), got </span><span class="si">{</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;deltas must be 2D tensor of shape (N*P, 3), got </span><span class="si">{</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
-    <span class="n">num_pairs</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">patches1</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">num_pairs</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">patches1</span><span class="o">.</span><span class="n">shape</span>
 
     <span class="k">if</span> <span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">num_pairs</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Number of deltas (</span><span class="si">{</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">) must match number of patch pairs (</span><span class="si">{</span><span class="n">num_pairs</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">rotations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">rotations</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">num_pairs</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Number of rotations (</span><span class="si">{</span><span class="n">rotations</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">) must match number of patch pairs (</span><span class="si">{</span><span class="n">num_pairs</span><span class="si">}</span><span class="s2">)&quot;</span>
-            <span class="p">)</span>
-        <span class="n">rotations_int</span> <span class="o">=</span> <span class="n">rotations</span><span class="o">.</span><span class="n">int</span><span class="p">()</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">rotations_int</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># Convert deltas to integers for indexing (keep on same device)</span>
     <span class="n">deltas_int</span> <span class="o">=</span> <span class="n">deltas</span><span class="o">.</span><span class="n">int</span><span class="p">()</span>
@@ -514,55 +486,54 @@
         <span class="c1"># Get delta values without moving to CPU (use indexing, then convert to int)</span>
         <span class="n">dx_tensor</span> <span class="o">=</span> <span class="n">deltas_int</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
         <span class="n">dy_tensor</span> <span class="o">=</span> <span class="n">deltas_int</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">dz_tensor</span> <span class="o">=</span> <span class="n">deltas_int</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
         <span class="c1"># Convert to Python int only when needed for indexing</span>
         <span class="n">dx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dx_tensor</span><span class="p">)</span>
         <span class="n">dy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dy_tensor</span><span class="p">)</span>
+        <span class="n">dz</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dz_tensor</span><span class="p">)</span>
 
         <span class="c1"># Get the two patches</span>
-        <span class="n">patch1</span> <span class="o">=</span> <span class="n">patches1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
-        <span class="n">patch2</span> <span class="o">=</span> <span class="n">patches2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
-        <span class="n">rotation</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">if</span> <span class="n">rotations_int</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">rotation</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rotations_int</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">%</span> <span class="mi">4</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">rotation</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">patch2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">patch2</span><span class="p">,</span> <span class="n">k</span><span class="o">=-</span><span class="n">rotation</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">patch1</span> <span class="o">=</span> <span class="n">patches1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># Shape: (C, U, V, W)</span>
+        <span class="n">patch2</span> <span class="o">=</span> <span class="n">patches2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># Shape: (C, U, V, W)</span>
 
         <span class="c1"># Find valid overlap region in patch1 coordinates</span>
-        <span class="c1"># A pixel at (u1, v1) in patch1 corresponds to (u1 - dy, v1 - dx) in patch2</span>
+        <span class="c1"># A pixel at (u1, v1, w1) in patch1 corresponds to (u1 - dz, v1 - dy, w1 - dx) in patch2</span>
         <span class="c1"># For valid correspondence, we need:</span>
-        <span class="c1">#   0 &lt;= u1 - dy &lt; U  and  0 &lt;= v1 - dx &lt; V</span>
-        <span class="c1"># Which means: dy &lt;= u1 &lt; U + dy  and  dx &lt;= v1 &lt; V + dx</span>
-        <span class="c1"># Combined with u1 in [0, U) and v1 in [0, V):</span>
-        <span class="n">u_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span>
-        <span class="n">u_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">U</span> <span class="o">+</span> <span class="n">dy</span><span class="p">)</span>
-        <span class="n">v_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
-        <span class="n">v_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">V</span> <span class="o">+</span> <span class="n">dx</span><span class="p">)</span>
+        <span class="c1">#   0 &lt;= u1 - dz &lt; U  and  0 &lt;= v1 - dy &lt; V  and  0 &lt;= w1 - dx &lt; W</span>
+        <span class="c1"># Which means: dz &lt;= u1 &lt; U + dz  and  dy &lt;= v1 &lt; V + dy  and  dx &lt;= w1 &lt; W + dx</span>
+        <span class="c1"># Combined with u1 in [0, U), v1 in [0, V), w1 in [0, W):</span>
+        <span class="n">u_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dz</span><span class="p">)</span>
+        <span class="n">u_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">U</span> <span class="o">+</span> <span class="n">dz</span><span class="p">)</span>
+        <span class="n">v_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span>
+        <span class="n">v_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">V</span> <span class="o">+</span> <span class="n">dy</span><span class="p">)</span>
+        <span class="n">w_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+        <span class="n">w_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">W</span><span class="p">,</span> <span class="n">W</span> <span class="o">+</span> <span class="n">dx</span><span class="p">)</span>
 
         <span class="c1"># Check if there&#39;s any overlap</span>
-        <span class="k">if</span> <span class="n">u_min</span> <span class="o">&gt;=</span> <span class="n">u_max</span> <span class="ow">or</span> <span class="n">v_min</span> <span class="o">&gt;=</span> <span class="n">v_max</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">u_min</span> <span class="o">&gt;=</span> <span class="n">u_max</span> <span class="ow">or</span> <span class="n">v_min</span> <span class="o">&gt;=</span> <span class="n">v_max</span> <span class="ow">or</span> <span class="n">w_min</span> <span class="o">&gt;=</span> <span class="n">w_max</span><span class="p">:</span>
             <span class="c1"># No overlap for this patch pair, skip it</span>
             <span class="k">continue</span>
 
         <span class="c1"># Extract overlapping region from patch1</span>
         <span class="n">overlap_region1</span> <span class="o">=</span> <span class="n">patch1</span><span class="p">[</span>
-            <span class="p">:,</span> <span class="n">u_min</span><span class="p">:</span><span class="n">u_max</span><span class="p">,</span> <span class="n">v_min</span><span class="p">:</span><span class="n">v_max</span>
-        <span class="p">]</span>  <span class="c1"># Shape: (C, u_max-u_min, v_max-v_min)</span>
+            <span class="p">:,</span> <span class="n">u_min</span><span class="p">:</span><span class="n">u_max</span><span class="p">,</span> <span class="n">v_min</span><span class="p">:</span><span class="n">v_max</span><span class="p">,</span> <span class="n">w_min</span><span class="p">:</span><span class="n">w_max</span>
+        <span class="p">]</span>  <span class="c1"># Shape: (C, u_max-u_min, v_max-v_min, w_max-w_min)</span>
 
         <span class="c1"># Extract corresponding region from patch2</span>
-        <span class="c1"># In patch2 coordinates: u2 = u1 - dy, v2 = v1 - dx</span>
-        <span class="c1"># So: u2_min = u_min - dy, u2_max = u_max - dy</span>
-        <span class="c1">#     v2_min = v_min - dx, v2_max = v_max - dx</span>
-        <span class="n">u2_min</span> <span class="o">=</span> <span class="n">u_min</span> <span class="o">-</span> <span class="n">dy</span>
-        <span class="n">u2_max</span> <span class="o">=</span> <span class="n">u_max</span> <span class="o">-</span> <span class="n">dy</span>
-        <span class="n">v2_min</span> <span class="o">=</span> <span class="n">v_min</span> <span class="o">-</span> <span class="n">dx</span>
-        <span class="n">v2_max</span> <span class="o">=</span> <span class="n">v_max</span> <span class="o">-</span> <span class="n">dx</span>
+        <span class="c1"># In patch2 coordinates: u2 = u1 - dz, v2 = v1 - dy, w2 = w1 - dx</span>
+        <span class="n">u2_min</span> <span class="o">=</span> <span class="n">u_min</span> <span class="o">-</span> <span class="n">dz</span>
+        <span class="n">u2_max</span> <span class="o">=</span> <span class="n">u_max</span> <span class="o">-</span> <span class="n">dz</span>
+        <span class="n">v2_min</span> <span class="o">=</span> <span class="n">v_min</span> <span class="o">-</span> <span class="n">dy</span>
+        <span class="n">v2_max</span> <span class="o">=</span> <span class="n">v_max</span> <span class="o">-</span> <span class="n">dy</span>
+        <span class="n">w2_min</span> <span class="o">=</span> <span class="n">w_min</span> <span class="o">-</span> <span class="n">dx</span>
+        <span class="n">w2_max</span> <span class="o">=</span> <span class="n">w_max</span> <span class="o">-</span> <span class="n">dx</span>
 
         <span class="n">overlap_region2</span> <span class="o">=</span> <span class="n">patch2</span><span class="p">[</span>
-            <span class="p">:,</span> <span class="n">u2_min</span><span class="p">:</span><span class="n">u2_max</span><span class="p">,</span> <span class="n">v2_min</span><span class="p">:</span><span class="n">v2_max</span>
-        <span class="p">]</span>  <span class="c1"># Shape: (C, u_max-u_min, v_max-v_min)</span>
+            <span class="p">:,</span> <span class="n">u2_min</span><span class="p">:</span><span class="n">u2_max</span><span class="p">,</span> <span class="n">v2_min</span><span class="p">:</span><span class="n">v2_max</span><span class="p">,</span> <span class="n">w2_min</span><span class="p">:</span><span class="n">w2_max</span>
+        <span class="p">]</span>  <span class="c1"># Shape: (C, u_max-u_min, v_max-v_min, w_max-w_min)</span>
 
         <span class="c1"># Reshape to (C, K&#39;) where K&#39; is the number of overlapping pixels for this pair</span>
-        <span class="n">K_prime</span> <span class="o">=</span> <span class="p">(</span><span class="n">u_max</span> <span class="o">-</span> <span class="n">u_min</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">v_max</span> <span class="o">-</span> <span class="n">v_min</span><span class="p">)</span>
+        <span class="n">K_prime</span> <span class="o">=</span> <span class="p">(</span><span class="n">u_max</span> <span class="o">-</span> <span class="n">u_min</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">v_max</span> <span class="o">-</span> <span class="n">v_min</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">w_max</span> <span class="o">-</span> <span class="n">w_min</span><span class="p">)</span>
         <span class="n">overlap_flat1</span> <span class="o">=</span> <span class="n">overlap_region1</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">K_prime</span><span class="p">)</span><span class="o">.</span><span class="n">t</span><span class="p">()</span>  <span class="c1"># Shape: (K&#39;, C)</span>
         <span class="n">overlap_flat2</span> <span class="o">=</span> <span class="n">overlap_region2</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">K_prime</span><span class="p">)</span><span class="o">.</span><span class="n">t</span><span class="p">()</span>  <span class="c1"># Shape: (K&#39;, C)</span>
 

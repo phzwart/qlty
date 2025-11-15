@@ -195,7 +195,7 @@ extract_overlapping_pixels
 extract_patch_pairs_3d
 ~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: qlty.patch_pairs.extract_patch_pairs_3d
+.. autofunction:: qlty.patch_pairs_3d.extract_patch_pairs_3d
 
 **Example:**
 
@@ -220,7 +220,7 @@ extract_patch_pairs_3d
 extract_overlapping_pixels_3d
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: qlty.patch_pairs.extract_overlapping_pixels_3d
+.. autofunction:: qlty.patch_pairs_3d.extract_overlapping_pixels_3d
 
 **Example:**
 
@@ -243,6 +243,83 @@ extract_overlapping_pixels_3d
     # overlapping2: (K, 1) - overlapping pixels from patches2
     # K is the total number of overlapping pixels
     # Corresponding pixels are at the same index in both tensors
+
+Pre-Tokenization for Patch Processing (2D)
+--------------------------------------------
+
+tokenize_patch
+~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.pretokenizer_2d.sequences.tokenize_patch
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty import tokenize_patch
+    import torch
+
+    # Tokenize a single patch into overlapping subpatches
+    patch = torch.randn(3, 64, 64)  # 3 channels, 64x64 patch
+    tokens, coords = tokenize_patch(patch, patch_size=16, stride=8)
+
+    # tokens: (T, 768) - flattened token vectors (T tokens, each 3*16*16=768 dims)
+    # coords: (T, 2) - absolute (y, x) coordinates of each token
+    print(f"Created {tokens.shape[0]} tokens from patch")
+
+build_sequence_pair
+~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.pretokenizer_2d.sequences.build_sequence_pair
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty import build_sequence_pair, extract_patch_pairs
+    import torch
+
+    # Extract patch pairs using qlty's extract_patch_pairs
+    images = torch.randn(10, 3, 128, 128)
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
+        images, window=(64, 64), num_patches=5, delta_range=(10.0, 20.0)
+    )
+
+    # Build sequence pairs with overlap information
+    # Process a single pair
+    result = build_sequence_pair(
+        patches1[0],      # (3, 64, 64)
+        patches2[0],      # (3, 64, 64)
+        dx=deltas[0, 0].item(),
+        dy=deltas[0, 1].item(),
+        rot_k90=rotations[0].item(),
+        patch_size=16,
+        stride=8
+    )
+
+    # result contains:
+    # - tokens1, tokens2: Token sequences from each patch
+    # - coords1, coords2: Absolute coordinates for each token
+    # - overlap_mask1, overlap_mask2: Which tokens have overlaps
+    # - overlap_indices1_to_2, overlap_indices2_to_1: Token mappings
+    # - overlap_fractions: Fraction of overlap for each token
+    # - overlap_pairs: List of (i, j) pairs of overlapping tokens
+
+    # Process a batch efficiently
+    batch_result = build_sequence_pair(
+        patches1,         # (50, 3, 64, 64)
+        patches2,         # (50, 3, 64, 64)
+        dx=deltas[:, 0],  # (50,)
+        dy=deltas[:, 1],  # (50,)
+        rot_k90=rotations, # (50,)
+        patch_size=16,
+        stride=8
+    )
+
+    # Batch result has same keys but tensors are padded to max length
+    # - tokens1, tokens2: (50, T_max, D)
+    # - sequence_lengths: (50,) - actual lengths
+    # - overlap_pair_counts: (50,) - number of overlaps per pair
 
 Parameter Details
 -----------------

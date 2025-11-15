@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>API Reference &mdash; qlty 1.2.0 documentation</title>
+  <title>API Reference &mdash; qlty 1.2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=6efca38a"></script>
+      <script src="_static/documentation_options.js?v=ca842793"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -91,8 +91,25 @@
 <li class="toctree-l4"><a class="reference internal" href="#qlty.patch_pairs_2d.extract_overlapping_pixels"><code class="docutils literal notranslate"><span class="pre">extract_overlapping_pixels()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#extract-patch-pairs-3d">extract_patch_pairs_3d</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#extract-overlapping-pixels-3d">extract_overlapping_pixels_3d</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-patch-pairs-3d">extract_patch_pairs_3d</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.patch_pairs_3d.extract_patch_pairs_3d"><code class="docutils literal notranslate"><span class="pre">extract_patch_pairs_3d()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-overlapping-pixels-3d">extract_overlapping_pixels_3d</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.patch_pairs_3d.extract_overlapping_pixels_3d"><code class="docutils literal notranslate"><span class="pre">extract_overlapping_pixels_3d()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#pre-tokenization-for-patch-processing-2d">Pre-Tokenization for Patch Processing (2D)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#tokenize-patch">tokenize_patch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.pretokenizer_2d.sequences.tokenize_patch"><code class="docutils literal notranslate"><span class="pre">tokenize_patch()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#build-sequence-pair">build_sequence_pair</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.pretokenizer_2d.sequences.build_sequence_pair"><code class="docutils literal notranslate"><span class="pre">build_sequence_pair()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#parameter-details">Parameter Details</a><ul>
@@ -1278,6 +1295,74 @@ and corresponding pixels are at the same index in both tensors.</p>
 </section>
 <section id="extract-patch-pairs-3d">
 <h3>extract_patch_pairs_3d<a class="headerlink" href="#extract-patch-pairs-3d" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.patch_pairs_3d.extract_patch_pairs_3d">
+<span class="sig-prename descclassname"><span class="pre">qlty.patch_pairs_3d.</span></span><span class="sig-name descname"><span class="pre">extract_patch_pairs_3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_patches</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/patch_pairs_3d.html#extract_patch_pairs_3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.patch_pairs_3d.extract_patch_pairs_3d" title="Link to this definition"></a></dt>
+<dd><p>Extract pairs of patches from 3D image tensors with controlled displacement.</p>
+<p>For each volume in the input tensor, this function extracts P pairs of patches.
+Each pair consists of two patches: one at location (x_i, y_i, z_i) and another at
+(x_i + dx_i, y_i + dy_i, z_i + dz_i), where the Euclidean distance between the
+locations is constrained to be within the specified delta_range.</p>
+<section id="id60">
+<h4>Parameters<a class="headerlink" href="#id60" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Z, Y, X) where:
+- N: Number of volumes
+- C: Number of channels
+- Z: Depth of volumes
+- Y: Height of volumes
+- X: Width of volumes</p>
+</dd>
+<dt>window<span class="classifier">Tuple[int, int, int]</span></dt><dd><p>Window shape (U, V, W) where:
+- U: Depth of patches
+- V: Height of patches
+- W: Width of patches</p>
+</dd>
+<dt>num_patches<span class="classifier">int</span></dt><dd><p>Number of patch pairs P to extract per volume</p>
+</dd>
+<dt>delta_range<span class="classifier">Tuple[float, float]</span></dt><dd><p>Range (low, high) for the Euclidean distance of displacement vectors.
+The constraint is: low &lt;= sqrt(dx_i² + dy_i² + dz_i²) &lt;= high
+Additionally, low and high must satisfy: window//4 &lt;= low &lt;= high &lt;= 3*window//4
+where window is the maximum of U, V, and W.</p>
+</dd>
+<dt>random_seed<span class="classifier">Optional[int], optional</span></dt><dd><p>Random seed for reproducibility. If None, uses current random state.
+Default is None.</p>
+</dd>
+</dl>
+</section>
+<section id="id61">
+<h4>Returns<a class="headerlink" href="#id61" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor, torch.Tensor]</dt><dd><p>A tuple containing:
+- patches1: Tensor of shape (N*P, C, U, V, W) containing patches at (x_i, y_i, z_i)
+- patches2: Tensor of shape (N*P, C, U, V, W) containing patches at (x_i + dx_i, y_i + dy_i, z_i + dz_i)
+- deltas: Tensor of shape (N*P, 3) containing (dx_i, dy_i, dz_i) displacement vectors</p>
+</dd>
+</dl>
+</section>
+<section id="id62">
+<h4>Raises<a class="headerlink" href="#id62" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>ValueError</dt><dd><p>If delta_range constraints are violated or volume dimensions are too small
+for the specified window and delta range.</p>
+</dd>
+</dl>
+</section>
+<section id="id63">
+<h4>Examples<a class="headerlink" href="#id63" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>  <span class="c1"># 5 volumes, 1 channel, 64x64x64</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>  <span class="c1"># 16x16x16 patches</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">num_patches</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># 10 patch pairs per volume</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">)</span>  <span class="c1"># Euclidean distance between 8 and 16 voxels</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span> <span class="o">=</span> <span class="n">extract_patch_pairs_3d</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (50, 1, 16, 16, 16)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (50, 1, 16, 16, 16)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>    <span class="c1"># (50, 3)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
 <p><strong>Example:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs_3d</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
@@ -1299,6 +1384,55 @@ and corresponding pixels are at the same index in both tensors.</p>
 </section>
 <section id="extract-overlapping-pixels-3d">
 <h3>extract_overlapping_pixels_3d<a class="headerlink" href="#extract-overlapping-pixels-3d" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.patch_pairs_3d.extract_overlapping_pixels_3d">
+<span class="sig-prename descclassname"><span class="pre">qlty.patch_pairs_3d.</span></span><span class="sig-name descname"><span class="pre">extract_overlapping_pixels_3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patches1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patches2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deltas</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/patch_pairs_3d.html#extract_overlapping_pixels_3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.patch_pairs_3d.extract_overlapping_pixels_3d" title="Link to this definition"></a></dt>
+<dd><p>Extract overlapping pixels from 3D patch pairs based on displacement vectors.</p>
+<p>For each patch pair, this function finds pixels that have valid correspondences
+between the two patches (i.e., pixels that represent the same spatial location
+in the original volume). Only overlapping pixels are returned.</p>
+<section id="id64">
+<h4>Parameters<a class="headerlink" href="#id64" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>patches1<span class="classifier">torch.Tensor</span></dt><dd><p>First set of patches, shape (N*P, C, U, V, W) where:
+- N*P: Total number of patch pairs
+- C: Number of channels
+- U: Patch depth
+- V: Patch height
+- W: Patch width</p>
+</dd>
+<dt>patches2<span class="classifier">torch.Tensor</span></dt><dd><p>Second set of patches, shape (N*P, C, U, V, W), corresponding patches
+extracted at displaced locations</p>
+</dd>
+<dt>deltas<span class="classifier">torch.Tensor</span></dt><dd><p>Displacement vectors, shape (N*P, 3) containing (dx, dy, dz) for each pair</p>
+</dd>
+</dl>
+</section>
+<section id="id65">
+<h4>Returns<a class="headerlink" href="#id65" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor]</dt><dd><p>A tuple containing:
+- overlapping1: Overlapping pixel values from patches1, shape (K, C)
+- overlapping2: Overlapping pixel values from patches2, shape (K, C)
+where K is the total number of overlapping pixels across all patch pairs,
+and corresponding pixels are at the same index in both tensors.</p>
+</dd>
+</dl>
+</section>
+<section id="id66">
+<h4>Examples<a class="headerlink" href="#id66" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">patches1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patches2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">deltas</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="o">...</span><span class="p">])</span>  <span class="c1"># shape (10, 3)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">overlapping1</span><span class="p">,</span> <span class="n">overlapping2</span> <span class="o">=</span> <span class="n">extract_overlapping_pixels_3d</span><span class="p">(</span><span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">overlapping1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (K, 1) where K depends on overlap</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">overlapping2</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (K, 1)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># overlapping1[i] and overlapping2[i] correspond to the same spatial location</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
 <p><strong>Example:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs_3d</span><span class="p">,</span> <span class="n">extract_overlapping_pixels_3d</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
@@ -1317,6 +1451,193 @@ and corresponding pixels are at the same index in both tensors.</p>
 <span class="c1"># overlapping2: (K, 1) - overlapping pixels from patches2</span>
 <span class="c1"># K is the total number of overlapping pixels</span>
 <span class="c1"># Corresponding pixels are at the same index in both tensors</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="pre-tokenization-for-patch-processing-2d">
+<h2>Pre-Tokenization for Patch Processing (2D)<a class="headerlink" href="#pre-tokenization-for-patch-processing-2d" title="Link to this heading"></a></h2>
+<section id="tokenize-patch">
+<h3>tokenize_patch<a class="headerlink" href="#tokenize-patch" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.pretokenizer_2d.sequences.tokenize_patch">
+<span class="sig-prename descclassname"><span class="pre">qlty.pretokenizer_2d.sequences.</span></span><span class="sig-name descname"><span class="pre">tokenize_patch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stride</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/pretokenizer_2d/sequences.html#tokenize_patch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.pretokenizer_2d.sequences.tokenize_patch" title="Link to this definition"></a></dt>
+<dd><p>Pre-tokenize a patch by splitting it into a sequence of subpatches with absolute coordinates.</p>
+<p>This is a pre-tokenization step that splits the patch into square subpatches
+(potentially overlapping) using a sliding window approach. The subpatches are
+returned as a sequence with their absolute coordinates within the patch.
+These subpatches can then be tokenized (converted to embeddings) by downstream
+models. Subpatches are extracted such that they never extend beyond patch boundaries.</p>
+<p>This function uses qlty’s NCYXQuilt framework for patch extraction, ensuring
+consistency with the rest of the qlty codebase.</p>
+<section id="id67">
+<h4>Parameters<a class="headerlink" href="#id67" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>patch<span class="classifier">torch.Tensor</span></dt><dd><p>Input patch of shape (C, H, W) where:
+- C: Number of channels
+- H: Height of patch
+- W: Width of patch</p>
+</dd>
+<dt>patch_size<span class="classifier">int</span></dt><dd><p>Size of each token in pixels</p>
+</dd>
+<dt>stride<span class="classifier">int, optional</span></dt><dd><p>Stride for sliding window extraction. Defaults to patch_size // 2.
+Must be positive and &lt;= patch_size.</p>
+</dd>
+</dl>
+</section>
+<section id="id68">
+<h4>Returns<a class="headerlink" href="#id68" title="Link to this heading"></a></h4>
+<dl>
+<dt>Tuple[torch.Tensor, torch.Tensor]</dt><dd><p>A tuple containing:
+- tokens: Tensor of shape (T, C * patch_size * patch_size) where T is</p>
+<blockquote>
+<div><p>the number of tokens. Tokens are in row-major order.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>coords: Tensor of shape (T, 2) containing absolute pixel coordinates
+(y, x) of the top-left corner of each token within the patch.</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="id69">
+<h4>Examples<a class="headerlink" href="#id69" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">patch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>  <span class="c1"># 3 channels, 16x16 patch</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tokens</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">tokenize_patch</span><span class="p">(</span><span class="n">patch</span><span class="p">,</span> <span class="n">patch_size</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">tokens</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (25, 48) - 25 tokens with stride=2, each 3*4*4=48 dims</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (25, 2) - coordinates for each token</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># coords[0] = [0, 0] for top-left token</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># coords[1] = [0, 2] for next token to the right (with stride=2)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">tokenize_patch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="c1"># Tokenize a single patch into overlapping subpatches</span>
+<span class="n">patch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>  <span class="c1"># 3 channels, 64x64 patch</span>
+<span class="n">tokens</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">tokenize_patch</span><span class="p">(</span><span class="n">patch</span><span class="p">,</span> <span class="n">patch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># tokens: (T, 768) - flattened token vectors (T tokens, each 3*16*16=768 dims)</span>
+<span class="c1"># coords: (T, 2) - absolute (y, x) coordinates of each token</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created </span><span class="si">{</span><span class="n">tokens</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> tokens from patch&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="build-sequence-pair">
+<h3>build_sequence_pair<a class="headerlink" href="#build-sequence-pair" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.pretokenizer_2d.sequences.build_sequence_pair">
+<span class="sig-prename descclassname"><span class="pre">qlty.pretokenizer_2d.sequences.</span></span><span class="sig-name descname"><span class="pre">build_sequence_pair</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patch1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patch2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rot_k90</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stride</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/pretokenizer_2d/sequences.html#build_sequence_pair"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.pretokenizer_2d.sequences.build_sequence_pair" title="Link to this definition"></a></dt>
+<dd><p>Build sequence pair from two patches with overlap information.</p>
+<p>This function pre-tokenizes both patches (splits them into subpatches), finds
+overlapping subpatches, and returns sequences with absolute coordinates suitable
+for downstream tokenization and embedding methods.</p>
+<p>Supports both single patches and batches:
+- Single: patch1/patch2 shape (C, H, W), dx/dy/rot_k90 are scalars
+- Batch: patch1/patch2 shape (N, C, H, W), dx/dy/rot_k90 are (N,) tensors</p>
+<section id="id70">
+<h4>Parameters<a class="headerlink" href="#id70" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>patch1<span class="classifier">torch.Tensor</span></dt><dd><p>First patch of shape (C, H, W) or batch of shape (N, C, H, W)</p>
+</dd>
+<dt>patch2<span class="classifier">torch.Tensor</span></dt><dd><p>Second patch of shape (C, H, W) or batch of shape (N, C, H, W)</p>
+</dd>
+<dt>dx<span class="classifier">float or torch.Tensor</span></dt><dd><p>Translation in pixels along x-axis. Scalar for single patch, (N,) tensor for batch.</p>
+</dd>
+<dt>dy<span class="classifier">float or torch.Tensor</span></dt><dd><p>Translation in pixels along y-axis. Scalar for single patch, (N,) tensor for batch.</p>
+</dd>
+<dt>rot_k90<span class="classifier">int or torch.Tensor</span></dt><dd><p>Rotation applied to patch2 in 90-degree increments (0, 1, 2, or 3).
+Scalar for single patch, (N,) tensor for batch.</p>
+</dd>
+<dt>patch_size<span class="classifier">int</span></dt><dd><p>Size of each token in pixels</p>
+</dd>
+<dt>stride<span class="classifier">int, optional</span></dt><dd><p>Stride for sliding window token extraction. Defaults to patch_size // 2.
+Must be positive and &lt;= patch_size.</p>
+</dd>
+</dl>
+</section>
+<section id="id71">
+<h4>Returns<a class="headerlink" href="#id71" title="Link to this heading"></a></h4>
+<dl>
+<dt>Dict[str, torch.Tensor]</dt><dd><p>Dictionary containing:</p>
+<p>For single patch:
+- “tokens1”: Token vectors from patch1, shape (T1, D)
+- “tokens2”: Token vectors from patch2, shape (T2, D)
+- “coords1”: Absolute pixel coordinates (y, x) for patch1 tokens, shape (T1, 2)
+- “coords2”: Absolute pixel coordinates (y, x) for patch2 tokens, shape (T2, 2)
+- “overlap_mask1”: Boolean mask indicating which patch1 tokens overlap, shape (T1,)
+- “overlap_mask2”: Boolean mask indicating which patch2 tokens overlap, shape (T2,)
+- “overlap_indices1_to_2”: Mapping from patch1 to patch2 tokens, shape (T1,)
+- “overlap_indices2_to_1”: Mapping from patch2 to patch1 tokens, shape (T2,)
+- “overlap_fractions”: Fraction of overlap for each patch1 token (0.0 to 1.0), shape (T1,)
+- “overlap_pairs”: Tensor of shape (N_overlaps, 2) containing (i, j) pairs</p>
+<p>For batch (all tensors are padded to max length):
+- “tokens1”: Token vectors from patch1, shape (N, T_max, D)
+- “tokens2”: Token vectors from patch2, shape (N, T_max, D)
+- “coords1”: Absolute pixel coordinates for patch1 tokens, shape (N, T_max, 2)
+- “coords2”: Absolute pixel coordinates for patch2 tokens, shape (N, T_max, 2)
+- “overlap_mask1”: Boolean mask for patch1 tokens, shape (N, T_max)
+- “overlap_mask2”: Boolean mask for patch2 tokens, shape (N, T_max)
+- “overlap_indices1_to_2”: Mapping from patch1 to patch2, shape (N, T_max), -1 for padding
+- “overlap_indices2_to_1”: Mapping from patch2 to patch1, shape (N, T_max), -1 for padding
+- “overlap_fractions”: Fraction of overlap, shape (N, T_max)
+- “overlap_pairs”: Overlap pairs, shape (N, max_pairs, 2), -1 for padding
+- “sequence_lengths”: Actual sequence lengths (same for both patches), shape (N,)
+- “overlap_pair_counts”: Number of overlap pairs per sample, shape (N,)</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_sequence_pair</span><span class="p">,</span> <span class="n">extract_patch_pairs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="c1"># Extract patch pairs using qlty&#39;s extract_patch_pairs</span>
+<span class="n">images</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patch_pairs</span><span class="p">(</span>
+    <span class="n">images</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="n">num_patches</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">delta_range</span><span class="o">=</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># Build sequence pairs with overlap information</span>
+<span class="c1"># Process a single pair</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">build_sequence_pair</span><span class="p">(</span>
+    <span class="n">patches1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>      <span class="c1"># (3, 64, 64)</span>
+    <span class="n">patches2</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>      <span class="c1"># (3, 64, 64)</span>
+    <span class="n">dx</span><span class="o">=</span><span class="n">deltas</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+    <span class="n">dy</span><span class="o">=</span><span class="n">deltas</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+    <span class="n">rot_k90</span><span class="o">=</span><span class="n">rotations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+    <span class="n">patch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+    <span class="n">stride</span><span class="o">=</span><span class="mi">8</span>
+<span class="p">)</span>
+
+<span class="c1"># result contains:</span>
+<span class="c1"># - tokens1, tokens2: Token sequences from each patch</span>
+<span class="c1"># - coords1, coords2: Absolute coordinates for each token</span>
+<span class="c1"># - overlap_mask1, overlap_mask2: Which tokens have overlaps</span>
+<span class="c1"># - overlap_indices1_to_2, overlap_indices2_to_1: Token mappings</span>
+<span class="c1"># - overlap_fractions: Fraction of overlap for each token</span>
+<span class="c1"># - overlap_pairs: List of (i, j) pairs of overlapping tokens</span>
+
+<span class="c1"># Process a batch efficiently</span>
+<span class="n">batch_result</span> <span class="o">=</span> <span class="n">build_sequence_pair</span><span class="p">(</span>
+    <span class="n">patches1</span><span class="p">,</span>         <span class="c1"># (50, 3, 64, 64)</span>
+    <span class="n">patches2</span><span class="p">,</span>         <span class="c1"># (50, 3, 64, 64)</span>
+    <span class="n">dx</span><span class="o">=</span><span class="n">deltas</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>  <span class="c1"># (50,)</span>
+    <span class="n">dy</span><span class="o">=</span><span class="n">deltas</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>  <span class="c1"># (50,)</span>
+    <span class="n">rot_k90</span><span class="o">=</span><span class="n">rotations</span><span class="p">,</span> <span class="c1"># (50,)</span>
+    <span class="n">patch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+    <span class="n">stride</span><span class="o">=</span><span class="mi">8</span>
+<span class="p">)</span>
+
+<span class="c1"># Batch result has same keys but tensors are padded to max length</span>
+<span class="c1"># - tokens1, tokens2: (50, T_max, D)</span>
+<span class="c1"># - sequence_lengths: (50,) - actual lengths</span>
+<span class="c1"># - overlap_pair_counts: (50,) - number of overlaps per pair</span>
 </pre></div>
 </div>
 </section>
