@@ -62,12 +62,12 @@ def test_tokenize_patch_boundary_enforcement():
     for i in range(tokens.shape[0]):
         y = coords[i, 0].item()
         x = coords[i, 1].item()
-        assert y + patch_size <= 15, (
-            f"Token {i} extends beyond height: y={y}, y+patch_size={y + patch_size}"
-        )
-        assert x + patch_size <= 15, (
-            f"Token {i} extends beyond width: x={x}, x+patch_size={x + patch_size}"
-        )
+        assert (
+            y + patch_size <= 15
+        ), f"Token {i} extends beyond height: y={y}, y+patch_size={y + patch_size}"
+        assert (
+            x + patch_size <= 15
+        ), f"Token {i} extends beyond width: x={x}, x+patch_size={x + patch_size}"
 
 
 def test_tokenize_patch_round_trip():
