@@ -16,6 +16,9 @@ from qlty.patch_pairs_2d import extract_overlapping_pixels, extract_patch_pairs
 # Import patch pair extraction (3D)
 from qlty.patch_pairs_3d import extract_overlapping_pixels_3d, extract_patch_pairs_3d
 
+# Import pre-tokenization utilities (2D)
+from qlty.pretokenizer_2d import build_sequence_pair, tokenize_patch
+
 # Import main classes from all modules
 from qlty.qlty2D import NCYXQuilt
 from qlty.qlty2DLarge import LargeNCYXQuilt
@@ -34,4 +37,6 @@ __all__ = [
     "extract_overlapping_pixels",
     "extract_patch_pairs_3d",
     "extract_overlapping_pixels_3d",
+    "tokenize_patch",
+    "build_sequence_pair",
 ]

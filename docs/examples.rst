@@ -324,3 +324,181 @@ Proper error handling::
                          border=(1, 2, 3))  # Wrong size for 2D!
     except ValueError as e:
         print(f"✓ Caught error: {e}")
+
+Example 11: Pre-Tokenization for Patch Processing (2D)
+--------------------------------------------------------
+
+**What and Why**: The ``pretokenizer_2d`` module prepares patches for tokenization by
+enabling sequence-based models (like transformers) to work with image patches. This is
+useful for:
+
+- **Self-supervised learning**: Learning representations from patch pairs with known
+  geometric relationships
+- **Contrastive learning**: Using overlapping tokens as positive pairs
+- **Sequence models**: Converting 2D patches into token sequences with spatial awareness
+- **Efficient batch processing**: Processing many patch pairs in parallel with numba
+  acceleration
+
+The key innovation is that it identifies which tokens overlap between two patches
+that have undergone a known rigid transformation (translation + rotation), providing
+the overlap information needed for training sequence-based models.
+
+**Basic Usage - Single Patch Pair**::
+
+    from qlty import extract_patch_pairs, build_sequence_pair, tokenize_patch
+    import torch
+
+    # Step 1: Extract patch pairs using qlty's existing functionality
+    images = torch.randn(5, 3, 128, 128)
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
+        images,
+        window=(64, 64),
+        num_patches=10,
+        delta_range=(10.0, 20.0),
+        random_seed=42
+    )
+
+    # Step 2: Build sequence pairs with overlap information
+    # This tokenizes both patches and finds overlapping tokens
+    result = build_sequence_pair(
+        patches1[0],           # First patch: (3, 64, 64)
+        patches2[0],           # Second patch: (3, 64, 64)
+        dx=deltas[0, 0].item(),  # Translation in x
+        dy=deltas[0, 1].item(),  # Translation in y
+        rot_k90=rotations[0].item(),  # Rotation (0, 1, 2, or 3 for 0°, 90°, 180°, 270°)
+        patch_size=16,         # Size of each token
+        stride=8               # Stride for overlapping tokens (default: patch_size//2)
+    )
+
+    # Result contains:
+    print(f"Tokens from patch1: {result['tokens1'].shape}")  # (T, D) where T=number of tokens
+    print(f"Tokens from patch2: {result['tokens2'].shape}")  # (T, D)
+    print(f"Overlapping tokens: {result['overlap_mask1'].sum().item()} out of {result['tokens1'].shape[0]}")
+
+    # Use for training:
+    # - tokens1, tokens2: Input to your sequence model (e.g., transformer)
+    # - coords1, coords2: Absolute coordinates for positional encoding
+    # - overlap_mask1, overlap_mask2: Which tokens have corresponding overlaps
+    # - overlap_indices1_to_2: Mapping from patch1 tokens to patch2 tokens
+    # - overlap_fractions: How much each token overlaps (0.0 to 1.0)
+
+**Batch Processing - Efficient for Large Datasets**::
+
+    # Process all patch pairs at once (much faster!)
+    batch_result = build_sequence_pair(
+        patches1,              # (50, 3, 64, 64) - batch of patches
+        patches2,              # (50, 3, 64, 64)
+        dx=deltas[:, 0],       # (50,) - x translations
+        dy=deltas[:, 1],       # (50,) - y translations
+        rot_k90=rotations,     # (50,) - rotations
+        patch_size=16,
+        stride=8
+    )
+
+    # Batch result has padded tensors for efficient processing
+    print(f"Batch tokens1: {batch_result['tokens1'].shape}")  # (50, T_max, D)
+    print(f"Sequence lengths: {batch_result['sequence_lengths']}")  # (50,) - actual lengths
+    print(f"Overlap counts: {batch_result['overlap_pair_counts']}")  # (50,) - overlaps per pair
+
+    # Use sequence_lengths to mask padding in your model
+    # Use overlap_pair_counts to understand data distribution
+
+**Tokenization Only - When You Just Need Tokens**::
+
+    # If you only need to tokenize a patch (no overlap computation)
+    patch = torch.randn(3, 64, 64)
+    tokens, coords = tokenize_patch(patch, patch_size=16, stride=8)
+
+    print(f"Created {tokens.shape[0]} tokens")
+    print(f"Token shape: {tokens.shape[1]}")  # 3*16*16 = 768 dimensions
+    print(f"Coordinates shape: {coords.shape}")  # (T, 2) - (y, x) for each token
+
+    # Use tokens as input to sequence models
+    # Use coords for positional encoding
+
+**Real-World Use Case - Self-Supervised Learning**::
+
+    from qlty import extract_patch_pairs, build_sequence_pair
+    import torch
+    import torch.nn as nn
+
+    # Extract patch pairs from unlabeled images
+    images = torch.randn(100, 3, 256, 256)
+    patches1, patches2, deltas, rotations = extract_patch_pairs(
+        images, window=(128, 128), num_patches=20, delta_range=(20.0, 40.0)
+    )
+
+    # Build sequence pairs
+    batch_result = build_sequence_pair(
+        patches1, patches2, deltas[:, 0], deltas[:, 1], rotations,
+        patch_size=32, stride=16
+    )
+
+    # Train a transformer to predict overlapping tokens
+    class PatchTransformer(nn.Module):
+        def __init__(self, token_dim, hidden_dim):
+            super().__init__()
+            self.embedding = nn.Linear(token_dim, hidden_dim)
+            self.transformer = nn.TransformerEncoder(
+                nn.TransformerEncoderLayer(hidden_dim, nhead=8), num_layers=6
+            )
+            self.predictor = nn.Linear(hidden_dim, token_dim)
+
+        def forward(self, tokens, coords, mask):
+            # Add positional encoding from coords
+            pos_enc = self.positional_encoding(coords)
+            x = self.embedding(tokens) + pos_enc
+            x = self.transformer(x)
+            return self.predictor(x)
+
+    model = PatchTransformer(token_dim=3*32*32, hidden_dim=512)
+
+    # Training loop
+    for epoch in range(10):
+        for i in range(0, len(patches1), 32):  # Process in batches
+            batch_idx = slice(i, i+32)
+            result = build_sequence_pair(
+                patches1[batch_idx], patches2[batch_idx],
+                deltas[batch_idx, 0], deltas[batch_idx, 1], rotations[batch_idx],
+                patch_size=32, stride=16
+            )
+
+            # Get overlapping tokens
+            tokens1 = result['tokens1']  # (32, T_max, D)
+            tokens2 = result['tokens2']  # (32, T_max, D)
+            overlap_mask = result['overlap_mask1']  # (32, T_max)
+            overlap_indices = result['overlap_indices1_to_2']  # (32, T_max)
+
+            # Predict tokens2 from tokens1
+            predicted = model(tokens1, result['coords1'], overlap_mask)
+
+            # Loss only on overlapping tokens
+            # (simplified - actual implementation would handle padding)
+            loss = nn.functional.mse_loss(
+                predicted[overlap_mask],
+                tokens2[overlap_mask]
+            )
+
+            # Backprop and update...
+
+**Performance Notes**:
+
+- **Batch processing is highly optimized**: Uses numba JIT compilation and parallel
+  processing for large batches (N > 5)
+- **Automatic fallback**: Falls back to sequential processing for small batches or
+  when numba is unavailable
+- **Memory efficient**: Batch tokenization reuses a single ``NCYXQuilt`` object
+- **GPU support**: All tensors maintain device placement (CPU/GPU)
+
+**When to Use**:
+
+- ✅ Training sequence models (transformers) on image patches
+- ✅ Self-supervised learning with geometric augmentations
+- ✅ Contrastive learning with patch pairs
+- ✅ Any task requiring token-level overlap information
+
+**When NOT to Use**:
+
+- ❌ Simple patch extraction (use ``NCYXQuilt.unstitch()`` instead)
+- ❌ Stitching patches back together (use ``NCYXQuilt.stitch()`` instead)
+- ❌ When you don't need overlap information
