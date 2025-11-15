@@ -711,3 +711,75 @@ def test_build_sequence_pair_batch_without_numba():
 
         # Reload again to restore numba
         importlib.reload(seq_module)
+
+
+def test_build_sequence_pair_batch_with_mocked_numba():
+    """Test numba function execution by mocking njit to be a no-op (improves coverage)."""
+    import importlib
+
+    # Create a mock numba module with no-op decorators
+    # This allows the numba function to execute as regular Python code for coverage
+    class MockNumba:
+        @staticmethod
+        def njit(*args, **kwargs):
+            # Return a no-op decorator that just returns the function unchanged
+            def decorator(func):
+                return func
+
+            return decorator
+
+        @staticmethod
+        def prange(*args, **kwargs):
+            # prange becomes regular range
+            return range(*args)
+
+    # Create mock numba module structure
+    mock_numba_module = type(sys)("numba")
+    mock_numba_module.njit = MockNumba.njit
+    mock_numba_module.prange = MockNumba.prange
+
+    # Patch sys.modules before importing/reloading
+    with patch.dict("sys.modules", {"numba": mock_numba_module}):
+        # Also patch the submodules
+        mock_njit = type(sys)("numba.njit")
+        mock_prange = type(sys)("numba.prange")
+        with patch.dict(
+            "sys.modules",
+            {
+                "numba": mock_numba_module,
+                "numba.njit": mock_njit,
+                "numba.prange": mock_prange,
+            },
+        ):
+            # Remove the module from cache and reload
+            if "qlty.pretokenizer_2d.sequences" in sys.modules:
+                del sys.modules["qlty.pretokenizer_2d.sequences"]
+
+            import qlty.pretokenizer_2d.sequences as seq_module
+
+            importlib.reload(seq_module)
+
+            # Now test with batch that uses numba path
+            N = 10
+            patch1_batch = torch.randn(N, 3, 16, 16)
+            patch2_batch = torch.randn(N, 3, 16, 16)
+
+            dx = torch.tensor([0.0, 1.0, 2.0, 0.0, 1.0, 0.0, 2.0, 1.0, 0.0, 0.0])
+            dy = torch.tensor([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0])
+            rot_k90 = torch.tensor([0, 1, 2, 3, 0, 1, 2, 3, 0, 1])
+
+            # This should now execute the numba function as regular Python code
+            result = seq_module.build_sequence_pair(
+                patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+            )
+
+            assert result["tokens1"].shape[0] == N
+            assert result["tokens2"].shape[0] == N
+            assert result["sequence_lengths"].shape == (N,)
+
+    # Reload to restore original
+    if "qlty.pretokenizer_2d.sequences" in sys.modules:
+        del sys.modules["qlty.pretokenizer_2d.sequences"]
+    import qlty.pretokenizer_2d.sequences as seq_module
+
+    importlib.reload(seq_module)
