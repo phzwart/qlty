@@ -46,13 +46,13 @@ USAGE PATTERNS
 Single Patch Processing:
   from qlty import tokenize_patch, build_sequence_pair
   import torch
-  
+
   # Tokenize a single patch
   patch = torch.randn(3, 64, 64)  # 3 channels, 64x64 patch
   tokens, coords = tokenize_patch(patch, patch_size=16, stride=8)
   # tokens: (49, 768) - 49 tokens, each 3*16*16=768 dims
   # coords: (49, 2) - coordinates for each token
-  
+
   # Build sequence pair with known transform
   patch1 = torch.randn(3, 64, 64)
   patch2 = torch.randn(3, 64, 64)
@@ -73,7 +73,7 @@ Batch Processing:
   dx = torch.randn(N) * 5.0  # Random translations
   dy = torch.randn(N) * 5.0
   rot_k90 = torch.randint(0, 4, (N,))  # Random rotations 0-3
-  
+
   result = build_sequence_pair(
       patches1, patches2, dx, dy, rot_k90,
       patch_size=16, stride=8
@@ -117,13 +117,13 @@ INTEGRATION WITH QLTY
 
 The module integrates with qlty's patch extraction:
   from qlty import extract_patch_pairs, build_sequence_pair
-  
+
   # Extract patch pairs using qlty
   images = torch.randn(10, 3, 128, 128)
   patches1, patches2, deltas, rotations = extract_patch_pairs(
       images, window=(64, 64), num_patches=5
   )
-  
+
   # Convert to sequences
   result = build_sequence_pair(
       patches1[0], patches2[0],
@@ -132,4 +132,3 @@ The module integrates with qlty's patch extraction:
       rot_k90=rotations[0].item(),
       patch_size=16
   )
-
