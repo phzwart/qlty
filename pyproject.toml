@@ -55,7 +55,7 @@ Repository = "https://github.com/phzwart/qlty"
 Issues = "https://github.com/phzwart/qlty/issues"
 
 [tool.setuptools]
-packages = ["qlty", "qlty.utils"]
+packages = ["qlty", "qlty.utils", "qlty.pretokenizer_2d"]
 
 [tool.setuptools.package-data]
 "*" = ["*.rst", "*.txt"]

@@ -1,0 +1,135 @@
+QLTY PRETOKENIZER_2D USER OPERATIONS MANUAL
+===========================================
+
+OVERVIEW
+--------
+The `qlty.pretokenizer_2d` module prepares image patches for tokenization by splitting
+them into smaller subpatches (tokens) and computing spatial relationships between
+patches. This is a pre-tokenization step before embedding models convert tokens to
+vectors.
+
+KEY FUNCTIONS
+-------------
+
+1. tokenize_patch(patch, patch_size, stride=None)
+   - Splits a single patch into a sequence of overlapping subpatches
+   - Input: patch (C, H, W) tensor, patch_size (int), stride (int, optional)
+   - Output: (tokens, coords) tuple
+     * tokens: (T, C*patch_size*patch_size) - flattened token vectors
+     * coords: (T, 2) - absolute (y, x) coordinates of each token
+   - Default stride = patch_size // 2 (50% overlap)
+   - Tokens never extend beyond patch boundaries
+
+2. build_sequence_pair(patch1, patch2, dx, dy, rot_k90, patch_size, stride=None)
+   - Processes two patches and finds overlapping tokens between them
+   - Supports single patches (C, H, W) or batches (N, C, H, W)
+   - Input parameters:
+     * patch1, patch2: (C, H, W) or (N, C, H, W) tensors
+     * dx, dy: translation in pixels (scalar or (N,) tensor)
+     * rot_k90: rotation in 90° increments 0-3 (scalar or (N,) tensor)
+     * patch_size: size of each token in pixels
+     * stride: optional, defaults to patch_size // 2
+   - Output: Dictionary with keys:
+     * tokens1, tokens2: (T, D) or (N, T_max, D) token sequences
+     * coords1, coords2: (T, 2) or (N, T_max, 2) absolute coordinates
+     * overlap_mask1, overlap_mask2: (T,) or (N, T_max) boolean masks
+     * overlap_indices1_to_2: (T,) or (N, T_max) mapping from patch1 to patch2
+     * overlap_indices2_to_1: (T,) or (N, T_max) mapping from patch2 to patch1
+     * overlap_fractions: (T,) or (N, T_max) fraction of overlap (0.0-1.0)
+     * overlap_pairs: (N_overlaps, 2) or (N, max_pairs, 2) token pair indices
+     * sequence_lengths: (N,) actual sequence lengths (batch only)
+     * overlap_pair_counts: (N,) number of overlaps per sample (batch only)
+
+USAGE PATTERNS
+--------------
+
+Single Patch Processing:
+  from qlty import tokenize_patch, build_sequence_pair
+  import torch
+  
+  # Tokenize a single patch
+  patch = torch.randn(3, 64, 64)  # 3 channels, 64x64 patch
+  tokens, coords = tokenize_patch(patch, patch_size=16, stride=8)
+  # tokens: (49, 768) - 49 tokens, each 3*16*16=768 dims
+  # coords: (49, 2) - coordinates for each token
+  
+  # Build sequence pair with known transform
+  patch1 = torch.randn(3, 64, 64)
+  patch2 = torch.randn(3, 64, 64)
+  result = build_sequence_pair(
+      patch1, patch2,
+      dx=4.0, dy=2.0, rot_k90=1,  # 4px right, 2px down, 90° rotation
+      patch_size=16, stride=8
+  )
+  # Access overlapping tokens
+  overlapping_tokens1 = result["tokens1"][result["overlap_mask1"]]
+  overlapping_tokens2 = result["tokens2"][result["overlap_mask2"]]
+
+Batch Processing:
+  # Process multiple patch pairs efficiently
+  N = 50
+  patches1 = torch.randn(N, 3, 64, 64)
+  patches2 = torch.randn(N, 3, 64, 64)
+  dx = torch.randn(N) * 5.0  # Random translations
+  dy = torch.randn(N) * 5.0
+  rot_k90 = torch.randint(0, 4, (N,))  # Random rotations 0-3
+  
+  result = build_sequence_pair(
+      patches1, patches2, dx, dy, rot_k90,
+      patch_size=16, stride=8
+  )
+  # All outputs are batched and padded to max length
+  # Use sequence_lengths to get actual lengths
+  for i in range(N):
+      T = result["sequence_lengths"][i].item()
+      tokens_i = result["tokens1"][i, :T]  # Actual tokens (no padding)
+
+COMMON USE CASES
+----------------
+
+1. Self-Supervised Learning:
+   - Extract patch pairs with known geometric relationships
+   - Use overlapping tokens as positive pairs for contrastive learning
+   - overlap_fractions provide weighting for loss functions
+
+2. Sequence Model Input:
+   - Convert 2D patches to token sequences for transformers
+   - coords provide positional information for positional encodings
+   - overlap_mask identifies which tokens have correspondences
+
+3. Feature Matching:
+   - Find corresponding tokens between transformed patches
+   - Use overlap_indices1_to_2 to map tokens from patch1 to patch2
+   - overlap_fractions indicate match quality
+
+IMPORTANT NOTES
+---------------
+
+- All coordinates are absolute within the patch (0 to H-1, 0 to W-1)
+- Tokens are flattened: (C, patch_size, patch_size) -> (C*patch_size*patch_size,)
+- Rotation values: 0=no rotation, 1=90° CW, 2=180°, 3=270° CW
+- Batch processing uses numba acceleration for N > 5 (automatic)
+- stride controls overlap: stride=patch_size (no overlap), stride=patch_size//2 (50% overlap)
+- All outputs are PyTorch tensors on the same device as input
+
+INTEGRATION WITH QLTY
+---------------------
+
+The module integrates with qlty's patch extraction:
+  from qlty import extract_patch_pairs, build_sequence_pair
+  
+  # Extract patch pairs using qlty
+  images = torch.randn(10, 3, 128, 128)
+  patches1, patches2, deltas, rotations = extract_patch_pairs(
+      images, window=(64, 64), num_patches=5
+  )
+  
+  # Convert to sequences
+  result = build_sequence_pair(
+      patches1[0], patches2[0],
+      dx=deltas[0, 0].item(),
+      dy=deltas[0, 1].item(),
+      rot_k90=rotations[0].item(),
+      patch_size=16
+  )
+
