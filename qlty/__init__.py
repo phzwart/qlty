@@ -25,6 +25,30 @@ from qlty.qlty2DLarge import LargeNCYXQuilt
 from qlty.qlty3D import NCZYXQuilt
 from qlty.qlty3DLarge import LargeNCZYXQuilt
 
+# Import 2.5D quilt
+try:
+    from qlty.qlty2_5D import NCZYX25DQuilt, ZOperation
+    _HAS_2_5D = True
+except ImportError:
+    _HAS_2_5D = False
+
+# Import backends (optional)
+try:
+    from qlty.backends_2_5D import (
+        DataSource3DBackend,
+        HDF5Backend,
+        InMemoryBackend,
+        MemoryMappedBackend,
+        TensorLike3D,
+        ZarrBackend,
+        from_hdf5,
+        from_memmap,
+        from_zarr,
+    )
+    _HAS_BACKENDS = True
+except ImportError:
+    _HAS_BACKENDS = False
+
 # Make all classes and functions available at the top level
 __all__ = [
     "NCYXQuilt",
@@ -40,3 +64,20 @@ __all__ = [
     "tokenize_patch",
     "build_sequence_pair",
 ]
+
+# Add 2.5D exports if available
+if _HAS_2_5D:
+    __all__.extend(["NCZYX25DQuilt", "ZOperation"])
+
+if _HAS_BACKENDS:
+    __all__.extend([
+        "DataSource3DBackend",
+        "InMemoryBackend",
+        "MemoryMappedBackend",
+        "ZarrBackend",
+        "HDF5Backend",
+        "TensorLike3D",
+        "from_zarr",
+        "from_hdf5",
+        "from_memmap",
+    ])
