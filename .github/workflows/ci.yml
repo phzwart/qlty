@@ -72,22 +72,27 @@ jobs:
     - name: Run tests with coverage
       run: |
         echo "=== Test Step Python Diagnostics ==="
-        echo "pythonLocation: ${{ env.pythonLocation }}"
+        echo "pythonLocation: $pythonLocation"
         echo "PATH: $PATH"
         echo "which python: $(which python || echo 'not found')"
         echo "python --version: $(python --version 2>&1 || echo 'failed')"
         echo "python -c 'import sys; print(sys.executable)': $(python -c 'import sys; print(sys.executable)' 2>&1 || echo 'failed')"
+        echo "ls $pythonLocation/bin/:"
+        ls -la "$pythonLocation/bin/" || echo "bin directory not found"
         echo "=========================="
-        # Try to use explicit path if it exists, otherwise use python
-        if [ -f "${{ env.pythonLocation }}/bin/python" ]; then
-          PYTHON_EXE="${{ env.pythonLocation }}/bin/python"
-        elif [ -f "${{ env.pythonLocation }}/bin/python3" ]; then
-          PYTHON_EXE="${{ env.pythonLocation }}/bin/python3"
+        # Try to use explicit path if it exists, otherwise use python from PATH
+        if [ -f "$pythonLocation/bin/python" ]; then
+          PYTHON_EXE="$pythonLocation/bin/python"
+        elif [ -f "$pythonLocation/bin/python3" ]; then
+          PYTHON_EXE="$pythonLocation/bin/python3"
         else
+          # Use python from PATH (should be setup-python's Python)
           PYTHON_EXE="python"
         fi
         echo "Using Python: $PYTHON_EXE"
         $PYTHON_EXE -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+      env:
+        pythonLocation: ${{ env.pythonLocation }}
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
