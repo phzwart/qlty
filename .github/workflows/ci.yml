@@ -62,7 +62,9 @@ jobs:
     - name: Run tests with coverage
       run: |
         export PATH="$pythonLocation/bin:$PATH"
-        python3 -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        which python3
+        python3 --version
+        "$pythonLocation/bin/python3" -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
       env:
         pythonLocation: ${{ env.pythonLocation }}
 
