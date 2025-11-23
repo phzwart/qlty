@@ -29,7 +29,9 @@ jobs:
 
     - name: Ensure setup-python Python is first in PATH
       run: |
-        echo "${{ env.pythonLocation }}/bin" >> $GITHUB_PATH
+        echo "$pythonLocation/bin" >> $GITHUB_PATH
+      env:
+        pythonLocation: ${{ env.pythonLocation }}
 
     # Note: No system dependencies needed for this project
     # PyTorch and other dependencies are installed via pip
