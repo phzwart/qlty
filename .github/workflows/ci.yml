@@ -70,8 +70,10 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        export PATH="${{ env.pythonLocation }}/bin:$PATH"
+        export PATH="$pythonLocation/bin:$PATH"
         ${{ steps.install-deps.outputs.path }} -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+      env:
+        pythonLocation: ${{ env.pythonLocation }}
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
