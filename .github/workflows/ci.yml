@@ -69,6 +69,7 @@ jobs:
         echo "=== Checking dependencies ==="
         python -c "import zarr; print(f'✓ zarr version: {zarr.__version__}')" || (echo "✗ zarr not available" && exit 1)
         python -c "import torch; print(f'✓ torch version: {torch.__version__}')" || echo "✗ torch not available"
+        python -c "import tifffile; print(f'✓ tifffile version: {tifffile.__version__}')" || echo "⚠ tifffile not available (tests may skip)"
         python -c "from qlty.utils.stack_to_zarr import stack_files_to_zarr; print('✓ stack_to_zarr import successful')" || echo "✗ stack_to_zarr import failed"
 
     - name: Run tests with coverage
