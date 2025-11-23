@@ -2,15 +2,17 @@
 History
 =======
 
-1.3.0 (2025-01-XX)
+1.3.0 (2025-11-23)
 ------------------
 
-* Added ``pretokenizer_2d`` module for pre-tokenization of patches with sequence model support (2D).
-* New functions: ``tokenize_patch()`` and ``build_sequence_pair()`` for converting patches
-  into token sequences with overlap information.
-* Optimized batch processing with numba JIT compilation and parallel execution.
-* Supports both single patches and batched processing for efficient training workflows.
-* Designed for self-supervised learning, contrastive learning, and transformer-based models.
+* **Test Coverage Improvements** - Improved overall test coverage from 89% to 91%:
+  * Fixed ``stack_to_zarr.py`` coverage from 38% to 94% by adding ``tifffile`` to test dependencies
+  * Improved ``base.py`` coverage from 82% to 99%
+  * Improved ``qlty2DLarge.py`` coverage to 100% (removed test function from production code)
+  * Added comprehensive tests for ``qlty2DLarge`` and ``qlty3DLarge`` modules
+  * Fixed CI coverage reporting to use ``coverage run`` directly for better accuracy
+* **Code Quality** - Removed test/example functions from production modules
+* **CI/CD** - Enhanced dependency verification and coverage reporting in CI workflows
 
 1.2.3 (2025-11-23)
 ------------------
