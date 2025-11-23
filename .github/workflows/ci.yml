@@ -63,27 +63,9 @@ jobs:
         sudo rm -rf "$AGENT_TOOLSDIRECTORY"
       continue-on-error: true
 
-    - name: Find Python executable
-      id: find-python
-      run: |
-        # Try different possible locations
-        if [ -f "$pythonLocation/bin/python3" ]; then
-          PYTHON_EXE="$pythonLocation/bin/python3"
-        elif [ -f "$pythonLocation/bin/python" ]; then
-          PYTHON_EXE="$pythonLocation/bin/python"
-        else
-          # Fallback: use python3 from PATH (should be set by setup-python)
-          PYTHON_EXE=$(which python3 || echo "python3")
-        fi
-        echo "path=$PYTHON_EXE" >> $GITHUB_OUTPUT
-        echo "Using Python: $PYTHON_EXE"
-        $PYTHON_EXE --version
-      env:
-        pythonLocation: ${{ env.pythonLocation }}
-
     - name: Run tests with coverage
       run: |
-        "${{ steps.find-python.outputs.path }}" -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        "${{ steps.install-deps.outputs.path }}" -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
