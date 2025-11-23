@@ -24,14 +24,16 @@ jobs:
     - name: Clean up disk space
       run: |
         # Remove unnecessary system files to free up disk space
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /opt/hostedtoolcache/CodeQL
-        # Clean up swap files
-        sudo swapoff -a || true
-        sudo rm -f /mnt/swapfile || true
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          # Clean up swap files
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
+        fi
         # Show disk usage
         df -h
       continue-on-error: true
@@ -94,14 +96,16 @@ jobs:
     - name: Clean up disk space
       run: |
         # Remove unnecessary system files to free up disk space
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /opt/hostedtoolcache/CodeQL
-        # Clean up swap files
-        sudo swapoff -a || true
-        sudo rm -f /mnt/swapfile || true
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          # Clean up swap files
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
+        fi
         # Show disk usage
         df -h
       continue-on-error: true
