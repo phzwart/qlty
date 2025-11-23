@@ -21,6 +21,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Clean up disk space
+      run: |
+        # Remove unnecessary system files to free up disk space
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        # Clean up swap files
+        sudo swapoff -a || true
+        sudo rm -f /mnt/swapfile || true
+        # Show disk usage
+        df -h
+      continue-on-error: true
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -48,6 +63,14 @@ jobs:
       run: |
         pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
+    - name: Clean up test artifacts
+      if: always()
+      run: |
+        # Clean up coverage files and test artifacts to save disk space
+        rm -rf htmlcov/ .pytest_cache/
+        find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+        find . -type f -name "*.pyc" -delete 2>/dev/null || true
+
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
       run: |
@@ -68,6 +91,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Clean up disk space
+      run: |
+        # Remove unnecessary system files to free up disk space
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        # Clean up swap files
+        sudo swapoff -a || true
+        sudo rm -f /mnt/swapfile || true
+        # Show disk usage
+        df -h
+      continue-on-error: true
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -81,6 +119,13 @@ jobs:
     - name: Run pre-commit hooks
       run: |
         pre-commit run --all-files
+
+    - name: Clean up after pre-commit
+      if: always()
+      run: |
+        # Clean up any artifacts created during linting
+        find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+        find . -type f -name "*.pyc" -delete 2>/dev/null || true
 
   build:
     runs-on: ubuntu-latest
