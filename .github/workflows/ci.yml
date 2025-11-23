@@ -60,11 +60,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .[docs,tests]
         pip install pytest coverage
+        # Explicitly verify zarr installation since tests depend on it
+        python -m pip list | grep -i zarr || echo "WARNING: zarr not in pip list"
+        python -c "import zarr; print(f'zarr version: {zarr.__version__}')" || (echo "ERROR: zarr import failed" && exit 1)
 
     - name: Verify dependencies
       run: |
         echo "=== Checking dependencies ==="
-        python -c "import zarr; print(f'✓ zarr version: {zarr.__version__}')" || echo "✗ zarr not available"
+        python -c "import zarr; print(f'✓ zarr version: {zarr.__version__}')" || (echo "✗ zarr not available" && exit 1)
         python -c "import torch; print(f'✓ torch version: {torch.__version__}')" || echo "✗ torch not available"
         python -c "from qlty.utils.stack_to_zarr import stack_files_to_zarr; print('✓ stack_to_zarr import successful')" || echo "✗ stack_to_zarr import failed"
 
