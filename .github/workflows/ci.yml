@@ -41,24 +41,12 @@ jobs:
       # Limit cache size to avoid disk space issues
       if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
-    - name: Set up PATH for Python
-      run: |
-        echo "${{ env.pythonLocation }}/bin" >> $GITHUB_PATH
-
-    - name: Verify Python setup
-      run: |
-        echo "PATH: $PATH"
-        which python
-        which python3
-        python3 --version
-        python3 -c "import sys; print(sys.executable)"
-
     - name: Install dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install -e .[docs,tests] --no-cache-dir
-        python3 -m pip install pytest-cov --no-cache-dir
-        python3 -m pytest --version
+        "${{ env.pythonLocation }}/bin/python3" -m pip install --upgrade pip
+        "${{ env.pythonLocation }}/bin/python3" -m pip install -e .[docs,tests] --no-cache-dir
+        "${{ env.pythonLocation }}/bin/python3" -m pip install pytest-cov --no-cache-dir
+        "${{ env.pythonLocation }}/bin/python3" -m pytest --version
       continue-on-error: false
 
     - name: Clean up disk space
@@ -70,7 +58,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        python3 -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        "${{ env.pythonLocation }}/bin/python3" -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
