@@ -12,6 +12,34 @@ History
 * Supports both single patches and batched processing for efficient training workflows.
 * Designed for self-supervised learning, contrastive learning, and transformer-based models.
 
+1.2.3 (2025-11-23)
+------------------
+
+* **New: 2.5D Quilt Module** - Added ``NCZYX25DQuilt`` class for converting 3D volumetric data
+  (N, C, Z, Y, X) into 2.5D multi-channel data by slicing the Z dimension into channels.
+  Supports flexible channel specifications (identity, mean, std operations), selective z-slice
+  processing, and two accumulation modes (2D planes or 3D stack).
+* **New: Backend System** - Added comprehensive backend support for various data sources:
+  * ``InMemoryBackend``: Wraps torch.Tensor for in-memory data
+  * ``ZarrBackend``: On-demand loading from OME-Zarr files
+  * ``HDF5Backend``: On-demand loading from HDF5 datasets
+  * ``MemoryMappedBackend``: Memory-mapped numpy arrays
+  * ``TensorLike3D``: Unified tensor-like interface for all backends
+  * Convenience functions: ``from_zarr()``, ``from_hdf5()``, ``from_memmap()``
+* **New: Image Stack to Zarr Utility** - Added ``stack_files_to_zarr()`` function in
+  ``qlty.utils.stack_to_zarr`` for converting image file stacks (TIFF, PNG, etc.) into
+  efficient Zarr format with automatic pattern matching, gap detection, and metadata storage.
+* **New: False Color Visualization** - Added ``FalseColorGenerator`` class in ``qlty.utils.false_color_2D``
+  for creating UMAP-based false-color visualizations of 2D images using patch-based dimensionality
+  reduction.
+* **Improved Test Coverage** - Added 65+ new tests across qlty2_5D, backends_2_5D, and stack_to_zarr
+  modules, significantly improving coverage:
+  * ``qlty2_5D.py``: 75% → 88% coverage
+  * ``backends_2_5D.py``: 62% → 70% coverage
+  * ``stack_to_zarr.py``: 38% → 94% coverage
+* **CI Improvements** - Fixed coverage reporting in CI by using ``coverage run`` directly instead
+  of pytest-cov to avoid torch import conflicts. Added coverage verification steps.
+
 1.2.0 (2025-11-13)
 ------------------
 

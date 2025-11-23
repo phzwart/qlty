@@ -12,6 +12,10 @@
 - **Border Handling**: Manage border pixels to minimize artifacts during stitching
 - **Memory Management**: Support for both in-memory and disk-cached processing
 - **2D and 3D Support**: Handle both 2D images and 3D volumes
+- **2.5D Quilt**: Convert 3D volumetric data (N, C, Z, Y, X) to multi-channel 2D by slicing Z dimension into channels
+- **Backend System**: Unified interface for multiple data sources (torch.Tensor, Zarr, HDF5, memory-mapped arrays)
+- **Image Stack Utilities**: Convert image file stacks (TIFF, PNG) to efficient Zarr format with pattern matching
+- **False Color Visualization**: UMAP-based false-color visualization of 2D images using patch-based dimensionality reduction
 - **Sparse Data Handling**: Filter out patches with missing or invalid data
 
 ## Quick Start
@@ -49,6 +53,68 @@ reconstructed, weights = quilt.stitch(processed_patches)
 ```
 
 ## Modules Overview
+
+### 2.5D Quilt (New in 1.2.3)
+
+**Convert 3D volumetric data to multi-channel 2D:**
+
+- **`NCZYX25DQuilt`**: Converts 3D data (N, C, Z, Y, X) to 2.5D multi-channel data
+  - Flexible channel specifications: extract specific z-slices or compute aggregations (mean, std)
+  - Two accumulation modes: flatten to 2D planes or keep 3D structure
+  - Works with multiple data sources: torch.Tensor, Zarr, HDF5, memory-mapped arrays
+  - Selective z-slice processing and boundary handling modes
+  - Direct integration with 2D patch pair extraction
+
+```python
+from qlty import NCZYX25DQuilt
+
+data = torch.randn(5, 1, 20, 100, 100)  # (N, C, Z, Y, X)
+spec = {'identity': [-1, 0, 1], 'mean': [[-2, -3], [2, 3]]}
+quilt = NCZYX25DQuilt(data_source=data, channel_spec=spec, accumulation_mode="2d")
+result = quilt.convert()  # Shape: (5*20, 5, 100, 100) - each z-slice becomes separate 2D image
+```
+
+### Backend System (New in 1.2.3)
+
+**Unified interface for multiple data sources:**
+
+- **`TensorLike3D`**: Makes any backend look like a PyTorch tensor
+- **Backends**: `InMemoryBackend`, `ZarrBackend`, `HDF5Backend`, `MemoryMappedBackend`
+- **Convenience functions**: `from_zarr()`, `from_hdf5()`, `from_memmap()`
+
+```python
+from qlty.backends_2_5D import from_zarr, from_hdf5
+
+# Load from Zarr
+data = from_zarr("data.zarr")
+
+# Load from HDF5
+data = from_hdf5("data.h5", "/images/stack")
+
+# Use with 2.5D Quilt
+quilt = NCZYX25DQuilt(data_source=data, channel_spec={'identity': [0]})
+```
+
+### Image Stack Utilities (New in 1.2.3)
+
+**Convert image file stacks to Zarr format:**
+
+- **`stack_files_to_zarr()`**: Automatically groups image files into 3D stacks
+  - Pattern matching for flexible file naming
+  - Automatic gap detection and warnings
+  - Support for single-channel and multi-channel images
+  - Customizable axis orders and chunk sizes
+
+```python
+from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+result = stack_files_to_zarr(
+    directory="/path/to/images",
+    extension=".tif",
+    pattern=r"(.+)_(\d+)\.tif$"  # Matches: stack_001.tif, stack_002.tif, etc.
+)
+# Returns metadata dict with zarr paths and stack information
+```
 
 ### In-Memory Classes
 
