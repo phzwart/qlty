@@ -73,21 +73,59 @@ jobs:
         echo "=== Coverage XML Verification ==="
         python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); classes = root.findall('.//class'); files = {}; [files.update({c.get('filename'): float(c.get('line-rate', 0))}) for c in classes]; print('Key modules:'); [print(f\"  {f}: {files[f]*100:.2f}%\") for f in sorted(files.keys()) if 'stack_to_zarr' in f or 'qlty2_5D.py' in f or 'backends_2_5D.py' in f]"
 
+    - name: Verify coverage.xml exists before cleanup
+      if: always()
+      run: |
+        if [ -f coverage.xml ]; then
+          echo "✓ coverage.xml exists"
+          ls -lh coverage.xml
+        else
+          echo "✗ coverage.xml NOT found!"
+          exit 1
+        fi
+
+    - name: Verify coverage.xml exists before cleanup
+      if: always()
+      run: |
+        if [ -f coverage.xml ]; then
+          echo "✓ coverage.xml exists"
+          ls -lh coverage.xml
+        else
+          echo "✗ coverage.xml NOT found - coverage may have failed!"
+          exit 1
+        fi
+
     - name: Clean up test artifacts
       if: always()
       run: |
-        # Clean up coverage files and test artifacts to save disk space
+        # Clean up test artifacts but preserve coverage.xml for Codecov
         rm -rf htmlcov/ .pytest_cache/
         find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
         find . -type f -name "*.pyc" -delete 2>/dev/null || true
+        # Ensure coverage.xml still exists
+        ls -lh coverage.xml || echo "WARNING: coverage.xml missing after cleanup"
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
       run: |
-        coverage report --fail-under=75
+        # Load coverage data and check threshold
+        python -m coverage report --fail-under=75
       continue-on-error: true
 
     - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      run: |
+        # Verify coverage.xml exists and show contents before upload
+        if [ ! -f coverage.xml ]; then
+          echo "ERROR: coverage.xml not found! Cannot upload to Codecov."
+          exit 1
+        fi
+        echo "=== Coverage XML Summary ==="
+        ls -lh coverage.xml
+        python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(f'Total lines: {root.get(\"lines-valid\")}, Covered: {root.get(\"lines-covered\")}, Overall rate: {float(root.get(\"line-rate\", 0))*100:.2f}%'); classes = root.findall('.//class'); stack_classes = [c for c in classes if 'stack_to_zarr' in c.get('filename', '')]; [print(f'stack_to_zarr.py: {float(c.get(\"line-rate\", 0))*100:.2f}%') for c in stack_classes[:1]]"
+      continue-on-error: true
+
+    - name: Upload coverage to Codecov (action)
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
       uses: codecov/codecov-action@v4
       with:
@@ -95,6 +133,8 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
         # Note: Codecov may show lower coverage in PR diff view when comparing
         # against old baseline commits. The absolute coverage will update correctly
         # once the new baseline is established after merge.
