@@ -56,6 +56,12 @@ jobs:
         sudo rm -rf "$AGENT_TOOLSDIRECTORY"
       continue-on-error: true
 
+    - name: Verify Python and pytest
+      run: |
+        which python
+        python --version
+        python -m pytest --version
+
     - name: Run tests with coverage
       run: |
         python -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
