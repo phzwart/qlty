@@ -44,6 +44,18 @@ jobs:
 
     - name: Install dependencies
       run: |
+        echo "=== Python Diagnostics ==="
+        echo "pythonLocation: ${{ env.pythonLocation }}"
+        echo "PATH: $PATH"
+        echo "which python: $(which python || echo 'not found')"
+        echo "which python3: $(which python3 || echo 'not found')"
+        echo "python --version: $(python --version 2>&1 || echo 'failed')"
+        echo "python3 --version: $(python3 --version 2>&1 || echo 'failed')"
+        echo "python -c 'import sys; print(sys.executable)': $(python -c 'import sys; print(sys.executable)' 2>&1 || echo 'failed')"
+        echo "python3 -c 'import sys; print(sys.executable)': $(python3 -c 'import sys; print(sys.executable)' 2>&1 || echo 'failed')"
+        echo "ls ${{ env.pythonLocation }}/bin/:"
+        ls -la "${{ env.pythonLocation }}/bin/" || echo "bin directory not found or not accessible"
+        echo "=========================="
         python -m pip install --upgrade pip
         python -m pip install -e .[docs,tests] --no-cache-dir
         python -m pip install pytest-cov --no-cache-dir
