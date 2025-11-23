@@ -71,7 +71,23 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        python -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        echo "=== Test Step Python Diagnostics ==="
+        echo "pythonLocation: ${{ env.pythonLocation }}"
+        echo "PATH: $PATH"
+        echo "which python: $(which python || echo 'not found')"
+        echo "python --version: $(python --version 2>&1 || echo 'failed')"
+        echo "python -c 'import sys; print(sys.executable)': $(python -c 'import sys; print(sys.executable)' 2>&1 || echo 'failed')"
+        echo "=========================="
+        # Try to use explicit path if it exists, otherwise use python
+        if [ -f "${{ env.pythonLocation }}/bin/python" ]; then
+          PYTHON_EXE="${{ env.pythonLocation }}/bin/python"
+        elif [ -f "${{ env.pythonLocation }}/bin/python3" ]; then
+          PYTHON_EXE="${{ env.pythonLocation }}/bin/python3"
+        else
+          PYTHON_EXE="python"
+        fi
+        echo "Using Python: $PYTHON_EXE"
+        $PYTHON_EXE -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
