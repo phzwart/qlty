@@ -34,7 +34,7 @@ jobs:
         # Find the actual Python executable
         PYTHON_LOC="${{ env.pythonLocation }}"
         echo "Checking Python location: $PYTHON_LOC"
-        
+
         # Try different possible locations
         if [ -f "$PYTHON_LOC/bin/python3" ]; then
           PYTHON_EXE="$PYTHON_LOC/bin/python3"
@@ -53,7 +53,7 @@ jobs:
           # Fallback to python3 from PATH
           PYTHON_EXE="python3"
         fi
-        
+
         echo "Python executable: $PYTHON_EXE"
         echo "python_exe=$PYTHON_EXE" >> $GITHUB_OUTPUT
         $PYTHON_EXE --version || echo "Version check failed"
