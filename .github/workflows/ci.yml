@@ -41,6 +41,10 @@ jobs:
       # Limit cache size to avoid disk space issues
       if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
+    - name: Set up PATH for Python
+      run: |
+        echo "${{ env.pythonLocation }}/bin" >> $GITHUB_PATH
+
     - name: Verify Python setup
       run: |
         echo "PATH: $PATH"
