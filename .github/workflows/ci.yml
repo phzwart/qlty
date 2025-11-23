@@ -12,11 +12,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.9', '3.10', '3.11']
         exclude:
           # Exclude macOS for some Python versions to speed up CI
-          - os: macos-latest
-            python-version: '3.8'
           - os: macos-latest
             python-version: '3.9'
 
@@ -24,9 +22,41 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
+      id: setup-python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Find Python executable
+      id: find-python
+      run: |
+        # Find the actual Python executable
+        PYTHON_LOC="${{ env.pythonLocation }}"
+        echo "Checking Python location: $PYTHON_LOC"
+
+        # Try different possible locations
+        if [ -f "$PYTHON_LOC/bin/python3" ]; then
+          PYTHON_EXE="$PYTHON_LOC/bin/python3"
+        elif [ -f "$PYTHON_LOC/bin/python" ]; then
+          PYTHON_EXE="$PYTHON_LOC/bin/python"
+        elif [ -f "$PYTHON_LOC/python3" ]; then
+          PYTHON_EXE="$PYTHON_LOC/python3"
+        else
+          # List what's actually there
+          echo "Contents of $PYTHON_LOC:"
+          ls -la "$PYTHON_LOC" || echo "Directory not found"
+          echo "Contents of $PYTHON_LOC/bin:"
+          ls -la "$PYTHON_LOC/bin" || echo "bin directory not found"
+          # Find any python executables
+          find "$PYTHON_LOC" -name "python*" -type f 2>/dev/null | head -10 || echo "No python found"
+          # Fallback to python3 from PATH
+          PYTHON_EXE="python3"
+        fi
+
+        echo "Python executable: $PYTHON_EXE"
+        echo "python_exe=$PYTHON_EXE" >> $GITHUB_OUTPUT
+        $PYTHON_EXE --version || echo "Version check failed"
 
     # Note: No system dependencies needed for this project
     # PyTorch and other dependencies are installed via pip
@@ -35,19 +65,36 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-v1
         restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
           ${{ runner.os }}-pip-
+      # Limit cache size to avoid disk space issues
+      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -e .[docs]
-        pip install pytest pytest-cov
+        PYTHON_EXE="${{ steps.find-python.outputs.python_exe }}"
+        echo "Using Python: $PYTHON_EXE"
+        $PYTHON_EXE --version
+        $PYTHON_EXE -m pip install --upgrade pip
+        $PYTHON_EXE -m pip install -e .[docs,tests] --no-cache-dir
+        $PYTHON_EXE -m pip install pytest-cov --no-cache-dir
+        $PYTHON_EXE -m pytest --version
+      continue-on-error: false
+
+    - name: Clean up disk space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+      continue-on-error: true
 
     - name: Run tests with coverage
       run: |
-        pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        PYTHON_EXE="${{ steps.find-python.outputs.python_exe }}"
+        echo "Using Python: $PYTHON_EXE"
+        $PYTHON_EXE -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'

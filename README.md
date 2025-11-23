@@ -164,7 +164,7 @@ from qlty import LargeNCYXQuilt
 import tempfile
 import os
 
-# Create temporary directory for cache
+# Create temporary identityory for cache
 temp_dir = tempfile.mkdtemp()
 filename = os.path.join(temp_dir, "my_data")
 
