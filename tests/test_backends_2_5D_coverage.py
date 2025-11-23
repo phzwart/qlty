@@ -256,8 +256,10 @@ def test_hdf5_backend_invalid_shape():
 
     try:
         with h5py.File(temp_path, "w") as f:
-            dset = f.create_dataset("data", shape=(2, 3, 5), dtype="float32")  # 3D - should fail
-            backend = HDF5Backend(dset)  # Should raise ValueError
+            dset = f.create_dataset(
+                "data", shape=(2, 3, 5), dtype="float32"
+            )  # 3D - should fail
+            HDF5Backend(dset)  # Should raise ValueError
     except ValueError as e:
         assert "must be 3D, 4D, or 5D" in str(e)
     finally:
@@ -337,7 +339,7 @@ def test_hdf5_backend_explicit_dtype():
 
     try:
         with h5py.File(temp_path, "w") as f:
-            dset = f.create_dataset("data", shape=(2, 3, 5, 10, 10), dtype="float64")
+            f.create_dataset("data", shape=(2, 3, 5, 10, 10), dtype="float64")
 
         with h5py.File(temp_path, "r") as f:
             backend = HDF5Backend(f["data"], dtype=torch.float32)
@@ -450,6 +452,7 @@ def test_tensor_like_3d_repr():
 
 def test_backend_get_z_slices_fallback():
     """Test get_z_slices fallback for backends without batch loading."""
+
     # Create a mock backend without batch loading
     class NonBatchBackend(InMemoryBackend):
         @property
@@ -545,4 +548,3 @@ def test_from_memmap():
     finally:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
-

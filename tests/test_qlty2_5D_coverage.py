@@ -166,7 +166,9 @@ def test_nczyx25dquilt_invalid_z_slices_type():
     """Test error with invalid z_slices type."""
     data = torch.randn(1, 1, 5, 10, 10)
     with pytest.raises(ValueError, match="z_slices must be slice"):
-        NCZYX25DQuilt(data_source=data, channel_spec={"identity": [0]}, z_slices="invalid")
+        NCZYX25DQuilt(
+            data_source=data, channel_spec={"identity": [0]}, z_slices="invalid"
+        )
 
 
 def test_nczyx25dquilt_invalid_z_index():
@@ -180,7 +182,9 @@ def test_nczyx25dquilt_empty_z_slices():
     """Test error with z_slices resulting in empty list."""
     data = torch.randn(1, 1, 5, 10, 10)
     with pytest.raises(ValueError, match="results in empty list"):
-        NCZYX25DQuilt(data_source=data, channel_spec={"identity": [0]}, z_slices=slice(10, 5))
+        NCZYX25DQuilt(
+            data_source=data, channel_spec={"identity": [0]}, z_slices=slice(10, 5)
+        )
 
 
 def test_std_operation():
@@ -277,7 +281,9 @@ def test_z_slices_slice_object():
 
     spec = {"identity": [0]}
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, z_slices=slice(2, 7)  # z-slices 2-6
+        data_source=data,
+        channel_spec=spec,
+        z_slices=slice(2, 7),  # z-slices 2-6
     )
 
     result = quilt.convert()
@@ -290,9 +296,7 @@ def test_z_slices_tuple():
     data = torch.randn(1, 1, 10, 20, 20)
 
     spec = {"identity": [0]}
-    quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, z_slices=(0, 2, 4)
-    )
+    quilt = NCZYX25DQuilt(data_source=data, channel_spec=spec, z_slices=(0, 2, 4))
 
     result = quilt.convert()
     assert result.shape == (3, 1, 20, 20)
@@ -371,4 +375,3 @@ def test_get_required_z_range():
     z_min, z_max = op_mean.get_required_z_range(z0=5)
     assert z_min == 3  # 5 + (-2)
     assert z_max == 8  # 5 + 2 + 1 (exclusive: max of all offsets + 1)
-
