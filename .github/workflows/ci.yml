@@ -95,6 +95,9 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+        # Note: Codecov may show lower coverage in PR diff view when comparing
+        # against old baseline commits. The absolute coverage will update correctly
+        # once the new baseline is established after merge.
 
   lint:
     runs-on: ubuntu-latest
