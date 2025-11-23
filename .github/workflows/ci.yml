@@ -61,6 +61,11 @@ jobs:
         pip install -e .[docs,tests]
         pip install pytest coverage
 
+    - name: Verify dependencies
+      run: |
+        python -c "import zarr; print(f'zarr version: {zarr.__version__}')" || echo "WARNING: zarr not available"
+        python -c "import torch; print(f'torch version: {torch.__version__}')" || echo "WARNING: torch not available"
+
     - name: Run tests with coverage
       run: |
         # Use coverage run directly instead of pytest --cov to avoid torch import conflicts
@@ -72,6 +77,9 @@ jobs:
         # Verify coverage XML was generated and show key module coverage
         echo "=== Coverage XML Verification ==="
         python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); classes = root.findall('.//class'); files = {}; [files.update({c.get('filename'): float(c.get('line-rate', 0))}) for c in classes]; print('Key modules:'); [print(f\"  {f}: {files[f]*100:.2f}%\") for f in sorted(files.keys()) if 'stack_to_zarr' in f or 'qlty2_5D.py' in f or 'backends_2_5D.py' in f]"
+        # Show test counts for stack_to_zarr
+        echo "=== Stack_to_zarr test status ==="
+        python -m pytest tests/test_stack_to_zarr.py --collect-only -q 2>&1 | tail -1
 
     - name: Verify coverage.xml exists before cleanup
       if: always()
