@@ -33,10 +33,9 @@ jobs:
 
     - name: Cache pip packages
       uses: actions/cache@v4
-      continue-on-error: true
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml', '**/setup.py', '**/requirements*.txt') }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-v1
         restore-keys: |
           ${{ runner.os }}-pip-${{ matrix.python-version }}-
           ${{ runner.os }}-pip-
