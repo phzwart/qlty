@@ -46,6 +46,7 @@ docs = [
 ]
 tests = [
     "pytest>=8.0.0",
+    "coverage>=7.0.0",
 ]
 
 [project.urls]

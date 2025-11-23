@@ -27,7 +27,19 @@ except ImportError:
     zarr = None
     pytest.skip("zarr not available", allow_module_level=True)
 
-from qlty.utils.stack_to_zarr import stack_files_to_zarr
+# Import directly from module file to avoid triggering qlty.__init__.py imports
+# during pytest-cov instrumentation. This prevents torch import conflicts.
+import importlib.util
+from pathlib import Path
+
+_module_path = Path(__file__).parent.parent / "qlty" / "utils" / "stack_to_zarr.py"
+_spec = importlib.util.spec_from_file_location("qlty.utils.stack_to_zarr", _module_path)
+_stack_to_zarr_module = importlib.util.module_from_spec(_spec)
+# Register the module in sys.modules to prevent re-import through package
+import sys
+sys.modules["qlty.utils.stack_to_zarr"] = _stack_to_zarr_module
+_spec.loader.exec_module(_stack_to_zarr_module)
+stack_files_to_zarr = _stack_to_zarr_module.stack_files_to_zarr
 
 
 @pytest.fixture
