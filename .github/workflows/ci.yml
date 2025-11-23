@@ -44,8 +44,23 @@ jobs:
 
     - name: Install dependencies
       run: |
-        # Use python3 from setup-python location (python doesn't exist there)
-        PYTHON_EXE="${{ env.pythonLocation }}/bin/python3"
+        # Debug: Check what's actually in the pythonLocation
+        echo "pythonLocation: ${{ env.pythonLocation }}"
+        echo "Listing contents:"
+        ls -la "${{ env.pythonLocation }}/" || echo "Location not found"
+        echo "Listing bin directory:"
+        ls -la "${{ env.pythonLocation }}/bin/" || echo "bin directory not found"
+        echo "Finding python3:"
+        find "${{ env.pythonLocation }}" -name "python3*" -type f 2>/dev/null || echo "No python3 found"
+        # Try to find python3 in common locations
+        if [ -f "${{ env.pythonLocation }}/bin/python3" ]; then
+          PYTHON_EXE="${{ env.pythonLocation }}/bin/python3"
+        elif [ -f "${{ env.pythonLocation }}/python3" ]; then
+          PYTHON_EXE="${{ env.pythonLocation }}/python3"
+        else
+          # Use python3 from PATH as last resort
+          PYTHON_EXE="python3"
+        fi
         echo "Using Python: $PYTHON_EXE"
         $PYTHON_EXE --version
         $PYTHON_EXE -m pip install --upgrade pip
@@ -63,8 +78,14 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        # Use python3 from setup-python location (python doesn't exist there)
-        PYTHON_EXE="${{ env.pythonLocation }}/bin/python3"
+        # Find python3 from setup-python location
+        if [ -f "${{ env.pythonLocation }}/bin/python3" ]; then
+          PYTHON_EXE="${{ env.pythonLocation }}/bin/python3"
+        elif [ -f "${{ env.pythonLocation }}/python3" ]; then
+          PYTHON_EXE="${{ env.pythonLocation }}/python3"
+        else
+          PYTHON_EXE="python3"
+        fi
         echo "Using Python: $PYTHON_EXE"
         $PYTHON_EXE -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
