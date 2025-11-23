@@ -36,7 +36,7 @@ def stack_files_to_zarr(
 ) -> dict[str, dict]:
     """
     Scan directory for image files, group into 3D stacks, and save as zarr.
-    
+
     Parameters
     ----------
     directory : str | Path
@@ -64,7 +64,7 @@ def stack_files_to_zarr(
         Whether to sort files by counter value (default: True)
     dry_run : bool
         If True, only analyze files without creating zarr (default: False)
-    
+
     Returns
     -------
     dict[str, dict]
@@ -221,4 +221,3 @@ qlty/utils/
 - Support for different zarr compression options
 - Metadata preservation (EXIF, etc.)
 - Support for subdirectories (recursive scanning)
-
