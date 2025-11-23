@@ -27,17 +27,36 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-    
-    - name: Configure Python PATH
+
+    - name: Find Python executable
+      id: find-python
       run: |
-        # Ensure Python bin directory is in PATH
-        echo "${{ env.pythonLocation }}/bin" >> $GITHUB_PATH
-        # Verify
-        echo "PATH after update: $PATH"
-        echo "which python: $(which python || echo 'not found')"
-        echo "which python3: $(which python3 || echo 'not found')"
-        python --version || echo "python command failed"
-        python3 --version || echo "python3 command failed"
+        # Find the actual Python executable
+        PYTHON_LOC="${{ env.pythonLocation }}"
+        echo "Checking Python location: $PYTHON_LOC"
+        
+        # Try different possible locations
+        if [ -f "$PYTHON_LOC/bin/python3" ]; then
+          PYTHON_EXE="$PYTHON_LOC/bin/python3"
+        elif [ -f "$PYTHON_LOC/bin/python" ]; then
+          PYTHON_EXE="$PYTHON_LOC/bin/python"
+        elif [ -f "$PYTHON_LOC/python3" ]; then
+          PYTHON_EXE="$PYTHON_LOC/python3"
+        else
+          # List what's actually there
+          echo "Contents of $PYTHON_LOC:"
+          ls -la "$PYTHON_LOC" || echo "Directory not found"
+          echo "Contents of $PYTHON_LOC/bin:"
+          ls -la "$PYTHON_LOC/bin" || echo "bin directory not found"
+          # Find any python executables
+          find "$PYTHON_LOC" -name "python*" -type f 2>/dev/null | head -10 || echo "No python found"
+          # Fallback to python3 from PATH
+          PYTHON_EXE="python3"
+        fi
+        
+        echo "Python executable: $PYTHON_EXE"
+        echo "python_exe=$PYTHON_EXE" >> $GITHUB_OUTPUT
+        $PYTHON_EXE --version || echo "Version check failed"
 
     # Note: No system dependencies needed for this project
     # PyTorch and other dependencies are installed via pip
@@ -55,12 +74,13 @@ jobs:
 
     - name: Install dependencies
       run: |
-        # Use python from PATH (setup-python should configure it)
-        python --version
-        python -m pip install --upgrade pip
-        python -m pip install -e .[docs,tests] --no-cache-dir
-        python -m pip install pytest-cov --no-cache-dir
-        python -m pytest --version
+        PYTHON_EXE="${{ steps.find-python.outputs.python_exe }}"
+        echo "Using Python: $PYTHON_EXE"
+        $PYTHON_EXE --version
+        $PYTHON_EXE -m pip install --upgrade pip
+        $PYTHON_EXE -m pip install -e .[docs,tests] --no-cache-dir
+        $PYTHON_EXE -m pip install pytest-cov --no-cache-dir
+        $PYTHON_EXE -m pytest --version
       continue-on-error: false
 
     - name: Clean up disk space
@@ -72,8 +92,9 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        # Use python from PATH (setup-python should configure it)
-        python -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        PYTHON_EXE="${{ steps.find-python.outputs.python_exe }}"
+        echo "Using Python: $PYTHON_EXE"
+        $PYTHON_EXE -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
