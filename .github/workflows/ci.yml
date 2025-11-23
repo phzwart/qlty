@@ -42,12 +42,16 @@ jobs:
       if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
     - name: Install dependencies
+      id: install-deps
       run: |
         export PATH="$pythonLocation/bin:$PATH"
-        python3 -m pip install --upgrade pip
-        python3 -m pip install -e .[docs,tests] --no-cache-dir
-        python3 -m pip install pytest-cov --no-cache-dir
-        python3 -m pytest --version
+        PYTHON_EXE=$(python3 -c "import sys; print(sys.executable)")
+        echo "path=$PYTHON_EXE" >> $GITHUB_OUTPUT
+        echo "Using Python for install: $PYTHON_EXE"
+        $PYTHON_EXE -m pip install --upgrade pip
+        $PYTHON_EXE -m pip install -e .[docs,tests] --no-cache-dir
+        $PYTHON_EXE -m pip install pytest-cov --no-cache-dir
+        $PYTHON_EXE -m pytest --version
       env:
         pythonLocation: ${{ env.pythonLocation }}
       continue-on-error: false
