@@ -596,7 +596,9 @@ def test_stack_files_to_zarr_no_image_library_error(temp_dir, monkeypatch):
         filepath = temp_dir / "test_0.tif"
         filepath.touch()  # Create empty file
 
-        with pytest.raises(RuntimeError, match="Cannot load image.*No suitable library"):
+        with pytest.raises(
+            RuntimeError, match="Cannot load image.*No suitable library"
+        ):
             stack_files_to_zarr(
                 directory=temp_dir,
                 extension=".tif",
