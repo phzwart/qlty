@@ -890,18 +890,18 @@ def test_stack_files_to_zarr_subdirectories_ignored(temp_dir):
     # Create a subdirectory
     subdir = temp_dir / "subdir"
     subdir.mkdir()
-    
+
     # Create images in both main dir and subdir
     for i in range(2):
         _create_test_image(temp_dir / f"main_{i:01d}.tif", (5, 5))
         _create_test_image(subdir / f"sub_{i:01d}.tif", (5, 5))
-    
+
     result = stack_files_to_zarr(
         directory=temp_dir,
         extension=".tif",
         pattern=r"(.+)_(\d+)\.tif$",
     )
-    
+
     # Should only find files in main directory, not subdirectory
     assert len(result) == 1
     assert "main" in result
@@ -912,20 +912,20 @@ def test_stack_files_to_zarr_generic_axis_order_chunks(temp_dir):
     """Test default chunk calculation for generic axis orders (not ZCYX or CZYX)."""
     if tifffile is None:
         pytest.skip("tifffile not available")
-    
+
     # Test with ZYCX axis order
     for i in range(2):
         filepath = temp_dir / f"generic_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(2, 8, 8), dtype=np.uint8)
         tifffile.imwrite(str(filepath), data)
-    
+
     result = stack_files_to_zarr(
         directory=temp_dir,
         extension=".tif",
         pattern=r"(.+)_(\d+)\.tif$",
         axis_order="ZYCX",  # Different from ZCYX or CZYX
     )
-    
+
     zarr_path = Path(result["generic"]["zarr_path"])
     z = zarr.open(str(zarr_path), mode="r")
     # Generic chunks: first dimension as 1
@@ -935,7 +935,7 @@ def test_stack_files_to_zarr_generic_axis_order_chunks(temp_dir):
 def test_stack_files_to_zarr_pattern_no_groups(temp_dir):
     """Test error when pattern has no groups but matches."""
     _create_test_image(temp_dir / "test_0.tif", (5, 5))
-    
+
     # Pattern with no groups but matches the filename
     with pytest.raises(ValueError, match="Pattern has no groups"):
         stack_files_to_zarr(
@@ -950,13 +950,13 @@ def test_stack_files_to_zarr_pattern_no_match_but_has_groups(temp_dir):
     # Create files that match and don't match
     _create_test_image(temp_dir / "match_0.tif", (5, 5))
     _create_test_image(temp_dir / "nomatch_file.tif", (5, 5))
-    
+
     result = stack_files_to_zarr(
         directory=temp_dir,
         extension=".tif",
         pattern=r"(.+)_(\d+)\.tif$",  # Requires counter
     )
-    
+
     # Should only match the file with counter
     assert len(result) == 1
     assert "match" in result
@@ -966,14 +966,14 @@ def test_stack_files_to_zarr_extension_normalization_no_dot(temp_dir):
     """Test extension normalization when extension doesn't start with dot."""
     for i in range(2):
         _create_test_image(temp_dir / f"test_{i:01d}.tif", (5, 5))
-    
+
     # Test with extension without leading dot
     result = stack_files_to_zarr(
         directory=temp_dir,
         extension="tif",  # No dot
         pattern=r"(.+)_(\d+)\.tif$",
     )
-    
+
     assert len(result) == 1
     assert result["test"]["file_count"] == 2
 
@@ -983,18 +983,18 @@ def test_stack_files_to_zarr_gaps_warning(capsys, temp_dir):
     # Create files with gaps: 0, 2, 5
     for i in [0, 2, 5]:
         _create_test_image(temp_dir / f"gap_{i:01d}.tif", (10, 10))
-    
+
     result = stack_files_to_zarr(
         directory=temp_dir,
         extension=".tif",
         pattern=r"(.+)_(\d+)\.tif$",
     )
-    
+
     # Check that warning was printed
     captured = capsys.readouterr()
     assert "missing counters" in captured.out.lower()
     assert "gap" in captured.out.lower()
-    
+
     assert len(result) == 1
     metadata = result["gap"]
     assert metadata["file_count"] == 3
@@ -1005,20 +1005,20 @@ def test_stack_files_to_zarr_axis_order_same_zcyx(temp_dir):
     """Test that same axis order (ZCYX) works correctly."""
     if tifffile is None:
         pytest.skip("tifffile not available")
-    
+
     # Create multi-channel images
     for i in range(2):
         filepath = temp_dir / f"same_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(3, 8, 8), dtype=np.uint8)
         tifffile.imwrite(str(filepath), data)
-    
+
     result = stack_files_to_zarr(
         directory=temp_dir,
         extension=".tif",
         pattern=r"(.+)_(\d+)\.tif$",
         axis_order="ZCYX",  # Same as default
     )
-    
+
     metadata = result["same"]
     assert metadata["axis_order"] == "ZCYX"
     assert metadata["shape"] == (2, 3, 8, 8)
@@ -1028,20 +1028,20 @@ def test_stack_files_to_zarr_dtype_conversion_required(temp_dir):
     """Test dtype conversion when explicitly needed."""
     if tifffile is None:
         pytest.skip("tifffile not available")
-    
+
     # Create uint16 images but convert to float32
     for i in range(2):
         filepath = temp_dir / f"convert_{i:01d}.tif"
         data = np.random.randint(0, 65535, size=(10, 10), dtype=np.uint16)
         tifffile.imwrite(str(filepath), data)
-    
+
     result = stack_files_to_zarr(
         directory=temp_dir,
         extension=".tif",
         pattern=r"(.+)_(\d+)\.tif$",
         dtype=np.float32,
     )
-    
+
     zarr_path = Path(result["convert"]["zarr_path"])
     z = zarr.open(str(zarr_path), mode="r")
     assert z.dtype == np.float32
@@ -1053,20 +1053,20 @@ def test_stack_files_to_zarr_multi_channel_dtype_conversion(temp_dir):
     """Test dtype conversion for multi-channel images during stacking."""
     if tifffile is None:
         pytest.skip("tifffile not available")
-    
+
     # Create uint8 images but convert to uint16
     for i in range(2):
         filepath = temp_dir / f"mcconvert_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(2, 6, 6), dtype=np.uint8)
         tifffile.imwrite(str(filepath), data)
-    
+
     result = stack_files_to_zarr(
         directory=temp_dir,
         extension=".tif",
         pattern=r"(.+)_(\d+)\.tif$",
         dtype=np.uint16,
     )
-    
+
     zarr_path = Path(result["mcconvert"]["zarr_path"])
     z = zarr.open(str(zarr_path), mode="r")
     assert z.dtype == np.uint16
@@ -1079,8 +1079,6 @@ def test_stack_files_to_zarr_empty_directory(temp_dir):
         extension=".tif",
         pattern=r"(.+)_(\d+)\.tif$",
     )
-    
+
     assert len(result) == 0
     assert result == {}
-
-
