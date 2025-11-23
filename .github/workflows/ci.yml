@@ -45,7 +45,8 @@ jobs:
       id: install-deps
       run: |
         export PATH="$pythonLocation/bin:$PATH"
-        PYTHON_EXE=$(python3 -c "import sys; print(sys.executable)")
+        # Use which to find python3 after PATH is set
+        PYTHON_EXE=$(which python3)
         echo "path=$PYTHON_EXE" >> $GITHUB_OUTPUT
         echo "Using Python for install: $PYTHON_EXE"
         $PYTHON_EXE -m pip install --upgrade pip
