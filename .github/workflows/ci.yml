@@ -45,19 +45,24 @@ jobs:
     - name: Install dependencies
       run: |
         # Use python3 from setup-python location (python doesn't exist there)
-        if [ -f "$pythonLocation/bin/python3" ]; then
-          PYTHON_EXE="$pythonLocation/bin/python3"
+        PYTHON_LOC="${{ env.pythonLocation }}"
+        echo "Checking for Python at: $PYTHON_LOC/bin/python3"
+        if [ -f "$PYTHON_LOC/bin/python3" ]; then
+          PYTHON_EXE="$PYTHON_LOC/bin/python3"
+          echo "Found Python at: $PYTHON_EXE"
         else
+          echo "Python not found at $PYTHON_LOC/bin/python3, listing directory:"
+          ls -la "$PYTHON_LOC/bin/" || echo "Directory not found"
           # Fallback to python3 from PATH
           PYTHON_EXE="python3"
+          echo "Using Python from PATH: $PYTHON_EXE"
         fi
         echo "Using Python: $PYTHON_EXE"
+        $PYTHON_EXE --version
         $PYTHON_EXE -m pip install --upgrade pip
         $PYTHON_EXE -m pip install -e .[docs,tests] --no-cache-dir
         $PYTHON_EXE -m pip install pytest-cov --no-cache-dir
         $PYTHON_EXE -m pytest --version
-      env:
-        pythonLocation: ${{ env.pythonLocation }}
       continue-on-error: false
 
     - name: Clean up disk space
@@ -70,16 +75,15 @@ jobs:
     - name: Run tests with coverage
       run: |
         # Use python3 from setup-python location (python doesn't exist there)
-        if [ -f "$pythonLocation/bin/python3" ]; then
-          PYTHON_EXE="$pythonLocation/bin/python3"
+        PYTHON_LOC="${{ env.pythonLocation }}"
+        if [ -f "$PYTHON_LOC/bin/python3" ]; then
+          PYTHON_EXE="$PYTHON_LOC/bin/python3"
         else
           # Fallback to python3 from PATH
           PYTHON_EXE="python3"
         fi
         echo "Using Python: $PYTHON_EXE"
         $PYTHON_EXE -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
-      env:
-        pythonLocation: ${{ env.pythonLocation }}
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
