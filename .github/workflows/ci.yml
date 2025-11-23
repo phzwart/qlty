@@ -43,10 +43,12 @@ jobs:
 
     - name: Install dependencies
       run: |
-        ${{ env.pythonLocation }}/bin/python -m pip install --upgrade pip
-        ${{ env.pythonLocation }}/bin/python -m pip install -e .[docs,tests] --no-cache-dir
-        ${{ env.pythonLocation }}/bin/python -m pip install pytest-cov --no-cache-dir
-        ${{ env.pythonLocation }}/bin/python -m pytest --version
+        "$pythonLocation/bin/python" -m pip install --upgrade pip
+        "$pythonLocation/bin/python" -m pip install -e .[docs,tests] --no-cache-dir
+        "$pythonLocation/bin/python" -m pip install pytest-cov --no-cache-dir
+        "$pythonLocation/bin/python" -m pytest --version
+      env:
+        pythonLocation: ${{ env.pythonLocation }}
       continue-on-error: false
 
     - name: Clean up disk space
@@ -58,7 +60,9 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        ${{ env.pythonLocation }}/bin/python -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        "$pythonLocation/bin/python" -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+      env:
+        pythonLocation: ${{ env.pythonLocation }}
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
