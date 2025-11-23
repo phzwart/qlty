@@ -41,14 +41,28 @@ jobs:
       # Limit cache size to avoid disk space issues
       if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
-    - name: Install dependencies
+    - name: Find Python executable
+      id: python-exe
       run: |
-        "$pythonLocation/bin/python3" -m pip install --upgrade pip
-        "$pythonLocation/bin/python3" -m pip install -e .[docs,tests] --no-cache-dir
-        "$pythonLocation/bin/python3" -m pip install pytest-cov --no-cache-dir
-        "$pythonLocation/bin/python3" -m pytest --version
+        if [ -f "$pythonLocation/bin/python3" ]; then
+          echo "path=$pythonLocation/bin/python3" >> $GITHUB_OUTPUT
+        elif [ -f "$pythonLocation/bin/python" ]; then
+          echo "path=$pythonLocation/bin/python" >> $GITHUB_OUTPUT
+        else
+          # Fallback to python3 in PATH
+          PYTHON_EXE=$(which python3)
+          echo "path=$PYTHON_EXE" >> $GITHUB_OUTPUT
+          echo "Using python3 from PATH: $PYTHON_EXE"
+        fi
       env:
         pythonLocation: ${{ env.pythonLocation }}
+
+    - name: Install dependencies
+      run: |
+        "${{ steps.python-exe.outputs.path }}" -m pip install --upgrade pip
+        "${{ steps.python-exe.outputs.path }}" -m pip install -e .[docs,tests] --no-cache-dir
+        "${{ steps.python-exe.outputs.path }}" -m pip install pytest-cov --no-cache-dir
+        "${{ steps.python-exe.outputs.path }}" -m pytest --version
       continue-on-error: false
 
     - name: Clean up disk space
@@ -60,9 +74,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        "$pythonLocation/bin/python3" -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
-      env:
-        pythonLocation: ${{ env.pythonLocation }}
+        "${{ steps.python-exe.outputs.path }}" -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
