@@ -22,12 +22,10 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
-      id: setup-python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-      id: python
 
     # Note: No system dependencies needed for this project
     # PyTorch and other dependencies are installed via pip
