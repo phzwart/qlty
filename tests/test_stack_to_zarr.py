@@ -553,3 +553,331 @@ def test_stack_files_to_zarr_case_insensitive_extension(temp_dir):
     )
 
     assert len(result) == 1
+
+
+def test_stack_files_to_zarr_pil_fallback(temp_dir, monkeypatch):
+    """Test PIL fallback when tifffile is not available."""
+    if Image is None:
+        pytest.skip("PIL not available")
+
+    # Mock tifffile to be None to force PIL fallback
+    import qlty.utils.stack_to_zarr as stack_module
+
+    original_tifffile = stack_module.tifffile
+    stack_module.tifffile = None
+
+    try:
+        for i in range(2):
+            _create_test_image(temp_dir / f"pil_{i:01d}.tif", (5, 5), dtype=np.uint8)
+
+        result = stack_files_to_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+        )
+
+        assert len(result) == 1
+        assert result["pil"]["file_count"] == 2
+    finally:
+        stack_module.tifffile = original_tifffile
+
+
+def test_stack_files_to_zarr_no_image_library_error(temp_dir, monkeypatch):
+    """Test error when no image library is available."""
+    import qlty.utils.stack_to_zarr as stack_module
+
+    original_tifffile = stack_module.tifffile
+    original_image = stack_module.Image
+    stack_module.tifffile = None
+    stack_module.Image = None
+
+    try:
+        # Create a file that would need to be loaded
+        filepath = temp_dir / "test_0.tif"
+        filepath.touch()  # Create empty file
+
+        with pytest.raises(RuntimeError, match="Cannot load image.*No suitable library"):
+            stack_files_to_zarr(
+                directory=temp_dir,
+                extension=".tif",
+                pattern=r"(.+)_(\d+)\.tif$",
+            )
+    finally:
+        stack_module.tifffile = original_tifffile
+        stack_module.Image = original_image
+
+
+def test_stack_files_to_zarr_yxc_format(temp_dir):
+    """Test images in (Y, X, C) format (last dim <= 4)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create RGB images (Y, X, C) format
+    for i in range(3):
+        filepath = temp_dir / f"rgb_{i:01d}.tif"
+        # Create (Y, X, C) image
+        data = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="ZCYX",
+    )
+
+    assert len(result) == 1
+    metadata = result["rgb"]
+    assert metadata["shape"] == (3, 3, 10, 10)  # (Z, C, Y, X)
+    assert metadata["axis_order"] == "ZCYX"
+
+
+def test_stack_files_to_zarr_axis_reordering_czyx(temp_dir):
+    """Test axis reordering from ZCYX to CZYX."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create multi-channel images
+    for i in range(2):
+        filepath = temp_dir / f"reorder_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(2, 8, 8), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="CZYX",
+    )
+
+    zarr_path = Path(result["reorder"]["zarr_path"])
+    z = zarr.open(str(zarr_path), mode="r")
+    assert z.shape == (2, 2, 8, 8)  # (C, Z, Y, X)
+    assert result["reorder"]["axis_order"] == "CZYX"
+
+
+def test_stack_files_to_zarr_custom_chunks_multi_channel(temp_dir):
+    """Test custom chunks for multi-channel images."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    for i in range(3):
+        filepath = temp_dir / f"chunkmc_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(3, 16, 16), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="ZCYX",
+        zarr_chunks=(1, 1, 8, 8),
+    )
+
+    zarr_path = Path(result["chunkmc"]["zarr_path"])
+    z = zarr.open(str(zarr_path), mode="r")
+    assert z.chunks == (1, 1, 8, 8)
+
+
+def test_stack_files_to_zarr_dtype_conversion_multi_channel(temp_dir):
+    """Test dtype conversion for multi-channel images."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    for i in range(2):
+        filepath = temp_dir / f"dtypemc_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(2, 6, 6), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        dtype=np.float32,
+    )
+
+    zarr_path = Path(result["dtypemc"]["zarr_path"])
+    z = zarr.open(str(zarr_path), mode="r")
+    assert z.dtype == np.float32
+
+
+def test_stack_files_to_zarr_data_correctness_multi_channel(temp_dir):
+    """Test data correctness for multi-channel images."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create images with known values
+    for i in range(2):
+        filepath = temp_dir / f"checkmc_{i:01d}.tif"
+        # Create image with channel value = i+1, pixel value = channel
+        data = np.full((2, 5, 5), i + 1, dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="ZCYX",
+    )
+
+    zarr_path = Path(result["checkmc"]["zarr_path"])
+    z = zarr.open(str(zarr_path), mode="r")
+
+    # Check first z-slice, first channel should be all 1s
+    assert np.all(z[0, 0] == 1)
+    # Check second z-slice, first channel should be all 2s
+    assert np.all(z[1, 0] == 2)
+
+
+def test_stack_files_to_zarr_pattern_compiled_regex(temp_dir):
+    """Test with pre-compiled regex pattern."""
+    for i in range(2):
+        _create_test_image(temp_dir / f"compiled_{i:01d}.tif", (5, 5))
+
+    pattern = re.compile(r"(.+)_(\d+)\.tif$")
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=pattern,
+    )
+
+    assert len(result) == 1
+    assert result["compiled"]["file_count"] == 2
+
+
+def test_stack_files_to_zarr_counter_not_parseable(temp_dir):
+    """Test handling of non-parseable counter values."""
+    # Create file with non-numeric counter
+    _create_test_image(temp_dir / "test_abc.tif", (5, 5))
+    # Create file with valid counter
+    _create_test_image(temp_dir / "test_0.tif", (5, 5))
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\w+)\.tif$",  # \w+ matches both abc and 0
+    )
+
+    # Should only process the one with parseable counter
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 1
+
+
+def test_stack_files_to_zarr_multi_channel_shape_validation(temp_dir):
+    """Test shape validation for multi-channel images."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create images with different channel counts
+    data1 = np.random.randint(0, 255, size=(2, 10, 10), dtype=np.uint8)
+    tifffile.imwrite(str(temp_dir / "shape_0.tif"), data1)
+    data2 = np.random.randint(0, 255, size=(3, 10, 10), dtype=np.uint8)  # Different!
+    tifffile.imwrite(str(temp_dir / "shape_1.tif"), data2)
+
+    with pytest.raises(ValueError, match="has shape"):
+        stack_files_to_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+        )
+
+
+def test_stack_files_to_zarr_yxc_shape_validation(temp_dir):
+    """Test shape validation for (Y, X, C) format images."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create (Y, X, C) images with different sizes
+    data1 = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+    tifffile.imwrite(str(temp_dir / "yxc_0.tif"), data1)
+    data2 = np.random.randint(0, 255, size=(15, 15, 3), dtype=np.uint8)  # Different!
+    tifffile.imwrite(str(temp_dir / "yxc_1.tif"), data2)
+
+    with pytest.raises(ValueError, match="has shape"):
+        stack_files_to_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+        )
+
+
+def test_stack_files_to_zarr_default_chunks_zcyx(temp_dir):
+    """Test default chunk calculation for ZCYX order."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    for i in range(2):
+        filepath = temp_dir / f"chunkzcyx_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(3, 12, 12), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="ZCYX",
+    )
+
+    zarr_path = Path(result["chunkzcyx"]["zarr_path"])
+    z = zarr.open(str(zarr_path), mode="r")
+    # Default should be (1, C, Y, X)
+    assert z.chunks[0] == 1
+    assert z.chunks[1] == 3  # C
+
+
+def test_stack_files_to_zarr_default_chunks_czyx(temp_dir):
+    """Test default chunk calculation for CZYX order."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    for i in range(2):
+        filepath = temp_dir / f"chunkczyx_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(3, 12, 12), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="CZYX",
+    )
+
+    zarr_path = Path(result["chunkczyx"]["zarr_path"])
+    z = zarr.open(str(zarr_path), mode="r")
+    # Default should be (C, 1, Y, X)
+    assert z.chunks[0] == 3  # C
+    assert z.chunks[1] == 1
+
+
+def test_stack_files_to_zarr_metadata_pattern_string(temp_dir):
+    """Test that pattern is stored correctly as string in metadata."""
+    for i in range(2):
+        _create_test_image(temp_dir / f"pattern_{i:01d}.tif", (5, 5))
+
+    pattern_str = r"(.+)_(\d+)\.tif$"
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=pattern_str,
+    )
+
+    zarr_path = Path(result["pattern"]["zarr_path"])
+    z = zarr.open(str(zarr_path), mode="r")
+    assert z.attrs["pattern"] == pattern_str
+
+
+def test_stack_files_to_zarr_metadata_pattern_compiled(temp_dir):
+    """Test that compiled pattern is stored correctly in metadata."""
+    for i in range(2):
+        _create_test_image(temp_dir / f"patternc_{i:01d}.tif", (5, 5))
+
+    pattern = re.compile(r"(.+)_(\d+)\.tif$")
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=pattern,
+    )
+
+    zarr_path = Path(result["patternc"]["zarr_path"])
+    z = zarr.open(str(zarr_path), mode="r")
+    assert z.attrs["pattern"] == pattern.pattern

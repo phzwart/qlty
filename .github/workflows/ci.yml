@@ -46,11 +46,9 @@ jobs:
       run: |
         echo "pythonLocation: $pythonLocation"
         echo "PATH: $PATH"
-        ls -la "$pythonLocation/bin/" || echo "bin directory not found"
-        which python3
-        python3 --version
-        python3 -c "import sys; print(sys.executable)"
-        PYTHON_EXE=$(python3 -c "import sys; print(sys.executable)")
+        which python3 || echo "python3 not in PATH"
+        python3 --version || echo "python3 --version failed"
+        PYTHON_EXE=$(python3 -c "import sys; print(sys.executable)" 2>/dev/null || echo "python3")
         echo "path=$PYTHON_EXE" >> $GITHUB_OUTPUT
         echo "Using Python: $PYTHON_EXE"
       env:
