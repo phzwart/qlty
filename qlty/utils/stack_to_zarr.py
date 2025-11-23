@@ -330,13 +330,17 @@ def stack_files_to_zarr(
                     )
             elif img.ndim == 3:
                 if img.shape[2] <= 4:
-                    if img.shape[:2] != (Y, X):
+                    # (Y, X, C) format
+                    img_Y, img_X, img_C = img.shape
+                    if img.shape[:2] != (Y, X) or img_C != C:
                         raise ValueError(
                             f"Image {filepath} has shape {img.shape}, "
                             f"expected ({Y}, {X}, {C})"
                         )
                 else:
-                    if img.shape[1:] != (Y, X):
+                    # (C, Y, X) format
+                    img_C, img_Y, img_X = img.shape
+                    if img.shape[1:] != (Y, X) or img_C != C:
                         raise ValueError(
                             f"Image {filepath} has shape {img.shape}, "
                             f"expected ({C}, {Y}, {X})"
