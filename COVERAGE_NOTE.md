@@ -38,4 +38,3 @@ python -m coverage report --include="qlty/utils/stack_to_zarr.py" --show-missing
 
 The coverage.xml file generated contains the correct coverage data. Codecov will update
 its baseline once it processes the new data from the CI run.
-
