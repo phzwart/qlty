@@ -27,11 +27,6 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
-    - name: Ensure correct Python in PATH (macOS fix)
-      if: matrix.os == 'macos-latest'
-      run: |
-        echo "${{ env.pythonLocation }}/bin" >> $GITHUB_PATH
-
     # Note: No system dependencies needed for this project
     # PyTorch and other dependencies are installed via pip
 
@@ -48,6 +43,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        export PATH="${{ env.pythonLocation }}/bin:$PATH"
         python3 -m pip install --upgrade pip
         python3 -m pip install -e .[docs,tests] --no-cache-dir
         python3 -m pip install pytest-cov --no-cache-dir
@@ -63,6 +59,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
+        export PATH="${{ env.pythonLocation }}/bin:$PATH"
         python3 -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
