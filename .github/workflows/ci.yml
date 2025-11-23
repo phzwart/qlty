@@ -67,7 +67,11 @@ jobs:
         # when pytest-cov instruments modules during test collection
         python -m coverage run --source=qlty -m pytest tests/ -v
         python -m coverage report --show-missing
+        # Generate coverage XML for Codecov
         python -m coverage xml
+        # Verify coverage XML was generated and show key module coverage
+        echo "=== Coverage XML Verification ==="
+        python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); classes = root.findall('.//class'); files = {}; [files.update({c.get('filename'): float(c.get('line-rate', 0))}) for c in classes]; print('Key modules:'); [print(f\"  {f}: {files[f]*100:.2f}%\") for f in sorted(files.keys()) if 'stack_to_zarr' in f or 'qlty2_5D.py' in f or 'backends_2_5D.py' in f]"
 
     - name: Clean up test artifacts
       if: always()
