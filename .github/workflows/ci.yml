@@ -45,6 +45,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .[docs] --no-cache-dir
         pip install pytest pytest-cov --no-cache-dir
+      continue-on-error: false
 
     - name: Clean up disk space
       run: |
@@ -55,7 +56,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        python -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
