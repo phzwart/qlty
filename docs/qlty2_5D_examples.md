@@ -25,7 +25,7 @@ data = torch.randn(5, 1, 20, 100, 100)  # 5 images, 1 channel, 20 z-slices
 # Define channel specification
 # Extract z-1, z, z+1 as separate channels
 spec = {
-    'direct': [-1, 0, 1]
+    'identity': [-1, 0, 1]
 }
 
 # Create quilt and convert
@@ -37,7 +37,8 @@ quilt = NCZYX25DQuilt(
 )
 
 # Convert to 2.5D
-result = quilt.convert()  # Shape: (5, 3, 100, 100)
+result = quilt.convert()  # Shape: (25, 3, 100, 100)
+# 5 images * 5 z-slices = 25 separate 2D images
 # 3 channels: z-1, z, z+1 for each processed z-slice
 ```
 
@@ -47,13 +48,13 @@ result = quilt.convert()  # Shape: (5, 3, 100, 100)
 # Keep Z dimension separate
 quilt = NCZYX25DQuilt(
     data_source=data,
-    channel_spec={'direct': [-1, 0, 1]},
+    channel_spec={'identity': [-1, 0, 1]},
     accumulation_mode="3d",  # Keep 3D structure
     z_slices=[5, 6, 7]
 )
 
 result = quilt.convert()  # Shape: (5, 3, 3, 100, 100)
-# 3 channels × 3 z-slices = 9 total channels per image
+# 5 images, 3 channels (z-1, z, z+1), 3 z-slices, Y, X
 ```
 
 ## Channel Specifications
@@ -64,7 +65,7 @@ Extract specific z-slices as separate channels:
 
 ```python
 spec = {
-    'direct': [-2, -1, 0, 1, 2]  # 5 channels: z-2, z-1, z, z+1, z+2
+    'identity': [-2, -1, 0, 1, 2]  # 5 channels: z-2, z-1, z, z+1, z+2
 }
 ```
 
@@ -83,11 +84,11 @@ spec = {
 
 ### Combined Operations
 
-Mix direct and mean operations:
+Mix identity and mean operations:
 
 ```python
 spec = {
-    'direct': [-1, 0, 1],           # 3 channels: z-1, z, z+1
+    'identity': [-1, 0, 1],           # 3 channels: z-1, z, z+1
     'mean': [
         [-2, -3, -4],               # 1 channel: mean(z-2, z-3, z-4)
         [2, 3, 4]                    # 1 channel: mean(z+2, z+3, z+4)
@@ -102,7 +103,7 @@ spec = {
 from qlty.qlty2_5D import ZOperation
 
 spec = {
-    ZOperation.DIRECT: (-1, 0, 1),
+    ZOperation.IDENTITY: (-1, 0, 1),
     ZOperation.MEAN: ((-2, -3), (2, 3))
 }
 ```
@@ -113,7 +114,7 @@ spec = {
 
 ```python
 data = torch.randn(10, 3, 50, 200, 200)
-quilt = NCZYX25DQuilt(data, channel_spec={'direct': [0]})
+quilt = NCZYX25DQuilt(data, channel_spec={'identity': [0]})
 ```
 
 ### Zarr Files
@@ -125,7 +126,7 @@ from qlty.backends_2_5D import from_zarr
 data = from_zarr("data.zarr")
 quilt = NCZYX25DQuilt(
     data_source=data,
-    channel_spec={'direct': [-1, 0, 1]},
+    channel_spec={'identity': [-1, 0, 1]},
     accumulation_mode="2d"
 )
 
@@ -136,7 +137,7 @@ from qlty.backends_2_5D import ZarrBackend, TensorLike3D
 z = zarr.open("data.zarr", mode='r')
 backend = ZarrBackend(z)
 data = TensorLike3D(backend)
-quilt = NCZYX25DQuilt(data, channel_spec={'direct': [0]})
+quilt = NCZYX25DQuilt(data, channel_spec={'identity': [0]})
 ```
 
 ### HDF5 Files
@@ -148,7 +149,7 @@ from qlty.backends_2_5D import from_hdf5
 data = from_hdf5("data.h5", dataset_path="/images/stack")
 quilt = NCZYX25DQuilt(
     data_source=data,
-    channel_spec={'direct': [-1, 0, 1]},
+    channel_spec={'identity': [-1, 0, 1]},
     accumulation_mode="2d"
 )
 ```
@@ -162,7 +163,7 @@ from qlty.backends_2_5D import MemoryMappedBackend, TensorLike3D
 mmap = np.memmap("data.dat", dtype='float32', mode='r', shape=(N, C, Z, Y, X))
 backend = MemoryMappedBackend(mmap)
 data = TensorLike3D(backend)
-quilt = NCZYX25DQuilt(data, channel_spec={'direct': [0]})
+quilt = NCZYX25DQuilt(data, channel_spec={'identity': [0]})
 ```
 
 ## Extracting Patch Pairs
@@ -173,7 +174,7 @@ The 2.5D quilt integrates with the 2D patch pair extraction:
 # Convert 3D to 2.5D and extract patch pairs in one step
 quilt = NCZYX25DQuilt(
     data_source=data,
-    channel_spec={'direct': [-1, 0, 1]},
+    channel_spec={'identity': [-1, 0, 1]},
     accumulation_mode="2d"
 )
 
@@ -196,7 +197,7 @@ patches1, patches2, deltas, rotations = quilt.extract_patch_pairs(
 Extract overlapping pixels from patch pairs in one step:
 
 ```python
-# Extract overlapping pixels directly
+# Extract overlapping pixels identityly
 overlapping1, overlapping2 = quilt.extract_overlapping_pixels(
     window=(32, 32),
     num_patches=100,
@@ -234,7 +235,7 @@ overlapping1, overlapping2 = extract_overlapping_pixels(
 ```python
 quilt = NCZYX25DQuilt(
     data_source=data,
-    channel_spec={'direct': [-1, 0, 1]},
+    channel_spec={'identity': [-1, 0, 1]},
     accumulation_mode="2d"
 )
 
@@ -262,7 +263,7 @@ for color_y in range(4):
     for color_x in range(4):
         # Get patches for this color group
         patches = extraction_plan.get_patches_for_color(color_y, color_x)
-        
+
         # Process patches (no race conditions - color groups don't overlap)
         results = []
         for patch in patches:
@@ -271,7 +272,7 @@ for color_y in range(4):
             # Apply channel operations...
             result = process_patch(z_data, patch)
             results.append(result)
-        
+
         # Stitch results for this color group
         stitch_patches(stitching_plan, color_y, color_x, results)
 ```
@@ -284,7 +285,7 @@ for color_y in range(4):
 # Convert 3D to 2.5D and create 2D quilt
 quilt_2_5d = NCZYX25DQuilt(
     data_source=data,
-    channel_spec={'direct': [-1, 0, 1]},
+    channel_spec={'identity': [-1, 0, 1]},
     accumulation_mode="2d"
 )
 
@@ -309,7 +310,7 @@ reconstructed = quilt_2d.stitch(processed_patches)
 ### Using Convenience Method
 
 ```python
-quilt_2_5d = NCZYX25DQuilt(data, channel_spec={'direct': [0]}, accumulation_mode="2d")
+quilt_2_5d = NCZYX25DQuilt(data, channel_spec={'identity': [0]}, accumulation_mode="2d")
 quilt_2d = quilt_2_5d.to_ncyx_quilt(
     window=(64, 64),
     step=(32, 32),
@@ -324,25 +325,25 @@ Different boundary modes handle out-of-bounds z-slices:
 ```python
 # Clamp (default): Repeat edge slices
 quilt = NCZYX25DQuilt(
-    data, channel_spec={'direct': [-5, 0, 5]},
+    data, channel_spec={'identity': [-5, 0, 5]},
     boundary_mode="clamp"  # z-5 -> z=0, z+5 -> z=Z-1
 )
 
 # Zero: Zero-padding
 quilt = NCZYX25DQuilt(
-    data, channel_spec={'direct': [-5, 0, 5]},
+    data, channel_spec={'identity': [-5, 0, 5]},
     boundary_mode="zero"  # Out-of-bounds slices become zeros
 )
 
 # Reflect: Mirror padding
 quilt = NCZYX25DQuilt(
-    data, channel_spec={'direct': [-5, 0, 5]},
+    data, channel_spec={'identity': [-5, 0, 5]},
     boundary_mode="reflect"  # Mirror at boundaries
 )
 
 # Skip: Skip invalid slices
 quilt = NCZYX25DQuilt(
-    data, channel_spec={'direct': [-5, 0, 5]},
+    data, channel_spec={'identity': [-5, 0, 5]},
     boundary_mode="skip"  # Reduce channel count at boundaries
 )
 ```
@@ -358,7 +359,7 @@ data = from_zarr("tomogram.zarr")
 quilt = NCZYX25DQuilt(
     data_source=data,
     channel_spec={
-        'direct': [-2, -1, 0, 1, 2],  # 5 slices around center
+        'identity': [-2, -1, 0, 1, 2],  # 5 slices around center
         'mean': [
             [-3, -4, -5],  # Mean of 3 slices below
             [3, 4, 5]       # Mean of 3 slices above
@@ -404,4 +405,3 @@ patches1, patches2, deltas, rotations = quilt.extract_patch_pairs(
    # Process all images at once
    result = quilt.convert()  # (N, C', Y, X)
    ```
-

@@ -28,6 +28,7 @@ from qlty.qlty3DLarge import LargeNCZYXQuilt
 # Import 2.5D quilt
 try:
     from qlty.qlty2_5D import NCZYX25DQuilt, ZOperation
+
     _HAS_2_5D = True
 except ImportError:
     _HAS_2_5D = False
@@ -45,6 +46,7 @@ try:
         from_memmap,
         from_zarr,
     )
+
     _HAS_BACKENDS = True
 except ImportError:
     _HAS_BACKENDS = False
@@ -70,14 +72,16 @@ if _HAS_2_5D:
     __all__.extend(["NCZYX25DQuilt", "ZOperation"])
 
 if _HAS_BACKENDS:
-    __all__.extend([
-        "DataSource3DBackend",
-        "InMemoryBackend",
-        "MemoryMappedBackend",
-        "ZarrBackend",
-        "HDF5Backend",
-        "TensorLike3D",
-        "from_zarr",
-        "from_hdf5",
-        "from_memmap",
-    ])
+    __all__.extend(
+        [
+            "DataSource3DBackend",
+            "InMemoryBackend",
+            "MemoryMappedBackend",
+            "ZarrBackend",
+            "HDF5Backend",
+            "TensorLike3D",
+            "from_zarr",
+            "from_hdf5",
+            "from_memmap",
+        ]
+    )

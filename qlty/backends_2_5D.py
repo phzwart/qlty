@@ -20,36 +20,36 @@ class DataSource3DBackend(ABC):
     Backend interface for actual data storage/loading.
     Implementations handle the specifics of different data sources.
     """
-    
+
     @abstractmethod
     def get_shape(self) -> Tuple[int, int, int, int, int]:
         """
         Return (N, C, Z, Y, X) shape.
-        
+
         Returns
         -------
         Tuple[int, int, int, int, int]
             Shape as (N, C, Z, Y, X)
         """
         pass
-    
+
     @abstractmethod
     def get_dtype(self) -> torch.dtype:
         """
         Return data type (as torch.dtype).
-        
+
         Returns
         -------
         torch.dtype
             Data type of the source
         """
         pass
-    
+
     @abstractmethod
     def load_slice(
-        self, 
+        self,
         n: Optional[int] = None,
-        c: Optional[int] = None, 
+        c: Optional[int] = None,
         z: Optional[Union[int, slice]] = None,
         y: Optional[Union[int, slice]] = None,
         x: Optional[Union[int, slice]] = None,
@@ -57,36 +57,36 @@ class DataSource3DBackend(ABC):
         """
         Load data slice and return as torch.Tensor.
         Loads only what's requested - never entire dataset.
-        
+
         Parameters
         ----------
         n, c, z, y, x : int, slice, or None
             Indices/slices for each dimension. None means all.
-        
+
         Returns
         -------
         torch.Tensor
             Requested slice as PyTorch tensor
         """
         pass
-    
+
     @property
     @abstractmethod
     def supports_batch_loading(self) -> bool:
         """
         Whether backend can efficiently load multiple z-slices at once.
-        
+
         Returns
         -------
         bool
             True if batch loading is supported
         """
         pass
-    
+
     def get_z_slices(self, n: int, c: int, z_indices: List[int]) -> torch.Tensor:
         """
         Optional: Batch loading of multiple z-slices.
-        
+
         Parameters
         ----------
         n : int
@@ -95,7 +95,7 @@ class DataSource3DBackend(ABC):
             Channel index
         z_indices : List[int]
             List of z-slice indices to load
-            
+
         Returns
         -------
         torch.Tensor
@@ -117,7 +117,7 @@ class InMemoryBackend(DataSource3DBackend):
     Backend for in-memory torch.Tensor.
     No-op wrapper that just returns views.
     """
-    
+
     def __init__(self, tensor: torch.Tensor):
         """
         Parameters
@@ -126,15 +126,17 @@ class InMemoryBackend(DataSource3DBackend):
             Input tensor of shape (N, C, Z, Y, X)
         """
         if len(tensor.shape) != 5:
-            raise ValueError(f"Tensor must be 5D (N, C, Z, Y, X), got shape {tensor.shape}")
+            raise ValueError(
+                f"Tensor must be 5D (N, C, Z, Y, X), got shape {tensor.shape}"
+            )
         self.tensor = tensor
-    
+
     def get_shape(self) -> Tuple[int, int, int, int, int]:
         return tuple(self.tensor.shape)
-    
+
     def get_dtype(self) -> torch.dtype:
         return self.tensor.dtype
-    
+
     def load_slice(
         self,
         n: Optional[int] = None,
@@ -155,9 +157,9 @@ class InMemoryBackend(DataSource3DBackend):
             indices[3] = y
         if x is not None:
             indices[4] = x
-        
+
         return self.tensor[tuple(indices)]
-    
+
     @property
     def supports_batch_loading(self) -> bool:
         return True
@@ -168,7 +170,7 @@ class MemoryMappedBackend(DataSource3DBackend):
     Backend for memory-mapped numpy arrays.
     Loads data on-demand from memory-mapped file.
     """
-    
+
     def __init__(self, mmap_array: np.memmap, dtype: Optional[torch.dtype] = None):
         """
         Parameters
@@ -179,16 +181,20 @@ class MemoryMappedBackend(DataSource3DBackend):
             Target dtype for conversion. If None, uses array's dtype.
         """
         if len(mmap_array.shape) != 5:
-            raise ValueError(f"Array must be 5D (N, C, Z, Y, X), got shape {mmap_array.shape}")
+            raise ValueError(
+                f"Array must be 5D (N, C, Z, Y, X), got shape {mmap_array.shape}"
+            )
         self.mmap_array = mmap_array
-        self._dtype = dtype or torch.from_numpy(np.array([], dtype=mmap_array.dtype)).dtype
-    
+        self._dtype = (
+            dtype or torch.from_numpy(np.array([], dtype=mmap_array.dtype)).dtype
+        )
+
     def get_shape(self) -> Tuple[int, int, int, int, int]:
         return tuple(self.mmap_array.shape)
-    
+
     def get_dtype(self) -> torch.dtype:
         return self._dtype
-    
+
     def load_slice(
         self,
         n: Optional[int] = None,
@@ -209,14 +215,14 @@ class MemoryMappedBackend(DataSource3DBackend):
             indices[3] = y
         if x is not None:
             indices[4] = x
-        
+
         # Load from memory-mapped array
         data = self.mmap_array[tuple(indices)]
         # Copy to avoid non-writable tensor warning
         if not data.flags.writeable:
             data = data.copy()
         return torch.from_numpy(data).to(self._dtype)
-    
+
     @property
     def supports_batch_loading(self) -> bool:
         return True
@@ -227,7 +233,7 @@ class ZarrBackend(DataSource3DBackend):
     Backend for OME-Zarr files.
     Loads data on-demand from zarr arrays.
     """
-    
+
     def __init__(self, zarr_array, dtype: Optional[torch.dtype] = None):
         """
         Parameters
@@ -238,12 +244,14 @@ class ZarrBackend(DataSource3DBackend):
             Target dtype for conversion. If None, infers from zarr array.
         """
         try:
-            import zarr
-        except ImportError:
-            raise ImportError("zarr is required for ZarrBackend. Install with: pip install zarr")
-        
+            import zarr  # noqa: F401
+        except ImportError as err:
+            raise ImportError(
+                "zarr is required for ZarrBackend. Install with: pip install zarr"
+            ) from err
+
         self.zarr_array = zarr_array
-        
+
         # Handle different zarr array shapes
         shape = zarr_array.shape
         if len(shape) == 3:
@@ -257,20 +265,20 @@ class ZarrBackend(DataSource3DBackend):
             self.shape = shape
         else:
             raise ValueError(f"Zarr array must be 3D, 4D, or 5D, got shape {shape}")
-        
+
         # Infer dtype
         if dtype is None:
             np_dtype = zarr_array.dtype
             self._dtype = torch.from_numpy(np.array([], dtype=np_dtype)).dtype
         else:
             self._dtype = dtype
-    
+
     def get_shape(self) -> Tuple[int, int, int, int, int]:
         return self.shape
-    
+
     def get_dtype(self) -> torch.dtype:
         return self._dtype
-    
+
     def load_slice(
         self,
         n: Optional[int] = None,
@@ -314,17 +322,17 @@ class ZarrBackend(DataSource3DBackend):
                 indices[3] = y
             if x is not None:
                 indices[4] = x
-        
+
         # Load from zarr
         data = self.zarr_array[tuple(indices)]
-        
+
         # Convert to torch tensor
         if isinstance(data, np.ndarray):
             return torch.from_numpy(data).to(self._dtype)
         else:
             # zarr might return a different type
             return torch.from_numpy(np.array(data)).to(self._dtype)
-    
+
     @property
     def supports_batch_loading(self) -> bool:
         return True
@@ -335,7 +343,7 @@ class HDF5Backend(DataSource3DBackend):
     Backend for HDF5 files.
     Loads data on-demand from HDF5 datasets.
     """
-    
+
     def __init__(self, h5_dataset, dtype: Optional[torch.dtype] = None):
         """
         Parameters
@@ -346,12 +354,14 @@ class HDF5Backend(DataSource3DBackend):
             Target dtype for conversion. If None, infers from dataset.
         """
         try:
-            import h5py
-        except ImportError:
-            raise ImportError("h5py is required for HDF5Backend. Install with: pip install h5py")
-        
+            import h5py  # noqa: F401
+        except ImportError as err:
+            raise ImportError(
+                "h5py is required for HDF5Backend. Install with: pip install h5py"
+            ) from err
+
         self.h5_dataset = h5_dataset
-        
+
         # Handle different dataset shapes
         shape = h5_dataset.shape
         if len(shape) == 3:
@@ -365,20 +375,20 @@ class HDF5Backend(DataSource3DBackend):
             self.shape = shape
         else:
             raise ValueError(f"HDF5 dataset must be 3D, 4D, or 5D, got shape {shape}")
-        
+
         # Infer dtype
         if dtype is None:
             np_dtype = h5_dataset.dtype
             self._dtype = torch.from_numpy(np.array([], dtype=np_dtype)).dtype
         else:
             self._dtype = dtype
-    
+
     def get_shape(self) -> Tuple[int, int, int, int, int]:
         return self.shape
-    
+
     def get_dtype(self) -> torch.dtype:
         return self._dtype
-    
+
     def load_slice(
         self,
         n: Optional[int] = None,
@@ -422,16 +432,16 @@ class HDF5Backend(DataSource3DBackend):
                 indices[3] = y
             if x is not None:
                 indices[4] = x
-        
+
         # Load from HDF5
         data = self.h5_dataset[tuple(indices)]
-        
+
         # Convert to torch tensor
         if isinstance(data, np.ndarray):
             return torch.from_numpy(data).to(self._dtype)
         else:
             return torch.from_numpy(np.array(data)).to(self._dtype)
-    
+
     @property
     def supports_batch_loading(self) -> bool:
         return True
@@ -442,7 +452,7 @@ class TensorLike3D:
     Wrapper that makes any data source look like a PyTorch tensor.
     Supports tensor-like indexing but loads data on-demand.
     """
-    
+
     def __init__(self, backend: DataSource3DBackend):
         """
         Parameters
@@ -453,38 +463,38 @@ class TensorLike3D:
         self.backend = backend
         self._shape = backend.get_shape()  # (N, C, Z, Y, X)
         self._dtype = backend.get_dtype()
-    
+
     @property
     def shape(self) -> Tuple[int, int, int, int, int]:
         """Return (N, C, Z, Y, X) shape - like tensor.shape"""
         return self._shape
-    
+
     @property
     def dtype(self) -> torch.dtype:
         """Return dtype - like tensor.dtype"""
         return self._dtype
-    
+
     @property
     def device(self) -> torch.device:
         """Return device - defaults to CPU for on-demand loading"""
-        return torch.device('cpu')
-    
+        return torch.device("cpu")
+
     def __getitem__(self, key) -> torch.Tensor:
         """
         Tensor-like indexing that returns PyTorch tensors.
         Loads data on-demand from backend.
-        
+
         Examples:
         - data[0] -> (C, Z, Y, X) tensor
-        - data[0, 1] -> (Z, Y, X) tensor  
+        - data[0, 1] -> (Z, Y, X) tensor
         - data[0, 1, 5:10] -> (5, Y, X) tensor
         - data[0, 1, 5] -> (Y, X) tensor
-        
+
         Parameters
         ----------
         key : int, slice, tuple
             Indexing key (supports standard numpy/torch indexing)
-        
+
         Returns
         -------
         torch.Tensor
@@ -505,56 +515,59 @@ class TensorLike3D:
             z = key[2] if len(key) > 2 else None
             y = key[3] if len(key) > 3 else None
             x = key[4] if len(key) > 4 else None
-            
+
             return self.backend.load_slice(n=n, c=c, z=z, y=y, x=x)
         else:
             raise TypeError(f"Unsupported indexing type: {type(key)}")
-    
+
     def __len__(self) -> int:
         """Return number of images (N dimension)"""
         return self._shape[0]
-    
+
     def __repr__(self) -> str:
         return f"TensorLike3D(shape={self.shape}, dtype={self.dtype}, backend={type(self.backend).__name__})"
 
 
 # Convenience functions for creating TensorLike3D from different sources
 
+
 def from_zarr(zarr_path: str, dtype: Optional[torch.dtype] = None) -> TensorLike3D:
     """
     Create TensorLike3D from zarr file.
-    
+
     Parameters
     ----------
     zarr_path : str
         Path to zarr file or zarr group
     dtype : Optional[torch.dtype]
         Target dtype for conversion. If None, infers from zarr array.
-    
+
     Returns
     -------
     TensorLike3D
         Tensor-like wrapper around zarr backend
-    
+
     Examples
     --------
     >>> data = from_zarr("data.zarr")
     >>> quilt = NCZYX25DQuilt(data, channel_spec={'direct': [0]})
     """
     try:
-        import zarr
-    except ImportError:
-        raise ImportError("zarr is required. Install with: pip install zarr")
-    
-    z = zarr.open(zarr_path, mode='r')
+        import zarr  # noqa: F401
+    except ImportError as err:
+        raise ImportError("zarr is required. Install with: pip install zarr") from err
+
+    z = zarr.open(zarr_path, mode="r")
     backend = ZarrBackend(z, dtype=dtype)
     return TensorLike3D(backend)
 
 
-def from_hdf5(hdf5_path: str, dataset_path: str, dtype: Optional[torch.dtype] = None) -> TensorLike3D:
+def from_hdf5(
+    hdf5_path: str, dataset_path: str, dtype: Optional[torch.dtype] = None
+) -> TensorLike3D:
     """
     Create TensorLike3D from HDF5 file.
-    
+
     Parameters
     ----------
     hdf5_path : str
@@ -563,31 +576,33 @@ def from_hdf5(hdf5_path: str, dataset_path: str, dtype: Optional[torch.dtype] = 
         Path to dataset within HDF5 file (e.g., '/data' or '/images/stack')
     dtype : Optional[torch.dtype]
         Target dtype for conversion. If None, infers from dataset.
-    
+
     Returns
     -------
     TensorLike3D
         Tensor-like wrapper around HDF5 backend
-    
+
     Examples
     --------
     >>> data = from_hdf5("data.h5", "/images/stack")
     >>> quilt = NCZYX25DQuilt(data, channel_spec={'direct': [0]})
     """
     try:
-        import h5py
-    except ImportError:
-        raise ImportError("h5py is required. Install with: pip install h5py")
-    
-    f = h5py.File(hdf5_path, 'r')
+        import h5py  # noqa: F401
+    except ImportError as err:
+        raise ImportError("h5py is required. Install with: pip install h5py") from err
+
+    f = h5py.File(hdf5_path, "r")
     backend = HDF5Backend(f[dataset_path], dtype=dtype)
     return TensorLike3D(backend)
 
 
-def from_memmap(file_path: str, dtype: np.dtype, shape: Tuple[int, ...], mode: str = 'r') -> TensorLike3D:
+def from_memmap(
+    file_path: str, dtype: np.dtype, shape: Tuple[int, ...], mode: str = "r"
+) -> TensorLike3D:
     """
     Create TensorLike3D from memory-mapped numpy array.
-    
+
     Parameters
     ----------
     file_path : str
@@ -598,12 +613,12 @@ def from_memmap(file_path: str, dtype: np.dtype, shape: Tuple[int, ...], mode: s
         Shape of the array (must be 5D: N, C, Z, Y, X)
     mode : str
         File mode: 'r' (read-only), 'r+' (read-write), 'c' (copy-on-write)
-    
+
     Returns
     -------
     TensorLike3D
         Tensor-like wrapper around memory-mapped backend
-    
+
     Examples
     --------
     >>> data = from_memmap("data.dat", dtype=np.float32, shape=(10, 3, 50, 200, 200))
@@ -612,4 +627,3 @@ def from_memmap(file_path: str, dtype: np.dtype, shape: Tuple[int, ...], mode: s
     mmap = np.memmap(file_path, dtype=dtype, mode=mode, shape=shape)
     backend = MemoryMappedBackend(mmap)
     return TensorLike3D(backend)
-

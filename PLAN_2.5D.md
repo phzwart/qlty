@@ -12,12 +12,12 @@ Create a "2.5D" version that converts 3D data (N, C, Z, Y, X) into 2D multi-chan
 from enum import Enum
 
 class ZOperation(Enum):
-    DIRECT = 1  # Single pixel extraction
+    IDENTITY = 1  # Single pixel extraction
     MEAN = 3   # Mean of multiple pixels
     # Future: MAX = 5, MIN = 6, MEDIAN = 7
 
 spec = {
-    ZOperation.DIRECT: (-1, 0, 1),
+    ZOperation.IDENTITY: (-1, 0, 1),
     ZOperation.MEAN: ((-1, -2, -3), (1, 2, 3))
 }
 ```
@@ -25,7 +25,7 @@ spec = {
 **Alternative Format (String keys, auto-converted to enum):**
 ```python
 spec = {
-    'direct': [-1, 0, 1],  # Direct indexing
+    'identity': [-1, 0, 1],  # Direct indexing
     'mean': [[-1, -2, -3], [1, 2, 3]],  # Mean aggregations
     # Future: 'max': [[0, 1, 2]]
 }
@@ -38,7 +38,7 @@ spec = {
 - Parser normalizes string keys to ZOperation enum
 
 **Example Output:**
-- Spec: `{ZOperation.DIRECT: (-1,0,1), ZOperation.MEAN: ((-1,-2,-3), (1,2,3))}`
+- Spec: `{ZOperation.IDENTITY: (-1,0,1), ZOperation.MEAN: ((-1,-2,-3), (1,2,3))}`
 - Produces 5 channels per input channel:
   - Channel 0: z0-1
   - Channel 1: z0
@@ -59,7 +59,7 @@ spec = {
 - Flattens Z dimension into channels
 - Output shape: `(N, C', Y, X)` where `C' = C_in × C_z_slices`
 - Each z-slice becomes a set of channels
-- Can be directly fed to 2D quilt operations
+- Can be identityly fed to 2D quilt operations
 - **Use case**: When you want to treat each z-slice as independent 2D images
 
 #### Mode 2: "3d" - 3D Stack
@@ -111,7 +111,7 @@ class TensorLike3D:
     Wrapper that makes any data source look like a PyTorch tensor.
     Supports tensor-like indexing but loads data on-demand.
     """
-    
+
     def __init__(self, backend: DataSource3DBackend):
         """
         Parameters
@@ -122,25 +122,25 @@ class TensorLike3D:
         self.backend = backend
         self._shape = backend.get_shape()  # (N, C, Z, Y, X)
         self._dtype = backend.get_dtype()
-    
+
     @property
     def shape(self) -> Tuple[int, int, int, int, int]:
         """Return (N, C, Z, Y, X) shape - like tensor.shape"""
         return self._shape
-    
+
     @property
     def dtype(self) -> torch.dtype:
         """Return dtype - like tensor.dtype"""
         return self._dtype
-    
+
     def __getitem__(self, key) -> torch.Tensor:
         """
         Tensor-like indexing that returns PyTorch tensors.
         Loads data on-demand from backend.
-        
+
         Examples:
         - data[0] -> (C, Z, Y, X) tensor
-        - data[0, 1] -> (Z, Y, X) tensor  
+        - data[0, 1] -> (Z, Y, X) tensor
         - data[0, 1, 5:10] -> (5, Y, X) tensor
         - data[0, 1, 5] -> (Y, X) tensor
         """
@@ -154,22 +154,22 @@ class DataSource3DBackend(ABC):
     Backend interface for actual data storage/loading.
     Implementations handle the specifics of different data sources.
     """
-    
+
     @abstractmethod
     def get_shape(self) -> Tuple[int, int, int, int, int]:
         """Return (N, C, Z, Y, X) shape"""
         pass
-    
+
     @abstractmethod
     def get_dtype(self) -> torch.dtype:
         """Return data type (as torch.dtype)"""
         pass
-    
+
     @abstractmethod
     def load_slice(
-        self, 
+        self,
         n: Optional[int] = None,
-        c: Optional[int] = None, 
+        c: Optional[int] = None,
         z: Optional[Union[int, slice]] = None,
         y: Optional[Union[int, slice]] = None,
         x: Optional[Union[int, slice]] = None,
@@ -177,19 +177,19 @@ class DataSource3DBackend(ABC):
         """
         Load data slice and return as torch.Tensor.
         Loads only what's requested - never entire dataset.
-        
+
         Parameters
         ----------
         n, c, z, y, x : int, slice, or None
             Indices/slices for each dimension. None means all.
-        
+
         Returns
         -------
         torch.Tensor
             Requested slice as PyTorch tensor
         """
         pass
-    
+
     @property
     @abstractmethod
     def supports_batch_loading(self) -> bool:
@@ -250,13 +250,13 @@ quilt = NCZYX25DQuilt(data, channel_spec={...})
 class NCZYX25DQuilt:
     """
     Converts 3D data (N, C, Z, Y, X) to 2.5D multi-channel data.
-    
+
     Supports selective slicing, plan generation for parallelization,
     and two accumulation modes (3D stack or 2D planes).
-    
+
     Works with tensor-like objects that support indexing and return torch.Tensor.
     """
-    
+
     def __init__(
         self,
         data_source: Union[torch.Tensor, TensorLike3D, str],
@@ -304,7 +304,7 @@ class NCZYX25DQuilt:
         group_by_operation : bool
             If True, group output channels by operation type
         """
-    
+
     def create_extraction_plan(
         self,
         color_y_mod: Optional[int] = None,
@@ -313,56 +313,56 @@ class NCZYX25DQuilt:
         """
         Create extraction plan specifying what to extract and when.
         Includes color group assignments for parallelization.
-        
+
         Parameters
         ----------
         color_y_mod : Optional[int]
             Color modulo for Y dimension (for parallelization)
         color_x_mod : Optional[int]
             Color modulo for X dimension (for parallelization)
-        
+
         Returns
         -------
         ExtractionPlan
             Plan with patch indices, z-slices, and color groups
         """
         pass
-    
+
     def create_stitching_plan(self) -> StitchingPlan:
         """
         Create stitching plan specifying how to stitch back together.
         Coordinates accumulation order and color groups.
-        
+
         Returns
         -------
         StitchingPlan
             Plan with output locations and accumulation order
         """
         pass
-    
+
     def get_channel_metadata(self) -> List[Dict]:
         """
         Returns metadata for each output channel.
-        
+
         Returns
         -------
         List[Dict]
-            [{'operation': 'direct', 'offsets': (-1,), 'input_channel': 0, 'z0': 0},
+            [{'operation': 'identity', 'offsets': (-1,), 'input_channel': 0, 'z0': 0},
              {'operation': 'mean', 'offsets': (-1,-2,-3), 'input_channel': 0, 'z0': 0}, ...]
         """
         pass
-    
+
     def validate_spec(self) -> Tuple[bool, List[str]]:
         """
         Validate channel specification against data source.
-        
+
         Returns
         -------
         Tuple[bool, List[str]]
             (is_valid, list_of_warnings_or_errors)
         """
         pass
-    
+
     @classmethod
     def from_zarr(cls, zarr_path: str, channel_spec: Dict, **kwargs):
         """
@@ -373,7 +373,7 @@ class NCZYX25DQuilt:
         backend = ZarrBackend(zarr_path)
         data = TensorLike3D(backend)
         return cls(data, channel_spec, **kwargs)
-    
+
     @classmethod
     def from_tiff_stack(cls, tiff_path: str, channel_spec: Dict, **kwargs):
         """
@@ -384,7 +384,7 @@ class NCZYX25DQuilt:
         backend = TiffStackBackend(tiff_path)
         data = TensorLike3D(backend)
         return cls(data, channel_spec, **kwargs)
-    
+
     def to_ncyx_quilt(self, **quilt_kwargs) -> NCYXQuilt:
         """
         Convert to 2D and create NCYXQuilt in one step.
@@ -424,15 +424,15 @@ class ExtractionPlan:
     patches: List[PatchExtraction]
     color_groups: Dict[Tuple[int, int], List[int]]  # (color_y, color_x) -> patch indices
     total_patches: int
-    
+
     def get_patches_for_color(self, color_y: int, color_x: int) -> List[PatchExtraction]:
         """Get all patches for a specific color group"""
         pass
-    
+
     def serialize(self) -> Dict:
         """Serialize plan for distributed processing"""
         pass
-    
+
     @classmethod
     def deserialize(cls, data: Dict) -> 'ExtractionPlan':
         """Deserialize plan"""
@@ -445,15 +445,15 @@ class StitchingPlan:
     output_shape: Tuple[int, ...]  # (N, C', Y, X) or (N, C', Z, Y, X)
     patch_mappings: Dict[int, Dict]  # patch_idx -> {output_location, weight, ...}
     color_groups: Dict[Tuple[int, int], List[int]]  # Same as extraction plan
-    
+
     def get_stitch_order(self, color_y: int, color_x: int) -> List[int]:
         """Get patch indices to stitch for a color group"""
         pass
-    
+
     def serialize(self) -> Dict:
         """Serialize plan for distributed processing"""
         pass
-    
+
     @classmethod
     def deserialize(cls, data: Dict) -> 'StitchingPlan':
         """Deserialize plan"""
@@ -490,36 +490,36 @@ def parse_channel_spec(
     Parse channel specification into list of operations.
     Supports string keys (auto-converted to enum) or ZOperation enum keys.
     Normalizes to internal ZOperation enum representation.
-    
+
     Parameters
     ----------
     spec : Dict
         Channel specification with string or ZOperation enum keys
-        
+
     Returns
     -------
     List[ChannelOperation]
         Ordered list of channel operations to apply
-        
+
     Raises
     ------
     ValueError
         If spec contains invalid keys (not string or ZOperation enum)
     """
-    
+
 @dataclass
 class ChannelOperation:
     op_type: ZOperation  # Use enum instead of int
     offsets: Union[Tuple[int, ...], Tuple[Tuple[int, ...], ...]]
     output_channels: int  # Number of channels this operation produces
     name: Optional[str] = None  # Optional name for this operation
-    
+
     def get_required_z_range(self, z0: int) -> Tuple[int, int]:
         """
         Get [z_min, z_max] needed to compute this operation at z0.
         Useful for optimizing data loading.
         """
-        if self.op_type == ZOperation.DIRECT:
+        if self.op_type == ZOperation.IDENTITY:
             offsets = self.offsets if isinstance(self.offsets[0], int) else self.offsets[0]
             z_indices = [z0 + offset for offset in offsets]
             return (min(z_indices), max(z_indices) + 1)
@@ -720,7 +720,7 @@ class ChannelOperation:
    - Full pipeline: 3D → 2.5D → 2D patches → stitch
    - Plan-based processing: Extraction → Process → Stitching
    - Parallel processing: Verify color groups work correctly, no race conditions
-   - Roundtrip tests: Convert 3D→2.5D→patches→stitch, compare with direct 3D processing
+   - Roundtrip tests: Convert 3D→2.5D→patches→stitch, compare with identity 3D processing
    - Consistency tests: Same result with different data sources (memory vs zarr)
    - Accumulation mode tests: Verify both 2D and 3D modes produce correct results
    - Selective slicing tests: Verify z_slices parameter works correctly
@@ -731,7 +731,7 @@ class ChannelOperation:
 3. **Performance Tests**:
    - Memory usage with large datasets
    - Speed comparison: in-memory vs disk-cached
-   - Comparison with direct 3D processing
+   - Comparison with identity 3D processing
    - Batch loading optimization effectiveness
    - Device performance (CPU vs CUDA vs MPS)
    - Benchmark suite for regression testing
@@ -748,7 +748,7 @@ class ChannelOperation:
    - Allows flexibility for different use cases
 
 2. **Mean operation**: Should we support other operations (max, min, median)?
-   - **Decision**: Design enum to be extensible, but start with DIRECT and MEAN only
+   - **Decision**: Design enum to be extensible, but start with IDENTITY and MEAN only
    - Future operations: MAX, MIN, MEDIAN can be added as needed
    - Enum design allows easy extension without breaking changes
 
@@ -760,8 +760,8 @@ class ChannelOperation:
 
 4. **Documentation**: Should channel spec support named channels?
    - **Decision**: Support string keys (auto-converted to enum) or ZOperation enum keys
-   - String format is most user-friendly: `{'direct': [-1,0,1], 'mean': ...}`
-   - Enum format is most explicit: `{ZOperation.DIRECT: (-1,0,1), ...}`
+   - String format is most user-friendly: `{'identity': [-1,0,1], 'mean': ...}`
+   - Enum format is most explicit: `{ZOperation.IDENTITY: (-1,0,1), ...}`
    - No integer format support - only ZOperation enum-based specs
 
 ## Documentation Priorities
@@ -814,4 +814,3 @@ class ChannelOperation:
 4. Create detailed function signatures
 5. Implement Phase 1 (core conversion logic)
 6. Iterate based on testing and feedback
-

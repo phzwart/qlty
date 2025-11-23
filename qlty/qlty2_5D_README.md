@@ -13,7 +13,7 @@ data = torch.randn(5, 1, 20, 100, 100)
 
 # Define channel specification
 spec = {
-    'direct': [-1, 0, 1],  # Extract z-1, z, z+1 as separate channels
+    'identity': [-1, 0, 1],  # Extract z-1, z, z+1 as separate channels
     'mean': [[-2, -3], [2, 3]]  # Mean of slices below and above
 }
 
@@ -27,28 +27,29 @@ quilt = NCZYX25DQuilt(
 
 # Convert to 2.5D
 result = quilt.convert()  # Shape: (5, 5, 100, 100)
-# 3 direct + 2 mean = 5 channels per input channel
+# 5 z-slices * 1 image = 5 separate 2D images
+# 3 identity + 2 mean = 5 channels per input channel
 ```
 
 ## Key Features
 
 - **Flexible Channel Specifications**: Extract specific z-slices or compute aggregations (mean, future: max, min, median)
 - **Multiple Data Sources**: Works with torch.Tensor, zarr, HDF5, memory-mapped arrays
-- **Two Accumulation Modes**: 
-  - `"2d"`: Flatten to (N, C', Y, X) for 2D processing
-  - `"3d"`: Keep as (N, C', Z, Y, X) to preserve 3D structure
+- **Two Accumulation Modes**:
+  - `"2d"`: Each z-slice becomes a separate 2D image: (N*Z_selected, C', Y, X)
+  - `"3d"`: Keep Z dimension separate: (N, C', Z_selected, Y, X)
 - **Selective Slicing**: Process only specific z-slices
 - **Parallelization Support**: Extraction and stitching plans with color groups
 - **2D Integration**: Direct integration with 2D patch pair extraction
 
 ## Channel Specifications
 
-### Direct Indexing
+### Identity Indexing
 
 Extract specific z-slices as separate channels:
 
 ```python
-spec = {'direct': [-2, -1, 0, 1, 2]}  # 5 channels
+spec = {'identity': [-2, -1, 0, 1, 2]}  # 5 channels
 ```
 
 ### Mean Aggregation
@@ -64,14 +65,28 @@ spec = {
 }
 ```
 
+### Standard Deviation
+
+Compute standard deviation of multiple z-slices:
+
+```python
+spec = {
+    'std': [
+        [-1, -2, -3],  # Channel 1: std(z-1, z-2, z-3)
+        [1, 2, 3]       # Channel 2: std(z+1, z+2, z+3)
+    ]
+}
+```
+
 ### Combined Operations
 
 ```python
 spec = {
-    'direct': [-1, 0, 1],
-    'mean': [[-2, -3], [2, 3]]
+    'identity': [-1, 0, 1],
+    'mean': [[-2, -3], [2, 3]],
+    'std': [[-1, 0, 1]]
 }
-# Total: 3 + 2 = 5 channels per input channel
+# Total: 3 + 2 + 1 = 6 channels per input channel
 ```
 
 ## Data Sources
@@ -80,7 +95,7 @@ spec = {
 
 ```python
 data = torch.randn(10, 3, 50, 200, 200)
-quilt = NCZYX25DQuilt(data, channel_spec={'direct': [0]})
+quilt = NCZYX25DQuilt(data, channel_spec={'identity': [0]})
 ```
 
 ### Zarr Files
@@ -92,7 +107,7 @@ from qlty.backends_2_5D import from_zarr
 data = from_zarr("data.zarr")
 quilt = NCZYX25DQuilt(
     data_source=data,
-    channel_spec={'direct': [-1, 0, 1]}
+    channel_spec={'identity': [-1, 0, 1]}
 )
 
 # Or manually
@@ -102,7 +117,7 @@ from qlty.backends_2_5D import ZarrBackend, TensorLike3D
 z = zarr.open("data.zarr", mode='r')
 backend = ZarrBackend(z)
 data = TensorLike3D(backend)
-quilt = NCZYX25DQuilt(data, channel_spec={'direct': [0]})
+quilt = NCZYX25DQuilt(data, channel_spec={'identity': [0]})
 ```
 
 ### HDF5 Files
@@ -113,7 +128,7 @@ from qlty.backends_2_5D import from_hdf5
 data = from_hdf5("data.h5", dataset_path="/images/stack")
 quilt = NCZYX25DQuilt(
     data_source=data,
-    channel_spec={'direct': [-1, 0, 1]}
+    channel_spec={'identity': [-1, 0, 1]}
 )
 ```
 
@@ -124,7 +139,7 @@ Integrate with 2D patch pair extraction:
 ```python
 quilt = NCZYX25DQuilt(
     data_source=data,
-    channel_spec={'direct': [-1, 0, 1]},
+    channel_spec={'identity': [-1, 0, 1]},
     accumulation_mode="2d"
 )
 
@@ -178,6 +193,66 @@ for color_y in range(4):
         stitch_patches(stitching_plan, color_y, color_x, results)
 ```
 
+## Just-In-Time (JIT) Extraction
+
+The extraction plan system supports **just-in-time (JIT) loading** - it doesn't cache the entire converted dataset. Instead, it loads only the required z-slices and spatial regions when you extract each patch:
+
+```python
+# Create extraction plan (no data loaded yet - just metadata)
+extraction_plan = quilt.create_extraction_plan(
+    window=(64, 64),
+    step=(32, 32)
+)
+
+# Extract patches on-demand (JIT loading)
+for patch_spec in extraction_plan.patches[:10]:  # Only first 10 patches
+    # This loads ONLY the required z-slices for this patch
+    # No full dataset conversion or caching
+    patch_data = quilt.extract_patch_from_plan(patch_spec)
+    # patch_data shape: (C', 64, 64)
+    # Process patch...
+```
+
+**Key Benefits:**
+- **Memory efficient**: Only loads what you need, when you need it
+- **No upfront conversion**: Doesn't convert entire 3D→2.5D dataset upfront
+- **Backend-aware**: Works with zarr/HDF5 backends that load on-demand
+- **Selective processing**: Process only a subset of patches without loading everything
+
+**How it works:**
+1. `create_extraction_plan()` creates metadata (no data loading)
+2. Each patch specifies `required_z_indices` - exactly which z-slices are needed
+3. `extract_patch_from_plan()` loads only those z-slices on-demand
+4. Channel operations are applied to the loaded chunk
+5. Result is cropped to patch window if specified
+
+## Non-Overlapping Colored Patches (Batching)
+
+For batching scenarios where you want non-overlapping patches within each batch, use `create_non_overlapping_colored_plan()`:
+
+```python
+# Create plan with non-overlapping patches per color group
+plan = quilt.create_non_overlapping_colored_plan(
+    window=(64, 64),
+    step=(32, 32)  # 50% overlap overall, but non-overlapping within groups
+)
+
+# Process each color group as a batch (no overlap within batch)
+for color_y in range(max(p.color_y_idx for p in plan.patches) + 1):
+    for color_x in range(max(p.color_x_idx for p in plan.patches) + 1):
+        patches = plan.get_patches_for_color(color_y, color_x)
+        # All patches in this batch are non-overlapping
+        batch = torch.stack([quilt.extract_patch_from_plan(p) for p in patches])
+        # batch shape: (num_patches, C', 64, 64)
+        # Process batch (no overlap concerns)...
+```
+
+**How it works:**
+- Color groups are computed such that `color_y_mod = ceil(window[0] / step[0])`
+- This ensures patches in the same color group are spaced by at least `window[0]` pixels apart
+- Patches within a color group are guaranteed non-overlapping, perfect for batching
+- Different color groups can overlap with each other (for full coverage)
+
 ## Integration with 2D Quilt
 
 Convert to 2D quilt for further processing:
@@ -208,8 +283,8 @@ Handle out-of-bounds z-slices with different modes:
 
 ```python
 quilt = NCZYX25DQuilt(
-    data, 
-    channel_spec={'direct': [-5, 0, 5]},
+    data,
+    channel_spec={'identity': [-5, 0, 5]},
     boundary_mode="reflect"  # Mirror at boundaries
 )
 ```
@@ -221,9 +296,11 @@ quilt = NCZYX25DQuilt(
 Main class for 2.5D conversion.
 
 **Methods:**
-- `convert()`: Convert 3D data to 2.5D
+- `convert()`: Convert 3D data to 2.5D (loads entire dataset)
 - `extract_patch_pairs()`: Extract patch pairs using 2D interface
+- `extract_patch_from_plan()`: Extract single patch using JIT loading (memory efficient)
 - `create_extraction_plan()`: Create extraction plan for parallelization
+- `create_non_overlapping_colored_plan()`: Create plan with non-overlapping patches per color group (for batching)
 - `create_stitching_plan()`: Create stitching plan
 - `get_channel_metadata()`: Get metadata for each output channel
 - `validate_spec()`: Validate channel specification
@@ -232,7 +309,7 @@ Main class for 2.5D conversion.
 ### ZOperation
 
 Enum for channel operations:
-- `ZOperation.DIRECT`: Single pixel extraction
+- `ZOperation.IDENTITY`: Single pixel extraction
 - `ZOperation.MEAN`: Mean of multiple pixels
 
 ### Backends
@@ -260,4 +337,3 @@ The `qlty.backends_2_5D` module provides convenience functions for creating Tens
 ## Examples
 
 See `docs/qlty2_5D_examples.md` for comprehensive examples.
-
