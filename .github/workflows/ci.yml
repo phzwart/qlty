@@ -63,8 +63,10 @@ jobs:
 
     - name: Verify dependencies
       run: |
-        python -c "import zarr; print(f'zarr version: {zarr.__version__}')" || echo "WARNING: zarr not available"
-        python -c "import torch; print(f'torch version: {torch.__version__}')" || echo "WARNING: torch not available"
+        echo "=== Checking dependencies ==="
+        python -c "import zarr; print(f'✓ zarr version: {zarr.__version__}')" || echo "✗ zarr not available"
+        python -c "import torch; print(f'✓ torch version: {torch.__version__}')" || echo "✗ torch not available"
+        python -c "from qlty.utils.stack_to_zarr import stack_files_to_zarr; print('✓ stack_to_zarr import successful')" || echo "✗ stack_to_zarr import failed"
 
     - name: Run tests with coverage
       run: |
@@ -77,9 +79,11 @@ jobs:
         # Verify coverage XML was generated and show key module coverage
         echo "=== Coverage XML Verification ==="
         python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); classes = root.findall('.//class'); files = {}; [files.update({c.get('filename'): float(c.get('line-rate', 0))}) for c in classes]; print('Key modules:'); [print(f\"  {f}: {files[f]*100:.2f}%\") for f in sorted(files.keys()) if 'stack_to_zarr' in f or 'qlty2_5D.py' in f or 'backends_2_5D.py' in f]"
-        # Show test counts for stack_to_zarr
+        # Show test counts for stack_to_zarr to verify they're running
         echo "=== Stack_to_zarr test status ==="
         python -m pytest tests/test_stack_to_zarr.py --collect-only -q 2>&1 | tail -1
+        echo "=== Stack_to_zarr coverage details ==="
+        python -m coverage report --include="qlty/utils/stack_to_zarr.py" --show-missing | head -5
 
     - name: Verify coverage.xml exists before cleanup
       if: always()
