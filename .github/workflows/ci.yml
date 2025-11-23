@@ -41,25 +41,12 @@ jobs:
       # Limit cache size to avoid disk space issues
       if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
-    - name: Verify Python setup and find executable
-      id: python-exe
-      run: |
-        echo "pythonLocation: $pythonLocation"
-        echo "PATH: $PATH"
-        which python3 || echo "python3 not in PATH"
-        python3 --version || echo "python3 --version failed"
-        PYTHON_EXE=$(python3 -c "import sys; print(sys.executable)" 2>/dev/null || echo "python3")
-        echo "path=$PYTHON_EXE" >> $GITHUB_OUTPUT
-        echo "Using Python: $PYTHON_EXE"
-      env:
-        pythonLocation: ${{ env.pythonLocation }}
-
     - name: Install dependencies
       run: |
-        "${{ steps.python-exe.outputs.path }}" -m pip install --upgrade pip
-        "${{ steps.python-exe.outputs.path }}" -m pip install -e .[docs,tests] --no-cache-dir
-        "${{ steps.python-exe.outputs.path }}" -m pip install pytest-cov --no-cache-dir
-        "${{ steps.python-exe.outputs.path }}" -m pytest --version
+        python3 -m pip install --upgrade pip
+        python3 -m pip install -e .[docs,tests] --no-cache-dir
+        python3 -m pip install pytest-cov --no-cache-dir
+        python3 -m pytest --version
       continue-on-error: false
 
     - name: Clean up disk space
@@ -71,7 +58,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        "${{ steps.python-exe.outputs.path }}" -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        python3 -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
