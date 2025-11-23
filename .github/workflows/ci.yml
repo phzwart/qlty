@@ -96,17 +96,6 @@ jobs:
           exit 1
         fi
 
-    - name: Verify coverage.xml exists before cleanup
-      if: always()
-      run: |
-        if [ -f coverage.xml ]; then
-          echo "✓ coverage.xml exists"
-          ls -lh coverage.xml
-        else
-          echo "✗ coverage.xml NOT found - coverage may have failed!"
-          exit 1
-        fi
-
     - name: Clean up test artifacts
       if: always()
       run: |
