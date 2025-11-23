@@ -27,6 +27,11 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
+    - name: Ensure correct Python in PATH (macOS fix)
+      if: runner.os == 'macOS'
+      run: |
+        echo "${{ env.pythonLocation }}/bin" >> $GITHUB_PATH
+
     # Note: No system dependencies needed for this project
     # PyTorch and other dependencies are installed via pip
 
