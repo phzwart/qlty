@@ -28,7 +28,7 @@ jobs:
         cache: 'pip'
 
     - name: Ensure correct Python in PATH (macOS fix)
-      if: runner.os == 'macOS'
+      if: matrix.os == 'macos-latest'
       run: |
         echo "${{ env.pythonLocation }}/bin" >> $GITHUB_PATH
 
