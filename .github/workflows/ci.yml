@@ -45,8 +45,12 @@ jobs:
       id: install-deps
       run: |
         export PATH="$pythonLocation/bin:$PATH"
-        # Use which to find python3 after PATH is set
+        # Find python3 and verify it exists
         PYTHON_EXE=$(which python3)
+        if [ ! -f "$PYTHON_EXE" ]; then
+          # Fallback: use python3 directly (should work with PATH set)
+          PYTHON_EXE="python3"
+        fi
         echo "path=$PYTHON_EXE" >> $GITHUB_OUTPUT
         echo "Using Python for install: $PYTHON_EXE"
         $PYTHON_EXE -m pip install --upgrade pip
@@ -66,7 +70,8 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        "${{ steps.install-deps.outputs.path }}" -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        export PATH="${{ env.pythonLocation }}/bin:$PATH"
+        ${{ steps.install-deps.outputs.path }} -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
