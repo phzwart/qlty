@@ -43,10 +43,10 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -e .[docs,tests] --no-cache-dir
-        pip install pytest-cov --no-cache-dir
-        python -m pytest --version
+        ${{ env.pythonLocation }}/bin/python -m pip install --upgrade pip
+        ${{ env.pythonLocation }}/bin/python -m pip install -e .[docs,tests] --no-cache-dir
+        ${{ env.pythonLocation }}/bin/python -m pip install pytest-cov --no-cache-dir
+        ${{ env.pythonLocation }}/bin/python -m pytest --version
       continue-on-error: false
 
     - name: Clean up disk space
@@ -56,15 +56,9 @@ jobs:
         sudo rm -rf "$AGENT_TOOLSDIRECTORY"
       continue-on-error: true
 
-    - name: Verify Python and pytest
-      run: |
-        which python
-        python --version
-        python -m pytest --version
-
     - name: Run tests with coverage
       run: |
-        python -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        ${{ env.pythonLocation }}/bin/python -m pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
