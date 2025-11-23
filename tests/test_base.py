@@ -253,7 +253,7 @@ def test_base_quilt_validation():
             border_weight=0.1,
             ndim=2,
         )
-    
+
     # To reach line 305, we'd need normalize_border to succeed but return wrong length
-    # But that's impossible since normalize_border validates length. 
+    # But that's impossible since normalize_border validates length.
     # Line 305 appears to be defensive code for an unreachable case.

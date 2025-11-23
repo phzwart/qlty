@@ -67,18 +67,20 @@ def test_unstitch_and_clean_sparse_data_pair_4d_tensor_out(temp_dir):
         border=(2, 2, 2),
         border_weight=0.1,
     )
-    
+
     # Create 5D tensor_in (N, C, Z, Y, X)
     tensor_in = torch.randn(2, 3, 32, 32, 32)
-    
+
     # Create 4D tensor_out (N, Z, Y, X) - missing channel dimension
     tensor_out = torch.randn(2, 32, 32, 32)
     # Mark some regions as missing
     missing_label = -1
     tensor_out[:, 0:5, 0:5, 0:5] = missing_label
-    
-    ain, aout = quilt.unstitch_and_clean_sparse_data_pair(tensor_in, tensor_out, missing_label)
-    
+
+    ain, aout = quilt.unstitch_and_clean_sparse_data_pair(
+        tensor_in, tensor_out, missing_label
+    )
+
     # Should handle 4D tensor_out by adding channel dimension
     if len(ain) > 0:
         assert isinstance(ain, torch.Tensor) or isinstance(ain, list)
@@ -99,23 +101,24 @@ def test_unstitch_and_clean_sparse_data_pair_rearranged(temp_dir):
         border=(2, 2, 2),
         border_weight=0.1,
     )
-    
+
     # Create 5D tensor_in (N, C, Z, Y, X)
     tensor_in = torch.randn(2, 3, 32, 32, 32)
-    
+
     # Create 4D tensor_out (N, Z, Y, X) with single channel to trigger rearranged path
     tensor_out = torch.randn(2, 32, 32, 32)
     missing_label = -1
     # Mark some regions as missing, but leave enough valid data
     tensor_out[:, 0:5, 0:5, 0:5] = missing_label
     tensor_out[:, 10:15, 10:15, 10:15] = missing_label
-    
-    ain, aout = quilt.unstitch_and_clean_sparse_data_pair(tensor_in, tensor_out, missing_label)
-    
+
+    ain, aout = quilt.unstitch_and_clean_sparse_data_pair(
+        tensor_in, tensor_out, missing_label
+    )
+
     # Should handle 4D tensor_out and rearrange it
     if len(ain) > 0:
         # If we got results, check shapes
         if isinstance(ain, torch.Tensor):
             # After rearranging and squeezing, aout should be 4D if it was 4D input
             assert isinstance(aout, torch.Tensor)
-
