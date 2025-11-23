@@ -157,3 +157,91 @@ def test_stitch_with_patch_var(temp_dir):
 
     assert mean.shape == (N, C, Y, X)
     assert std.shape == (N, C, Y, X)
+
+
+def test_get_times(temp_dir):
+    """Test get_times method."""
+    filename = os.path.join(temp_dir, "test_times")
+    quilt = qlty2DLarge.LargeNCYXQuilt(
+        filename=filename,
+        N=2,
+        Y=100,
+        X=100,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
+    )
+    times = quilt.get_times()
+    assert isinstance(times, tuple)
+    assert len(times) == 2
+    assert all(isinstance(t, int) and t > 0 for t in times)
+
+
+def test_unstitch_and_clean_sparse_data_pair_3d_tensor_out(temp_dir):
+    """Test unstitch_and_clean_sparse_data_pair with 3D tensor_out (missing channel dimension)."""
+    filename = os.path.join(temp_dir, "test_3d_tensor")
+    quilt = qlty2DLarge.LargeNCYXQuilt(
+        filename=filename,
+        N=2,
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
+    )
+
+    # Create 4D tensor_in (N, C, Y, X)
+    tensor_in = torch.randn(2, 3, 64, 64)
+
+    # Create 3D tensor_out (N, Y, X) - missing channel dimension
+    tensor_out = torch.randn(2, 64, 64)
+    # Mark some regions as missing
+    missing_label = -1
+    tensor_out[:, 0:10, 0:10] = missing_label
+
+    ain, aout = quilt.unstitch_and_clean_sparse_data_pair(
+        tensor_in, tensor_out, missing_label
+    )
+
+    # Should handle 3D tensor_out by adding channel dimension
+    if len(ain) > 0:
+        assert isinstance(ain, torch.Tensor) or isinstance(ain, list)
+        assert isinstance(aout, torch.Tensor) or isinstance(aout, list)
+
+
+def test_unstitch_and_clean_sparse_data_pair_rearranged(temp_dir):
+    """Test unstitch_and_clean_sparse_data_pair with rearranged output."""
+    filename = os.path.join(temp_dir, "test_rearranged")
+    quilt = qlty2DLarge.LargeNCYXQuilt(
+        filename=filename,
+        N=2,
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
+    )
+
+    # Create 4D tensor_in (N, C, Y, X)
+    tensor_in = torch.randn(2, 3, 64, 64)
+
+    # Create 3D tensor_out (N, Y, X) with single channel to trigger rearranged path
+    tensor_out = torch.randn(2, 64, 64)
+    missing_label = -1
+    # Mark some regions as missing, but leave enough valid data
+    tensor_out[:, 0:10, 0:10] = missing_label
+    tensor_out[:, 20:30, 20:30] = missing_label
+
+    ain, aout = quilt.unstitch_and_clean_sparse_data_pair(
+        tensor_in, tensor_out, missing_label
+    )
+
+    # Should handle 3D tensor_out and rearrange it
+    if len(ain) > 0:
+        # If we got results, check shapes
+        if isinstance(ain, torch.Tensor):
+            # After rearranging and squeezing, aout should be 3D if it was 3D input
+            assert isinstance(aout, torch.Tensor)

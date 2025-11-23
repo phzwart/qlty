@@ -12,16 +12,31 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.9', '3.10', '3.11']
         exclude:
           # Exclude macOS for some Python versions to speed up CI
-          - os: macos-latest
-            python-version: '3.8'
           - os: macos-latest
             python-version: '3.9'
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Clean up disk space
+      run: |
+        # Remove unnecessary system files to free up disk space
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          # Clean up swap files
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
+        fi
+        # Show disk usage
+        df -h
+      continue-on-error: true
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -35,27 +50,87 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-v1
         restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
           ${{ runner.os }}-pip-
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .[docs]
-        pip install pytest pytest-cov
+        pip install -e .[docs,tests]
+        pip install pytest coverage
+        # Explicitly verify zarr installation since tests depend on it
+        python -m pip list | grep -i zarr || echo "WARNING: zarr not in pip list"
+        python -c "import zarr; print(f'zarr version: {zarr.__version__}')" || (echo "ERROR: zarr import failed" && exit 1)
+
+    - name: Verify dependencies
+      run: |
+        echo "=== Checking dependencies ==="
+        python -c "import zarr; print(f'✓ zarr version: {zarr.__version__}')" || (echo "✗ zarr not available" && exit 1)
+        python -c "import torch; print(f'✓ torch version: {torch.__version__}')" || echo "✗ torch not available"
+        python -c "import tifffile; print(f'✓ tifffile version: {tifffile.__version__}')" || echo "⚠ tifffile not available (tests may skip)"
+        python -c "from qlty.utils.stack_to_zarr import stack_files_to_zarr; print('✓ stack_to_zarr import successful')" || echo "✗ stack_to_zarr import failed"
 
     - name: Run tests with coverage
       run: |
-        pytest tests/ -v --cov=qlty --cov-report=xml --cov-report=term --cov-report=term-missing
+        # Use coverage run directly instead of pytest --cov to avoid torch import conflicts
+        # when pytest-cov instruments modules during test collection
+        python -m coverage run --source=qlty -m pytest tests/ -v
+        python -m coverage report --show-missing
+        # Generate coverage XML for Codecov
+        python -m coverage xml
+        # Verify coverage XML was generated and show key module coverage
+        echo "=== Coverage XML Verification ==="
+        python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); classes = root.findall('.//class'); files = {}; [files.update({c.get('filename'): float(c.get('line-rate', 0))}) for c in classes]; print('Key modules:'); [print(f\"  {f}: {files[f]*100:.2f}%\") for f in sorted(files.keys()) if 'stack_to_zarr' in f or 'qlty2_5D.py' in f or 'backends_2_5D.py' in f]"
+        # Show test counts for stack_to_zarr to verify they're running
+        echo "=== Stack_to_zarr test status ==="
+        python -m pytest tests/test_stack_to_zarr.py --collect-only -q 2>&1 | tail -1
+        echo "=== Stack_to_zarr coverage details ==="
+        python -m coverage report --include="qlty/utils/stack_to_zarr.py" --show-missing | head -5
+
+    - name: Verify coverage.xml exists before cleanup
+      if: always()
+      run: |
+        if [ -f coverage.xml ]; then
+          echo "✓ coverage.xml exists"
+          ls -lh coverage.xml
+        else
+          echo "✗ coverage.xml NOT found!"
+          exit 1
+        fi
+
+    - name: Clean up test artifacts
+      if: always()
+      run: |
+        # Clean up test artifacts but preserve coverage.xml for Codecov
+        rm -rf htmlcov/ .pytest_cache/
+        find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+        find . -type f -name "*.pyc" -delete 2>/dev/null || true
+        # Ensure coverage.xml still exists
+        ls -lh coverage.xml || echo "WARNING: coverage.xml missing after cleanup"
 
     - name: Check coverage threshold
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
       run: |
-        coverage report --fail-under=75
+        # Load coverage data and check threshold
+        python -m coverage report --fail-under=75
       continue-on-error: true
 
     - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      run: |
+        # Verify coverage.xml exists and show contents before upload
+        if [ ! -f coverage.xml ]; then
+          echo "ERROR: coverage.xml not found! Cannot upload to Codecov."
+          exit 1
+        fi
+        echo "=== Coverage XML Summary ==="
+        ls -lh coverage.xml
+        python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(f'Total lines: {root.get(\"lines-valid\")}, Covered: {root.get(\"lines-covered\")}, Overall rate: {float(root.get(\"line-rate\", 0))*100:.2f}%'); classes = root.findall('.//class'); stack_classes = [c for c in classes if 'stack_to_zarr' in c.get('filename', '')]; [print(f'stack_to_zarr.py: {float(c.get(\"line-rate\", 0))*100:.2f}%') for c in stack_classes[:1]]"
+      continue-on-error: true
+
+    - name: Upload coverage to Codecov (action)
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
       uses: codecov/codecov-action@v4
       with:
@@ -63,11 +138,33 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
+        # Note: Codecov may show lower coverage in PR diff view when comparing
+        # against old baseline commits. The absolute coverage will update correctly
+        # once the new baseline is established after merge.
 
   lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+
+    - name: Clean up disk space
+      run: |
+        # Remove unnecessary system files to free up disk space
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          # Clean up swap files
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
+        fi
+        # Show disk usage
+        df -h
+      continue-on-error: true
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -82,6 +179,13 @@ jobs:
     - name: Run pre-commit hooks
       run: |
         pre-commit run --all-files
+
+    - name: Clean up after pre-commit
+      if: always()
+      run: |
+        # Clean up any artifacts created during linting
+        find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+        find . -type f -name "*.pyc" -delete 2>/dev/null || true
 
   build:
     runs-on: ubuntu-latest

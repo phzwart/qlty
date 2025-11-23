@@ -46,6 +46,8 @@ docs = [
 ]
 tests = [
     "pytest>=8.0.0",
+    "coverage>=7.0.0",
+    "tifffile>=2021.0.0",  # Required for stack_to_zarr tests
 ]
 
 [project.urls]
