@@ -550,9 +550,9 @@ def stack_files_to_zarr(
                 with multiprocessing.Pool(processes=workers) as pool:
                     # Process in parallel - each worker loads and writes one image
                     # Using imap_unordered for better performance with many tasks
-                    results = list(pool.imap_unordered(_load_and_write_to_zarr, tasks))
+                    write_results = list(pool.imap_unordered(_load_and_write_to_zarr, tasks))
                     # Check for failures
-                    failures = [r for r in results if not r[1]]
+                    failures = [r for r in write_results if not r[1]]
                     if failures:
                         print(
                             f"Warning: {len(failures)} images failed to write out of {len(file_list)}"
