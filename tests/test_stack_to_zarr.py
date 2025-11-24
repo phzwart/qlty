@@ -1086,3 +1086,75 @@ def test_stack_files_to_zarr_empty_directory(temp_dir):
 
     assert len(result) == 0
     assert result == {}
+
+
+def test_stack_files_to_zarr_multiprocessing(temp_dir):
+    """Test multiprocessing support for image loading."""
+    # Create multiple images
+    for i in range(10):
+        filepath = temp_dir / f"mp_{i:03d}.tif"
+        _create_test_image(filepath, (20, 20), dtype=np.uint8)
+
+    # Test with multiprocessing enabled
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        num_workers=2,
+    )
+
+    assert len(result) == 1
+    assert result["mp"]["file_count"] == 10
+    assert result["mp"]["shape"] == (10, 20, 20)
+
+    # Verify zarr file was created correctly
+    zarr_path = Path(result["mp"]["zarr_path"])
+    assert zarr_path.exists()
+
+    z = zarr.open(str(zarr_path), mode="r")
+    assert z.shape == (10, 20, 20)
+    assert z.dtype == np.uint8
+
+
+def test_stack_files_to_zarr_multiprocessing_disabled(temp_dir):
+    """Test that num_workers=1 disables multiprocessing."""
+    # Create multiple images
+    for i in range(5):
+        filepath = temp_dir / f"seq_{i:03d}.tif"
+        _create_test_image(filepath, (15, 15), dtype=np.uint8)
+
+    # Test with multiprocessing disabled
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        num_workers=1,  # Disable multiprocessing
+    )
+
+    assert len(result) == 1
+    assert result["seq"]["file_count"] == 5
+    assert result["seq"]["shape"] == (5, 15, 15)
+
+
+def test_stack_files_to_zarr_multiprocessing_multi_channel(temp_dir):
+    """Test multiprocessing with multi-channel images."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create multi-channel images
+    for i in range(8):
+        filepath = temp_dir / f"mcmp_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(3, 16, 16), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    # Test with multiprocessing
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        num_workers=3,
+    )
+
+    assert len(result) == 1
+    assert result["mcmp"]["file_count"] == 8
+    assert result["mcmp"]["shape"] == (8, 3, 16, 16)  # ZCYX order

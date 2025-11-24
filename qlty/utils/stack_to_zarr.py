@@ -7,8 +7,10 @@ and saves each stack as a zarr file with metadata.
 
 from __future__ import annotations
 
+import multiprocessing
 import re
 from collections import defaultdict
+from functools import partial
 from pathlib import Path
 from typing import Callable
 
@@ -135,6 +137,43 @@ def _apply_axis_order(
     return data_reordered, new_shape
 
 
+def _load_and_process_image(
+    filepath: Path,
+    dtype: np.dtype | None,
+) -> np.ndarray:
+    """
+    Load and process a single image file.
+
+    This is a helper function for multiprocessing that loads and processes
+    a single image file. It must be a top-level function (not nested) to
+    work with multiprocessing.Pool.
+
+    Parameters
+    ----------
+    filepath : Path
+        Path to image file
+    dtype : np.dtype | None
+        Target dtype for conversion
+
+    Returns
+    -------
+    np.ndarray
+        Processed image array
+    """
+    img = _load_image(filepath)
+
+    # Normalize to (C, Y, X) if multi-channel
+    if img.ndim == 3:
+        if img.shape[2] <= 4:  # (Y, X, C)
+            img = np.transpose(img, (2, 0, 1))  # (C, Y, X)
+
+    # Convert dtype if needed
+    if dtype is not None and img.dtype != dtype:
+        img = img.astype(dtype)
+
+    return img
+
+
 def stack_files_to_zarr(
     directory: str | Path,
     extension: str,
@@ -146,6 +185,7 @@ def stack_files_to_zarr(
     output_naming: Callable[[str], str] | None = None,
     sort_by_counter: bool = True,
     dry_run: bool = False,
+    num_workers: int | None = None,
 ) -> dict[str, dict]:
     """
     Scan directory for image files, group into 3D stacks, and save as zarr.
@@ -177,6 +217,9 @@ def stack_files_to_zarr(
         Whether to sort files by counter value (default: True)
     dry_run : bool
         If True, only analyze files without creating zarr (default: False)
+    num_workers : int | None
+        Number of worker processes for parallel image loading. If None, uses
+        number of CPU cores. If 0 or 1, disables multiprocessing (default: None)
 
     Returns
     -------
@@ -382,36 +425,50 @@ def stack_files_to_zarr(
                 dtype=dtype,
             )
 
-            # Load and write images
-            for z_idx, (_counter, filepath) in enumerate(file_list):
-                img = _load_image(filepath)
+            # Determine if we should use multiprocessing
+            use_multiprocessing = False
+            if num_workers is None:
+                # Auto-detect: use multiprocessing if more than 1 CPU core
+                use_multiprocessing = multiprocessing.cpu_count() > 1
+                workers = multiprocessing.cpu_count()
+            elif num_workers > 1:
+                use_multiprocessing = True
+                workers = num_workers
+            else:
+                workers = 1
 
-                # Normalize to (C, Y, X) if multi-channel
-                if img.ndim == 3:
-                    if img.shape[2] <= 4:  # (Y, X, C)
-                        img = np.transpose(img, (2, 0, 1))  # (C, Y, X)
+            # Load images (with optional multiprocessing)
+            if use_multiprocessing and len(file_list) > 1:
+                # Parallel loading
+                load_func = partial(_load_and_process_image, dtype=dtype)
 
-                # Convert dtype if needed
-                if img.dtype != dtype:
-                    img = img.astype(dtype)
+                with multiprocessing.Pool(processes=workers) as pool:
+                    # Load all images in parallel
+                    filepaths = [f for _, f in file_list]
+                    images = pool.map(load_func, filepaths)
+            else:
+                # Sequential loading
+                images = [
+                    _load_and_process_image(filepath, dtype=dtype)
+                    for _, filepath in file_list
+                ]
 
-                # Write to zarr
-                if has_channels:
-                    # Need to apply axis order
-                    # We have (C, Y, X), need to stack as (Z, C, Y, X) then reorder
-                    if z_idx == 0:
-                        # Initialize full stack
-                        stack_data = np.zeros((len(file_list), C, Y, X), dtype=dtype)
+            # Write images to zarr (sequential, as zarr writes need to be ordered)
+            if has_channels:
+                # Need to apply axis order
+                # We have (C, Y, X), need to stack as (Z, C, Y, X) then reorder
+                stack_data = np.zeros((len(file_list), C, Y, X), dtype=dtype)
+                for z_idx, img in enumerate(images):
                     stack_data[z_idx] = img
 
-                    if z_idx == len(file_list) - 1:
-                        # Last image: apply axis order and write
-                        stack_reordered, _ = _apply_axis_order(
-                            stack_data, (len(file_list), C, Y, X), final_axis_order
-                        )
-                        zarr_array[:] = stack_reordered
-                else:
-                    # Single channel: direct write
+                # Apply axis order and write
+                stack_reordered, _ = _apply_axis_order(
+                    stack_data, (len(file_list), C, Y, X), final_axis_order
+                )
+                zarr_array[:] = stack_reordered
+            else:
+                # Single channel: direct write
+                for z_idx, img in enumerate(images):
                     zarr_array[z_idx] = img
 
             # Store metadata as zarr attributes
