@@ -2,6 +2,15 @@
 History
 =======
 
+1.3.1 (2025-11-23)
+------------------
+
+* **Performance Improvement** - Added multiprocessing support to ``stack_files_to_zarr()``:
+  * New ``num_workers`` parameter for parallel image loading
+  * Auto-detects CPU count when ``num_workers=None`` (default)
+  * Significantly improves performance for large image stacks by loading images in parallel
+  * Maintains sequential zarr writing to preserve order
+
 1.3.0 (2025-11-23)
 ------------------
 
