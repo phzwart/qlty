@@ -2,6 +2,17 @@
 History
 =======
 
+1.3.2 (2025-11-23)
+------------------
+
+* **Performance Optimization** - Enhanced multiprocessing in ``stack_files_to_zarr()``:
+  * Implemented parallel load-and-write for large stacks (>10 images)
+  * Workers now load images and write directly to zarr in parallel (not sequentially)
+  * Dramatically reduces memory usage by avoiding loading all images into memory at once
+  * Enables concurrent zarr writes using all available CPU cores
+  * Optimized for very large stacks (e.g., 800+ images on 127-core systems)
+  * Uses ``imap_unordered`` for better performance with many tasks
+
 1.3.1 (2025-11-23)
 ------------------
 
