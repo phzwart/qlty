@@ -676,7 +676,7 @@ def stack_files_to_zarr(
                 print(f"  Completed writing {len(images)} images")
 
             # Store metadata as zarr attributes
-            print(f"  Storing metadata...")
+            print("  Storing metadata...")
             zarr_array.attrs.update(
                 {
                     "basename": basename,
