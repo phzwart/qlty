@@ -2,6 +2,15 @@
 History
 =======
 
+1.3.4 (2025-11-23)
+------------------
+
+* **Bug Fix** - Fixed ``ZarrBackend`` to properly handle 3D zarr arrays (Z, Y, X) from ``stack_to_zarr()``:
+  * Fixed dimension handling when loading slices from 3D zarr arrays
+  * Correctly adds N and C dimensions based on whether n is specified
+  * Resolves ``ValueError: not enough values to unpack`` when using 2.5D Quilt with ``stack_to_zarr()`` output
+  * Added example code in ``tutorial/stack_to_zarr_usage_example.py`` demonstrating workflow
+
 1.3.3 (2025-11-23)
 ------------------
 
