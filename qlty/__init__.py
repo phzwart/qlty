@@ -2,7 +2,7 @@
 
 __author__ = """Petrus H. Zwart"""
 __email__ = "PHZwart@lbl.gov"
-__version__ = "1.3.4"
+__version__ = "1.3.5"
 
 # Import cleanup functions
 from qlty.cleanup import (

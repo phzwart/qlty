@@ -2,6 +2,15 @@
 History
 =======
 
+1.3.5 (2025-11-23)
+------------------
+
+* **Bug Fix** - Fixed ``ZarrBackend`` dimension normalization when accessing slices vs integers:
+  * Fixed distinction between ``n`` being an integer vs slice/None for proper dimension handling
+  * When ``n`` is an integer, returns (C, Z, Y, X) - no N dimension
+  * When ``n`` is None or slice, returns (N, C, Z, Y, X) - full 5D
+  * Resolves ``ValueError: not enough values to unpack (expected 4, got 3)`` in 2.5D Quilt conversion
+
 1.3.4 (2025-11-23)
 ------------------
 
