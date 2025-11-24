@@ -139,8 +139,9 @@ def test_zarr_backend_3d_shape():
     assert backend.get_shape() == (1, 1, 5, 10, 10)
 
     result = backend.load_slice(z=2)
-    assert result.shape == (10, 10)
-    assert np.allclose(result.numpy(), data[2])
+    # Backend returns 5D when n is not specified: (N, C, Z, Y, X)
+    assert result.shape == (1, 1, 1, 10, 10)
+    assert np.allclose(result.numpy()[0, 0, 0], data[2])
 
 
 def test_zarr_backend_4d_shape():
@@ -188,15 +189,15 @@ def test_zarr_backend_load_slice_3d():
 
     backend = ZarrBackend(z)
 
-    # Test z slice
+    # Test z slice - returns 5D when n is not specified
     result = backend.load_slice(z=slice(1, 4))
-    assert result.shape == (3, 10, 10)
-    assert np.allclose(result.numpy(), data[1:4])
+    assert result.shape == (1, 1, 3, 10, 10)
+    assert np.allclose(result.numpy()[0, 0], data[1:4])
 
-    # Test y and x slices
+    # Test y and x slices - returns 5D when n is not specified
     result = backend.load_slice(z=2, y=slice(2, 8), x=slice(3, 7))
-    assert result.shape == (6, 4)
-    assert np.allclose(result.numpy(), data[2, 2:8, 3:7])
+    assert result.shape == (1, 1, 1, 6, 4)
+    assert np.allclose(result.numpy()[0, 0, 0], data[2, 2:8, 3:7])
 
 
 def test_zarr_backend_load_slice_4d():
@@ -212,10 +213,10 @@ def test_zarr_backend_load_slice_4d():
 
     backend = ZarrBackend(z)
 
-    # Test c and z slices
+    # Test c and z slices - returns 5D when n is not specified
     result = backend.load_slice(c=1, z=slice(1, 4))
-    assert result.shape == (3, 10, 10)
-    assert np.allclose(result.numpy(), data[1, 1:4])
+    assert result.shape == (1, 1, 3, 10, 10)
+    assert np.allclose(result.numpy()[0, 0], data[1, 1:4])
 
 
 def test_zarr_backend_non_array_conversion():
@@ -229,9 +230,10 @@ def test_zarr_backend_non_array_conversion():
     backend = ZarrBackend(z)
 
     # Load should still work even if zarr returns non-ndarray
+    # Returns 5D when n is not specified: (N, C, Z, Y, X)
     result = backend.load_slice(z=2)
     assert isinstance(result, torch.Tensor)
-    assert result.shape == (10, 10)
+    assert result.shape == (1, 1, 1, 10, 10)
 
 
 def test_zarr_backend_missing_import():
