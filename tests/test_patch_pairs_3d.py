@@ -52,9 +52,9 @@ def test_extract_patch_pairs_3d_delta_constraints():
     for i in range(deltas.shape[0]):
         dx, dy, dz = deltas[i, 0].item(), deltas[i, 1].item(), deltas[i, 2].item()
         distance = (dx**2 + dy**2 + dz**2) ** 0.5
-        assert delta_range[0] <= distance <= delta_range[1], (
-            f"Delta {i}: ({dx}, {dy}, {dz}) has distance {distance}, not in [{delta_range[0]}, {delta_range[1]}]"
-        )
+        assert (
+            delta_range[0] <= distance <= delta_range[1]
+        ), f"Delta {i}: ({dx}, {dy}, {dz}) has distance {distance}, not in [{delta_range[0]}, {delta_range[1]}]"
 
 
 def test_extract_patch_pairs_3d_reproducibility():

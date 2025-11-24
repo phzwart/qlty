@@ -269,9 +269,9 @@ class LargeNCZYXQuilt:
             )
 
         if n == 0:
-            self.norma[start_z:stop_z, start_y:stop_y, start_x:stop_x] += (
-                self.weight.numpy()
-            )
+            self.norma[
+                start_z:stop_z, start_y:stop_y, start_x:stop_x
+            ] += self.weight.numpy()
 
     def unstitch_next(self, tensor: torch.Tensor) -> Tuple[int, torch.Tensor]:
         """
