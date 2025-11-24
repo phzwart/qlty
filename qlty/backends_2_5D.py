@@ -340,7 +340,7 @@ class ZarrBackend(DataSource3DBackend):
         # If n is None or slice, return (N, C, Z, Y, X) - full 5D
         n_is_int = isinstance(n, int)
         original_shape = self.zarr_array.shape
-        
+
         if len(original_shape) == 3:
             # Original is (Z, Y, X)
             if n_is_int:
@@ -354,13 +354,17 @@ class ZarrBackend(DataSource3DBackend):
                 if tensor.ndim == 3:
                     tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, Z, Y, X)
                 elif tensor.ndim == 2:
-                    tensor = tensor.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, Y, X)
+                    tensor = (
+                        tensor.unsqueeze(0).unsqueeze(0).unsqueeze(0)
+                    )  # (1, 1, 1, Y, X)
         elif len(original_shape) == 4:
             # Original is (C, Z, Y, X)
             if n_is_int:
                 # Requested specific n (integer): return (C, Z, Y, X) - already correct
                 if tensor.ndim == 2:
-                    tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, Y, X) if single slice
+                    tensor = tensor.unsqueeze(0).unsqueeze(
+                        0
+                    )  # (1, 1, Y, X) if single slice
             else:
                 # No n or slice: return (N, C, Z, Y, X) = (1, C, Z, Y, X)
                 if tensor.ndim == 4:

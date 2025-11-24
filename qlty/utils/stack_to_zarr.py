@@ -394,12 +394,14 @@ def stack_files_to_zarr(
         return {}
 
     print(f"Found {len(stacks)} stack(s) to process")
-    
+
     # Step 2: Stack Analysis
     results = {}
 
     for stack_idx, (basename, file_list) in enumerate(stacks.items(), 1):
-        print(f"\n[{stack_idx}/{len(stacks)}] Processing stack: {basename} ({len(file_list)} files)")
+        print(
+            f"\n[{stack_idx}/{len(stacks)}] Processing stack: {basename} ({len(file_list)} files)"
+        )
         # Sort by counter
         if sort_by_counter:
             file_list.sort(key=lambda x: x[0])
@@ -566,22 +568,30 @@ def stack_files_to_zarr(
                     # Process in parallel - each worker loads and writes one image
                     # Using imap_unordered for better performance with many tasks
                     if tqdm is not None:
-                        write_results = list(tqdm(
-                            pool.imap_unordered(_load_and_write_to_zarr, tasks),
-                            total=len(tasks),
-                            desc=f"  Processing {basename}",
-                            unit="image"
-                        ))
+                        write_results = list(
+                            tqdm(
+                                pool.imap_unordered(_load_and_write_to_zarr, tasks),
+                                total=len(tasks),
+                                desc=f"  Processing {basename}",
+                                unit="image",
+                            )
+                        )
                     else:
                         # Fallback: process with periodic status updates
                         write_results = []
                         completed = 0
-                        for result in pool.imap_unordered(_load_and_write_to_zarr, tasks):
+                        for result in pool.imap_unordered(
+                            _load_and_write_to_zarr, tasks
+                        ):
                             write_results.append(result)
                             completed += 1
-                            if completed % max(1, len(tasks) // 20) == 0 or completed == len(tasks):
-                                print(f"  Progress: {completed}/{len(tasks)} images processed ({100*completed/len(tasks):.1f}%)")
-                    
+                            if completed % max(
+                                1, len(tasks) // 20
+                            ) == 0 or completed == len(tasks):
+                                print(
+                                    f"  Progress: {completed}/{len(tasks)} images processed ({100 * completed / len(tasks):.1f}%)"
+                                )
+
                     # Check for failures
                     failures = [r for r in write_results if not r[1]]
                     if failures:
@@ -597,12 +607,14 @@ def stack_files_to_zarr(
                     with multiprocessing.Pool(processes=workers) as pool:
                         filepaths = [f for _, f in file_list]
                         if tqdm is not None:
-                            images = list(tqdm(
-                                pool.imap(load_func, filepaths),
-                                total=len(filepaths),
-                                desc="  Loading images",
-                                unit="image"
-                            ))
+                            images = list(
+                                tqdm(
+                                    pool.imap(load_func, filepaths),
+                                    total=len(filepaths),
+                                    desc="  Loading images",
+                                    unit="image",
+                                )
+                            )
                         else:
                             images = pool.map(load_func, filepaths)
                             print(f"  Loaded {len(images)} images")
@@ -614,15 +626,21 @@ def stack_files_to_zarr(
                             for filepath in tqdm(
                                 [f for _, f in file_list],
                                 desc="  Loading images",
-                                unit="image"
+                                unit="image",
                             )
                         ]
                     else:
                         images = []
                         for idx, (_, filepath) in enumerate(file_list, 1):
-                            images.append(_load_and_process_image(filepath, dtype=dtype))
-                            if idx % max(1, len(file_list) // 20) == 0 or idx == len(file_list):
-                                print(f"  Loaded {idx}/{len(file_list)} images ({100*idx/len(file_list):.1f}%)")
+                            images.append(
+                                _load_and_process_image(filepath, dtype=dtype)
+                            )
+                            if idx % max(1, len(file_list) // 20) == 0 or idx == len(
+                                file_list
+                            ):
+                                print(
+                                    f"  Loaded {idx}/{len(file_list)} images ({100 * idx / len(file_list):.1f}%)"
+                                )
 
                 print(f"  Writing {len(images)} images to zarr...")
                 # Write images to zarr
@@ -641,14 +659,20 @@ def stack_files_to_zarr(
                 else:
                     # Single channel: direct write
                     if tqdm is not None:
-                        for z_idx, img in enumerate(tqdm(images, desc="  Writing to zarr", unit="image")):
+                        for z_idx, img in enumerate(
+                            tqdm(images, desc="  Writing to zarr", unit="image")
+                        ):
                             zarr_array[z_idx] = img
                     else:
                         for z_idx, img in enumerate(images):
                             zarr_array[z_idx] = img
-                            if (z_idx + 1) % max(1, len(images) // 20) == 0 or (z_idx + 1) == len(images):
-                                print(f"  Wrote {z_idx + 1}/{len(images)} images ({100*(z_idx+1)/len(images):.1f}%)")
-                
+                            if (z_idx + 1) % max(1, len(images) // 20) == 0 or (
+                                z_idx + 1
+                            ) == len(images):
+                                print(
+                                    f"  Wrote {z_idx + 1}/{len(images)} images ({100 * (z_idx + 1) / len(images):.1f}%)"
+                                )
+
                 print(f"  Completed writing {len(images)} images")
 
             # Store metadata as zarr attributes

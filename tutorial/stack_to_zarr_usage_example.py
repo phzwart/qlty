@@ -7,18 +7,21 @@ This script demonstrates how to:
 3. Extract partially overlapping patch pairs from the 2.5D slices
 """
 
-import zarr
 import torch
-from qlty.backends_2_5D import ZarrBackend, TensorLike3D
-from qlty.qlty2_5D import NCZYX25DQuilt
+import zarr
+
+from qlty.backends_2_5D import TensorLike3D, ZarrBackend
 from qlty.patch_pairs_2d import extract_patch_pairs
+from qlty.qlty2_5D import NCZYX25DQuilt
 
 # ============================================================================
 # Step 1: Load the zarr file created by stack_files_to_zarr()
 # ============================================================================
 
 # Path to your zarr file (created by stack_files_to_zarr)
-zarr_path = "./monet/monet_61389_16_A_pos18_bottom_newimgsys_prop405_exp0p05_0324_rec.zarr"
+zarr_path = (
+    "./monet/monet_61389_16_A_pos18_bottom_newimgsys_prop405_exp0p05_0324_rec.zarr"
+)
 
 # Open the zarr array
 zarr_array = zarr.open(zarr_path, mode="r")
@@ -76,7 +79,7 @@ print(f"Test load shape [0]: {test_load.shape}")  # Should be (1, 800, 3232, 323
 # Define channel specification for 2.5D conversion
 # Example 1: Extract z-1, z, z+1 as separate channels
 channel_spec = {
-    'identity': [-1, 0, 1]  # 3 channels: previous slice, current slice, next slice
+    "identity": [-1, 0, 1]  # 3 channels: previous slice, current slice, next slice
 }
 
 # Example 2: More complex specification with mean operations
@@ -117,7 +120,7 @@ num_patches = 100  # Number of patch pairs per image
 delta_range = (16.0, 32.0)  # Euclidean distance between patch centers
 # delta_range means: 16 <= sqrt(dx² + dy²) <= 32 pixels
 
-print(f"\nExtracting patch pairs...")
+print("\nExtracting patch pairs...")
 print(f"  Window size: {window}")
 print(f"  Patches per image: {num_patches}")
 print(f"  Displacement range: {delta_range}")
@@ -131,27 +134,26 @@ patches1, patches2, deltas, rotations = extract_patch_pairs(
     rotation_choices=None,  # Or [0, 1, 2, 3] for quarter-turn rotations
 )
 
-print(f"\nPatch extraction results:")
+print("\nPatch extraction results:")
 print(f"  patches1 shape: {patches1.shape}")  # (N*Z_selected*num_patches, C', 64, 64)
 print(f"  patches2 shape: {patches2.shape}")  # (N*Z_selected*num_patches, C', 64, 64)
-print(f"  deltas shape: {deltas.shape}")      # (N*Z_selected*num_patches, 2) - (dx, dy)
-print(f"  rotations shape: {rotations.shape}") # (N*Z_selected*num_patches,)
+print(f"  deltas shape: {deltas.shape}")  # (N*Z_selected*num_patches, 2) - (dx, dy)
+print(f"  rotations shape: {rotations.shape}")  # (N*Z_selected*num_patches,)
 
 # ============================================================================
 # Step 5: Use the patches for training or analysis
 # ============================================================================
 
 # Example: Visualize first patch pair
-import matplotlib.pyplot as plt
 
 # Get first patch pair
 patch1 = patches1[0]  # Shape: (C', 64, 64)
 patch2 = patches2[0]  # Shape: (C', 64, 64)
-delta = deltas[0]     # Shape: (2,) - displacement vector
+delta = deltas[0]  # Shape: (2,) - displacement vector
 
-print(f"\nFirst patch pair:")
+print("\nFirst patch pair:")
 print(f"  Delta (dx, dy): ({delta[0]:.2f}, {delta[1]:.2f})")
-print(f"  Distance: {torch.sqrt(delta[0]**2 + delta[1]**2):.2f} pixels")
+print(f"  Distance: {torch.sqrt(delta[0] ** 2 + delta[1] ** 2):.2f} pixels")
 
 # Visualize (if you have matplotlib and the patches are reasonable size)
 # fig, axes = plt.subplots(1, 2, figsize=(10, 5))
@@ -166,4 +168,3 @@ print("\nDone! You now have:")
 print(f"  - {len(patches1)} patch pairs")
 print(f"  - Each patch is {window[0]}x{window[1]} pixels")
 print(f"  - Each pair has displacement in range {delta_range}")
-
