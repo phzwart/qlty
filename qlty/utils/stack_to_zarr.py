@@ -174,6 +174,92 @@ def _load_and_process_image(
     return img
 
 
+def _load_and_write_to_zarr(
+    args: tuple,
+) -> tuple[int, bool]:
+    """
+    Load an image and write it directly to zarr at the specified z-index.
+
+    This function is designed for parallel execution where each worker loads
+    and writes a single image, avoiding the need to load all images into memory.
+    Zarr supports concurrent writes to different slices, so this enables true parallelism.
+
+    Parameters
+    ----------
+    args : tuple
+        Tuple containing:
+        - z_idx: int - Z-index in the zarr array
+        - filepath: Path - Path to image file
+        - zarr_path: str - Path to zarr array
+        - final_shape: tuple - Final shape of zarr array
+        - dtype: np.dtype | None - Target dtype
+        - has_channels: bool - Whether image has channels
+        - axis_order: str - Final axis order (e.g., "ZCYX", "CZYX")
+        - C: int - Number of channels (for multi-channel)
+        - Y: int - Image height
+        - X: int - Image width
+
+    Returns
+    -------
+    tuple[int, bool]
+        (z_idx, success) tuple indicating which z-index was written
+    """
+    (
+        z_idx,
+        filepath,
+        zarr_path,
+        final_shape,
+        dtype,
+        has_channels,
+        axis_order,
+        C,
+        Y,
+        X,
+    ) = args
+
+    try:
+        # Load and process image
+        img = _load_and_process_image(filepath, dtype)
+
+        # Open zarr array (read-write mode supports concurrent writes)
+        zarr_array = zarr.open(zarr_path, mode="r+")
+
+        if has_channels:
+            # Apply axis order transformation for this slice
+            # We have img as (C, Y, X), need to write at z_idx
+            if axis_order == "CZYX":
+                # Write to (C, Z, Y, X) array
+                zarr_array[:, z_idx, :, :] = img
+            elif axis_order == "ZCYX":
+                # Write to (Z, C, Y, X) array
+                zarr_array[z_idx, :, :, :] = img
+            else:
+                # For other axis orders, we need to reorder the slice
+                # Create a (1, C, Y, X) array, apply transformation, then write
+                slice_data = img[np.newaxis, ...]  # (1, C, Y, X)
+                slice_reordered, _ = _apply_axis_order(
+                    slice_data, (1, C, Y, X), axis_order
+                )
+                # Write based on first dimension position
+                if axis_order[0] == "Z":
+                    # Z is first: write to z_idx position
+                    zarr_array[z_idx, ...] = slice_reordered[0]
+                else:
+                    # C is first: write to z_idx on second dim
+                    zarr_array[:, z_idx, ...] = slice_reordered[:, 0, ...]
+        else:
+            # Single channel: write directly to (Z, Y, X) array
+            zarr_array[z_idx, :, :] = img
+
+        return (z_idx, True)
+    except Exception as e:
+        print(f"Error processing {filepath} at z_idx {z_idx}: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return (z_idx, False)
+
+
 def stack_files_to_zarr(
     directory: str | Path,
     extension: str,
@@ -437,39 +523,72 @@ def stack_files_to_zarr(
             else:
                 workers = 1
 
-            # Load images (with optional multiprocessing)
-            if use_multiprocessing and len(file_list) > 1:
-                # Parallel loading
-                load_func = partial(_load_and_process_image, dtype=dtype)
+            # For large stacks, use parallel load-and-write to avoid loading all into memory
+            # and to enable parallel zarr writes
+            if use_multiprocessing and len(file_list) > 10:  # Use for large stacks
+                # Parallel load-and-write: each worker loads an image and writes it directly
+                # This avoids loading all images into memory and enables parallel zarr writes
+                # Zarr supports concurrent writes to different slices
+                tasks = []
+                for z_idx, (_, filepath) in enumerate(file_list):
+                    tasks.append(
+                        (
+                            z_idx,
+                            filepath,
+                            str(output_path),
+                            final_shape,
+                            dtype,
+                            has_channels,
+                            final_axis_order,
+                            C,
+                            Y,
+                            X,
+                        )
+                    )
 
+                # Use all available workers for maximum parallelism
                 with multiprocessing.Pool(processes=workers) as pool:
-                    # Load all images in parallel
-                    filepaths = [f for _, f in file_list]
-                    images = pool.map(load_func, filepaths)
+                    # Process in parallel - each worker loads and writes one image
+                    # Using imap_unordered for better performance with many tasks
+                    results = list(pool.imap_unordered(_load_and_write_to_zarr, tasks))
+                    # Check for failures
+                    failures = [r for r in results if not r[1]]
+                    if failures:
+                        print(
+                            f"Warning: {len(failures)} images failed to write out of {len(file_list)}"
+                        )
             else:
-                # Sequential loading
-                images = [
-                    _load_and_process_image(filepath, dtype=dtype)
-                    for _, filepath in file_list
-                ]
+                # Sequential or small stack: load all first, then write
+                if use_multiprocessing and len(file_list) > 1:
+                    # Parallel loading only
+                    load_func = partial(_load_and_process_image, dtype=dtype)
+                    with multiprocessing.Pool(processes=workers) as pool:
+                        filepaths = [f for _, f in file_list]
+                        images = pool.map(load_func, filepaths)
+                else:
+                    # Sequential loading
+                    images = [
+                        _load_and_process_image(filepath, dtype=dtype)
+                        for _, filepath in file_list
+                    ]
 
-            # Write images to zarr (sequential, as zarr writes need to be ordered)
-            if has_channels:
-                # Need to apply axis order
-                # We have (C, Y, X), need to stack as (Z, C, Y, X) then reorder
-                stack_data = np.zeros((len(file_list), C, Y, X), dtype=dtype)
-                for z_idx, img in enumerate(images):
-                    stack_data[z_idx] = img
+                # Write images to zarr
+                if has_channels:
+                    # Need to apply axis order
+                    # We have (C, Y, X), need to stack as (Z, C, Y, X) then reorder
+                    stack_data = np.zeros((len(file_list), C, Y, X), dtype=dtype)
+                    for z_idx, img in enumerate(images):
+                        stack_data[z_idx] = img
 
-                # Apply axis order and write
-                stack_reordered, _ = _apply_axis_order(
-                    stack_data, (len(file_list), C, Y, X), final_axis_order
-                )
-                zarr_array[:] = stack_reordered
-            else:
-                # Single channel: direct write
-                for z_idx, img in enumerate(images):
-                    zarr_array[z_idx] = img
+                    # Apply axis order and write
+                    stack_reordered, _ = _apply_axis_order(
+                        stack_data, (len(file_list), C, Y, X), final_axis_order
+                    )
+                    zarr_array[:] = stack_reordered
+                else:
+                    # Single channel: direct write
+                    for z_idx, img in enumerate(images):
+                        zarr_array[z_idx] = img
 
             # Store metadata as zarr attributes
             zarr_array.attrs.update(
