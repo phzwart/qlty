@@ -336,31 +336,33 @@ class ZarrBackend(DataSource3DBackend):
             tensor = torch.from_numpy(np.array(data)).to(self._dtype)
 
         # Normalize to expected output dimensions based on what was requested
-        # If n is specified, return (C, Z, Y, X) - no N dimension
-        # If n is None, return (N, C, Z, Y, X) - full 5D
+        # If n is an int, return (C, Z, Y, X) - no N dimension
+        # If n is None or slice, return (N, C, Z, Y, X) - full 5D
+        n_is_int = isinstance(n, int)
         original_shape = self.zarr_array.shape
+        
         if len(original_shape) == 3:
             # Original is (Z, Y, X)
-            if n is not None:
-                # Requested specific n: return (C, Z, Y, X) = (1, Z, Y, X)
+            if n_is_int:
+                # Requested specific n (integer): return (C, Z, Y, X) = (1, Z, Y, X)
                 if tensor.ndim == 3:
                     tensor = tensor.unsqueeze(0)  # Add C dimension: (1, Z, Y, X)
                 elif tensor.ndim == 2:
                     tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, Y, X)
             else:
-                # No n specified: return (N, C, Z, Y, X) = (1, 1, Z, Y, X)
+                # No n or slice: return (N, C, Z, Y, X) = (1, 1, Z, Y, X)
                 if tensor.ndim == 3:
                     tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, Z, Y, X)
                 elif tensor.ndim == 2:
                     tensor = tensor.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, Y, X)
         elif len(original_shape) == 4:
             # Original is (C, Z, Y, X)
-            if n is not None:
-                # Requested specific n: return (C, Z, Y, X) - already correct
+            if n_is_int:
+                # Requested specific n (integer): return (C, Z, Y, X) - already correct
                 if tensor.ndim == 2:
                     tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, Y, X) if single slice
             else:
-                # No n specified: return (N, C, Z, Y, X) = (1, C, Z, Y, X)
+                # No n or slice: return (N, C, Z, Y, X) = (1, C, Z, Y, X)
                 if tensor.ndim == 4:
                     tensor = tensor.unsqueeze(0)  # Add N dimension: (1, C, Z, Y, X)
                 elif tensor.ndim == 3:
