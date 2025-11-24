@@ -2,6 +2,16 @@
 History
 =======
 
+1.3.3 (2025-11-23)
+------------------
+
+* **Progress Reporting** - Added comprehensive progress feedback to ``stack_files_to_zarr()``:
+  * Progress bars using ``tqdm`` (if available) or periodic status messages
+  * Shows overall progress for multiple stacks
+  * Displays progress during image loading and zarr writing operations
+  * Status messages showing stack information, worker count, and completion status
+  * Helps monitor long-running operations on large image stacks
+
 1.3.2 (2025-11-23)
 ------------------
 

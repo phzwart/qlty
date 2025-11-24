@@ -31,6 +31,11 @@ try:
 except ImportError as err:
     raise ImportError("zarr is required. Install with: pip install zarr") from err
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
 
 def _load_image(filepath: Path) -> np.ndarray:
     """
@@ -385,12 +390,16 @@ def stack_files_to_zarr(
         stacks[basename].append((counter, filepath))
 
     if not stacks:
+        print("No matching files found.")
         return {}
 
+    print(f"Found {len(stacks)} stack(s) to process")
+    
     # Step 2: Stack Analysis
     results = {}
 
-    for basename, file_list in stacks.items():
+    for stack_idx, (basename, file_list) in enumerate(stacks.items(), 1):
+        print(f"\n[{stack_idx}/{len(stacks)}] Processing stack: {basename} ({len(file_list)} files)")
         # Sort by counter
         if sort_by_counter:
             file_list.sort(key=lambda x: x[0])
@@ -502,6 +511,8 @@ def stack_files_to_zarr(
 
         # Step 3: Zarr Creation (if not dry run)
         if not dry_run:
+            print(f"  Creating zarr array: {output_path}")
+            print(f"  Shape: {final_shape}, dtype: {dtype}, chunks: {zarr_chunks}")
             # Create zarr array
             zarr_array = zarr.open(
                 str(output_path),
@@ -523,9 +534,13 @@ def stack_files_to_zarr(
             else:
                 workers = 1
 
+            if use_multiprocessing:
+                print(f"  Using {workers} worker processes for parallel processing")
+
             # For large stacks, use parallel load-and-write to avoid loading all into memory
             # and to enable parallel zarr writes
             if use_multiprocessing and len(file_list) > 10:  # Use for large stacks
+                print(f"  Loading and writing {len(file_list)} images in parallel...")
                 # Parallel load-and-write: each worker loads an image and writes it directly
                 # This avoids loading all images into memory and enables parallel zarr writes
                 # Zarr supports concurrent writes to different slices
@@ -550,28 +565,66 @@ def stack_files_to_zarr(
                 with multiprocessing.Pool(processes=workers) as pool:
                     # Process in parallel - each worker loads and writes one image
                     # Using imap_unordered for better performance with many tasks
-                    write_results = list(pool.imap_unordered(_load_and_write_to_zarr, tasks))
+                    if tqdm is not None:
+                        write_results = list(tqdm(
+                            pool.imap_unordered(_load_and_write_to_zarr, tasks),
+                            total=len(tasks),
+                            desc=f"  Processing {basename}",
+                            unit="image"
+                        ))
+                    else:
+                        # Fallback: process with periodic status updates
+                        write_results = []
+                        completed = 0
+                        for result in pool.imap_unordered(_load_and_write_to_zarr, tasks):
+                            write_results.append(result)
+                            completed += 1
+                            if completed % max(1, len(tasks) // 20) == 0 or completed == len(tasks):
+                                print(f"  Progress: {completed}/{len(tasks)} images processed ({100*completed/len(tasks):.1f}%)")
+                    
                     # Check for failures
                     failures = [r for r in write_results if not r[1]]
                     if failures:
                         print(
-                            f"Warning: {len(failures)} images failed to write out of {len(file_list)}"
+                            f"  Warning: {len(failures)} images failed to write out of {len(file_list)}"
                         )
             else:
                 # Sequential or small stack: load all first, then write
+                print(f"  Loading {len(file_list)} images...")
                 if use_multiprocessing and len(file_list) > 1:
                     # Parallel loading only
                     load_func = partial(_load_and_process_image, dtype=dtype)
                     with multiprocessing.Pool(processes=workers) as pool:
                         filepaths = [f for _, f in file_list]
-                        images = pool.map(load_func, filepaths)
+                        if tqdm is not None:
+                            images = list(tqdm(
+                                pool.imap(load_func, filepaths),
+                                total=len(filepaths),
+                                desc="  Loading images",
+                                unit="image"
+                            ))
+                        else:
+                            images = pool.map(load_func, filepaths)
+                            print(f"  Loaded {len(images)} images")
                 else:
                     # Sequential loading
-                    images = [
-                        _load_and_process_image(filepath, dtype=dtype)
-                        for _, filepath in file_list
-                    ]
+                    if tqdm is not None:
+                        images = [
+                            _load_and_process_image(filepath, dtype=dtype)
+                            for filepath in tqdm(
+                                [f for _, f in file_list],
+                                desc="  Loading images",
+                                unit="image"
+                            )
+                        ]
+                    else:
+                        images = []
+                        for idx, (_, filepath) in enumerate(file_list, 1):
+                            images.append(_load_and_process_image(filepath, dtype=dtype))
+                            if idx % max(1, len(file_list) // 20) == 0 or idx == len(file_list):
+                                print(f"  Loaded {idx}/{len(file_list)} images ({100*idx/len(file_list):.1f}%)")
 
+                print(f"  Writing {len(images)} images to zarr...")
                 # Write images to zarr
                 if has_channels:
                     # Need to apply axis order
@@ -587,10 +640,19 @@ def stack_files_to_zarr(
                     zarr_array[:] = stack_reordered
                 else:
                     # Single channel: direct write
-                    for z_idx, img in enumerate(images):
-                        zarr_array[z_idx] = img
+                    if tqdm is not None:
+                        for z_idx, img in enumerate(tqdm(images, desc="  Writing to zarr", unit="image")):
+                            zarr_array[z_idx] = img
+                    else:
+                        for z_idx, img in enumerate(images):
+                            zarr_array[z_idx] = img
+                            if (z_idx + 1) % max(1, len(images) // 20) == 0 or (z_idx + 1) == len(images):
+                                print(f"  Wrote {z_idx + 1}/{len(images)} images ({100*(z_idx+1)/len(images):.1f}%)")
+                
+                print(f"  Completed writing {len(images)} images")
 
             # Store metadata as zarr attributes
+            print(f"  Storing metadata...")
             zarr_array.attrs.update(
                 {
                     "basename": basename,
@@ -604,6 +666,10 @@ def stack_files_to_zarr(
                     "extension": extension,
                 }
             )
+            print(f"  ✓ Completed stack: {basename}")
+        else:
+            print(f"  Dry run: Would create zarr array at {output_path}")
+            print(f"  Shape: {final_shape}, dtype: {dtype}")
 
         # Store results
         results[basename] = {
@@ -616,4 +682,5 @@ def stack_files_to_zarr(
             "axis_order": final_axis_order,
         }
 
+    print(f"\n✓ Successfully processed {len(results)} stack(s)")
     return results
