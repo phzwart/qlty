@@ -290,7 +290,8 @@ class ZarrBackend(DataSource3DBackend):
         # Build indexing tuple based on array dimensionality
         original_shape = self.zarr_array.shape
         if len(original_shape) == 3:
-            # (Z, Y, X)
+            # (Z, Y, X) - treat as single image, single channel
+            # n and c are ignored (always n=0, c=0)
             indices = [slice(None)] * 3
             if z is not None:
                 indices[0] = z
@@ -299,7 +300,8 @@ class ZarrBackend(DataSource3DBackend):
             if x is not None:
                 indices[2] = x
         elif len(original_shape) == 4:
-            # (C, Z, Y, X)
+            # (C, Z, Y, X) - treat as single image, multiple channels
+            # n is ignored (always n=0)
             indices = [slice(None)] * 4
             if c is not None:
                 indices[0] = c
@@ -310,7 +312,7 @@ class ZarrBackend(DataSource3DBackend):
             if x is not None:
                 indices[3] = x
         else:
-            # (N, C, Z, Y, X)
+            # (N, C, Z, Y, X) - full 5D array
             indices = [slice(None)] * 5
             if n is not None:
                 indices[0] = n
@@ -328,10 +330,43 @@ class ZarrBackend(DataSource3DBackend):
 
         # Convert to torch tensor
         if isinstance(data, np.ndarray):
-            return torch.from_numpy(data).to(self._dtype)
+            tensor = torch.from_numpy(data).to(self._dtype)
         else:
             # zarr might return a different type
-            return torch.from_numpy(np.array(data)).to(self._dtype)
+            tensor = torch.from_numpy(np.array(data)).to(self._dtype)
+
+        # Normalize to expected output dimensions based on what was requested
+        # If n is specified, return (C, Z, Y, X) - no N dimension
+        # If n is None, return (N, C, Z, Y, X) - full 5D
+        original_shape = self.zarr_array.shape
+        if len(original_shape) == 3:
+            # Original is (Z, Y, X)
+            if n is not None:
+                # Requested specific n: return (C, Z, Y, X) = (1, Z, Y, X)
+                if tensor.ndim == 3:
+                    tensor = tensor.unsqueeze(0)  # Add C dimension: (1, Z, Y, X)
+                elif tensor.ndim == 2:
+                    tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, Y, X)
+            else:
+                # No n specified: return (N, C, Z, Y, X) = (1, 1, Z, Y, X)
+                if tensor.ndim == 3:
+                    tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, Z, Y, X)
+                elif tensor.ndim == 2:
+                    tensor = tensor.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, Y, X)
+        elif len(original_shape) == 4:
+            # Original is (C, Z, Y, X)
+            if n is not None:
+                # Requested specific n: return (C, Z, Y, X) - already correct
+                if tensor.ndim == 2:
+                    tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, Y, X) if single slice
+            else:
+                # No n specified: return (N, C, Z, Y, X) = (1, C, Z, Y, X)
+                if tensor.ndim == 4:
+                    tensor = tensor.unsqueeze(0)  # Add N dimension: (1, C, Z, Y, X)
+                elif tensor.ndim == 3:
+                    tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, ...)
+
+        return tensor
 
     @property
     def supports_batch_loading(self) -> bool:
