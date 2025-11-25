@@ -55,23 +55,47 @@ def _create_zarr_array(group, name, **kwargs):
         Name of the array
     **kwargs
         Additional arguments passed to create/create_array
+        If 'data' is provided, it will be written after array creation
 
     Returns
     -------
     zarr.Array
         The created zarr array
     """
-    # Try create() first (zarr 3.x), fall back to create_array() (zarr 2.x)
+    # Extract data if provided (needed for zarr 2.x compatibility)
+    data = kwargs.pop("data", None)
+
+    # Try create() first (zarr 3.x)
     if hasattr(group, "create") and callable(getattr(group, "create", None)):
         try:
-            return group.create(name, **kwargs)
-        except (TypeError, AttributeError):
-            # If create() exists but doesn't work, try create_array()
-            pass
+            if data is not None:
+                # zarr 3.x can accept data directly
+                return group.create(name, data=data, **kwargs)
+            else:
+                return group.create(name, **kwargs)
+        except (TypeError, AttributeError) as e:
+            # If create() exists but doesn't work with data, try create_array()
+            # This happens in zarr 2.x where create() requires shape, not data
+            if "shape" in str(e) or "missing" in str(e).lower():
+                pass
+            else:
+                raise
+
     # Fall back to create_array() for zarr 2.x
     if hasattr(group, "create_array"):
-        return group.create_array(name, **kwargs)
+        if data is not None:
+            # For zarr 2.x, need to extract shape and dtype from data
+            kwargs["shape"] = data.shape
+            kwargs["dtype"] = data.dtype
+            arr = group.create_array(name, **kwargs)
+            arr[:] = data
+            return arr
+        else:
+            return group.create_array(name, **kwargs)
+
     # Last resort: try create() anyway
+    if data is not None:
+        return group.create(name, data=data, **kwargs)
     return group.create(name, **kwargs)
 
 
