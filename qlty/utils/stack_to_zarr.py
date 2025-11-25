@@ -65,6 +65,16 @@ def _create_zarr_array(group, name, **kwargs):
     # Extract data if provided (needed for zarr 2.x compatibility)
     data = kwargs.pop("data", None)
 
+    # For zarr 2.x compatibility: if data is provided and create_array exists,
+    # use create_array() directly since zarr 2.x create() doesn't accept data
+    if data is not None and hasattr(group, "create_array"):
+        # For zarr 2.x, need to extract shape and dtype from data
+        kwargs["shape"] = data.shape
+        kwargs["dtype"] = data.dtype
+        arr = group.create_array(name, **kwargs)
+        arr[:] = data
+        return arr
+
     # Try create() first (zarr 3.x)
     if hasattr(group, "create") and callable(getattr(group, "create", None)):
         try:
@@ -74,24 +84,22 @@ def _create_zarr_array(group, name, **kwargs):
             else:
                 return group.create(name, **kwargs)
         except (TypeError, AttributeError) as e:
-            # If create() exists but doesn't work with data, try create_array()
+            # If create() exists but doesn't work, try create_array()
             # This happens in zarr 2.x where create() requires shape, not data
-            if "shape" in str(e) or "missing" in str(e).lower():
-                pass
-            else:
-                raise
+            if hasattr(group, "create_array"):
+                if data is not None:
+                    kwargs["shape"] = data.shape
+                    kwargs["dtype"] = data.dtype
+                    arr = group.create_array(name, **kwargs)
+                    arr[:] = data
+                    return arr
+                else:
+                    return group.create_array(name, **kwargs)
+            raise
 
     # Fall back to create_array() for zarr 2.x
     if hasattr(group, "create_array"):
-        if data is not None:
-            # For zarr 2.x, need to extract shape and dtype from data
-            kwargs["shape"] = data.shape
-            kwargs["dtype"] = data.dtype
-            arr = group.create_array(name, **kwargs)
-            arr[:] = data
-            return arr
-        else:
-            return group.create_array(name, **kwargs)
+        return group.create_array(name, **kwargs)
 
     # Last resort: try create() anyway
     if data is not None:
