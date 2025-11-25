@@ -31,7 +31,7 @@ except ImportError:
 
 # Import normally - using coverage run directly (not pytest-cov) avoids torch import conflicts
 # during test collection, so we can use normal imports for proper coverage tracking
-from qlty.utils.stack_to_zarr import stack_files_to_zarr
+from qlty.utils.stack_to_zarr import stack_files_to_ome_zarr, stack_files_to_zarr
 
 
 @pytest.fixture
@@ -1158,3 +1158,417 @@ def test_stack_files_to_zarr_multiprocessing_multi_channel(temp_dir):
     assert len(result) == 1
     assert result["mcmp"]["file_count"] == 8
     assert result["mcmp"]["shape"] == (8, 3, 16, 16)  # ZCYX order
+
+
+# ============================================================================
+# Tests for stack_files_to_ome_zarr()
+# ============================================================================
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_single_channel(temp_dir):
+    """Test OME-Zarr creation with single channel images."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(5):
+        filepath = temp_dir / f"stack_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    # Convert to OME-Zarr
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=3,
+        downsample_mode="2d",  # Don't downsample Z
+    )
+
+    assert len(result) == 1
+    assert "stack" in result
+
+    metadata = result["stack"]
+    assert metadata["file_count"] == 5
+    assert metadata["shape"] == (5, 64, 64)  # (Z, Y, X)
+    assert metadata["pyramid_levels"] == 3
+
+    # Check OME-Zarr file exists and has correct structure
+    zarr_path = Path(metadata["zarr_path"])
+    assert zarr_path.exists()
+    assert zarr_path.name.endswith(".ome.zarr")
+
+    # Open and check structure
+    root = zarr.open_group(str(zarr_path), mode="r")
+    
+    # Check that pyramid levels exist
+    for level in range(3):
+        assert str(level) in root, f"Pyramid level {level} not found"
+    
+    # Check base level shape
+    assert root["0"].shape == (5, 64, 64)
+    
+    # Check multiscales metadata
+    assert "multiscales" in root.attrs
+    assert len(root.attrs["multiscales"]) > 0
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
+    """Test OME-Zarr with 2D downsampling mode (no Z downsampling)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(10):
+        filepath = temp_dir / f"test_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(128, 128), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=3,
+        downsample_mode="2d",
+    )
+
+    metadata = result["test"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Check that Z dimension stays same across levels in 2D mode
+    base_z = root["0"].shape[0]
+    for level in range(1, 3):
+        level_z = root[str(level)].shape[0]
+        assert level_z == base_z, f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
+    """Test OME-Zarr with 3D downsampling mode (downsample Z, Y, X)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(8):
+        filepath = temp_dir / f"vol_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_mode="3d",
+    )
+
+    metadata = result["vol"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # In 3D mode, Z should be downsampled
+    base_shape = root["0"].shape
+    level1_shape = root["1"].shape
+    
+    # Z dimension should be downsampled (if original is divisible by 2)
+    # Allow for rounding differences
+    assert level1_shape[0] <= base_shape[0] // 2 + 1
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_custom_axes(temp_dir):
+    """Test OME-Zarr with custom downsample_axes."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(5):
+        filepath = temp_dir / f"custom_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(128, 128), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_axes=("y", "x"),  # Explicitly specify only Y, X
+    )
+
+    metadata = result["custom"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Z dimension should remain unchanged
+    base_z = root["0"].shape[0]
+    level1_z = root["1"].shape[0]
+    assert level1_z == base_z
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_dask_method(temp_dir):
+    """Test OME-Zarr with dask_coarsen method."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(3):
+        filepath = temp_dir / f"dask_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_method="dask_coarsen",
+    )
+
+    assert len(result) == 1
+    assert "dask" in result
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_multiscales_metadata(temp_dir):
+    """Test that OME-Zarr has correct multiscales metadata structure."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(3):
+        filepath = temp_dir / f"meta_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(32, 32), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+    )
+
+    metadata = result["meta"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Check multiscales metadata
+    assert "multiscales" in root.attrs
+    multiscales = root.attrs["multiscales"]
+    assert len(multiscales) > 0
+    assert "version" in multiscales[0]
+    assert "axes" in multiscales[0]
+    assert "datasets" in multiscales[0]
+    
+    # Check OME metadata
+    assert "omero" in root.attrs
+
+
+# ============================================================================
+# Tests for stack_files_to_ome_zarr()
+# ============================================================================
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_single_channel(temp_dir):
+    """Test OME-Zarr creation with single channel images."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(5):
+        filepath = temp_dir / f"stack_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    # Convert to OME-Zarr
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=3,
+        downsample_mode="2d",  # Don't downsample Z
+    )
+
+    assert len(result) == 1
+    assert "stack" in result
+
+    metadata = result["stack"]
+    assert metadata["file_count"] == 5
+    assert metadata["shape"] == (5, 64, 64)  # (Z, Y, X)
+    assert metadata["pyramid_levels"] == 3
+
+    # Check OME-Zarr file exists and has correct structure
+    zarr_path = Path(metadata["zarr_path"])
+    assert zarr_path.exists()
+    assert zarr_path.name.endswith(".ome.zarr")
+
+    # Open and check structure
+    root = zarr.open_group(str(zarr_path), mode="r")
+    
+    # Check that pyramid levels exist
+    for level in range(3):
+        assert str(level) in root, f"Pyramid level {level} not found"
+    
+    # Check base level shape
+    assert root["0"].shape == (5, 64, 64)
+    
+    # Check multiscales metadata
+    assert "multiscales" in root.attrs
+    assert len(root.attrs["multiscales"]) > 0
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
+    """Test OME-Zarr with 2D downsampling mode (no Z downsampling)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(10):
+        filepath = temp_dir / f"test_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(128, 128), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=3,
+        downsample_mode="2d",
+    )
+
+    metadata = result["test"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Check that Z dimension stays same across levels in 2D mode
+    base_z = root["0"].shape[0]
+    for level in range(1, 3):
+        level_z = root[str(level)].shape[0]
+        assert level_z == base_z, f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
+    """Test OME-Zarr with 3D downsampling mode (downsample Z, Y, X)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(8):
+        filepath = temp_dir / f"vol_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_mode="3d",
+    )
+
+    metadata = result["vol"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # In 3D mode, Z should be downsampled
+    base_shape = root["0"].shape
+    level1_shape = root["1"].shape
+    
+    # Z dimension should be downsampled (if original is divisible by 2)
+    # Allow for rounding differences
+    assert level1_shape[0] <= base_shape[0] // 2 + 1
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_custom_axes(temp_dir):
+    """Test OME-Zarr with custom downsample_axes."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(5):
+        filepath = temp_dir / f"custom_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(128, 128), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_axes=("y", "x"),  # Explicitly specify only Y, X
+    )
+
+    metadata = result["custom"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Z dimension should remain unchanged
+    base_z = root["0"].shape[0]
+    level1_z = root["1"].shape[0]
+    assert level1_z == base_z
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_dask_method(temp_dir):
+    """Test OME-Zarr with dask_coarsen method."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(3):
+        filepath = temp_dir / f"dask_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_method="dask_coarsen",
+    )
+
+    assert len(result) == 1
+    assert "dask" in result
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_stack_files_to_ome_zarr_multiscales_metadata(temp_dir):
+    """Test that OME-Zarr has correct multiscales metadata structure."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images
+    for i in range(3):
+        filepath = temp_dir / f"meta_{i:03d}.tif"
+        data = np.random.randint(0, 65535, size=(32, 32), dtype=np.uint16)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+    )
+
+    metadata = result["meta"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Check multiscales metadata
+    assert "multiscales" in root.attrs
+    multiscales = root.attrs["multiscales"]
+    assert len(multiscales) > 0
+    assert "version" in multiscales[0]
+    assert "axes" in multiscales[0]
+    assert "datasets" in multiscales[0]
+    
+    # Check OME metadata
+    assert "omero" in root.attrs
