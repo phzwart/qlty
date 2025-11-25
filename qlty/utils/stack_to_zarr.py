@@ -34,7 +34,8 @@ except ImportError:
 try:
     import zarr
 except ImportError as err:
-    raise ImportError("zarr is required. Install with: pip install zarr") from err
+    msg = "zarr is required. Install with: pip install zarr"
+    raise ImportError(msg) from err
 
 try:
     from tqdm import tqdm
@@ -61,18 +62,19 @@ def _load_image(filepath: Path) -> np.ndarray:
 
     # Try tifffile first (best for scientific imaging)
     if tifffile is not None and ext in (".tif", ".tiff"):
-        img = tifffile.imread(str(filepath))
-        return img
+        return tifffile.imread(str(filepath))
 
     # Fallback to PIL
     if Image is not None:
         img = Image.open(filepath)
-        img_array = np.array(img)
-        return img_array
+        return np.array(img)
 
-    raise RuntimeError(
+    msg = (
         f"Cannot load image {filepath}: No suitable library available. "
         "Install tifffile or Pillow."
+    )
+    raise RuntimeError(
+        msg,
     )
 
 
@@ -101,15 +103,18 @@ def _normalize_axis_order(axis_order: str, has_channels: bool) -> str:
     # Validate axis order contains Z, C, Y, X
     required_axes = {"Z", "C", "Y", "X"}
     if set(axis_order) != required_axes:
+        msg = f"axis_order must contain exactly Z, C, Y, X. Got: {axis_order}"
         raise ValueError(
-            f"axis_order must contain exactly Z, C, Y, X. Got: {axis_order}"
+            msg,
         )
 
     return axis_order
 
 
 def _apply_axis_order(
-    data: np.ndarray, current_shape: tuple[int, ...], axis_order: str
+    data: np.ndarray,
+    current_shape: tuple[int, ...],
+    axis_order: str,
 ) -> tuple[np.ndarray, tuple[int, ...]]:
     """
     Apply axis order transformation to data.
@@ -173,9 +178,8 @@ def _load_and_process_image(
     img = _load_image(filepath)
 
     # Normalize to (C, Y, X) if multi-channel
-    if img.ndim == 3:
-        if img.shape[2] <= 4:  # (Y, X, C)
-            img = np.transpose(img, (2, 0, 1))  # (C, Y, X)
+    if img.ndim == 3 and img.shape[2] <= 4:  # (Y, X, C)
+        img = np.transpose(img, (2, 0, 1))  # (C, Y, X)
 
     # Convert dtype if needed
     if dtype is not None and img.dtype != dtype:
@@ -218,7 +222,7 @@ def _load_and_write_to_zarr(
         z_idx,
         filepath,
         zarr_path,
-        final_shape,
+        _final_shape,
         dtype,
         has_channels,
         axis_order,
@@ -248,7 +252,9 @@ def _load_and_write_to_zarr(
                 # Create a (1, C, Y, X) array, apply transformation, then write
                 slice_data = img[np.newaxis, ...]  # (1, C, Y, X)
                 slice_reordered, _ = _apply_axis_order(
-                    slice_data, (1, C, Y, X), axis_order
+                    slice_data,
+                    (1, C, Y, X),
+                    axis_order,
                 )
                 # Write based on first dimension position
                 if axis_order[0] == "Z":
@@ -262,8 +268,7 @@ def _load_and_write_to_zarr(
             zarr_array[z_idx, :, :] = img
 
         return (z_idx, True)
-    except Exception as e:
-        print(f"Error processing {filepath} at z_idx {z_idx}: {e}")
+    except Exception:
         import traceback
 
         traceback.print_exc()
@@ -345,7 +350,8 @@ def stack_files_to_zarr(
     """
     directory = Path(directory)
     if not directory.is_dir():
-        raise ValueError(f"Directory does not exist: {directory}")
+        msg = f"Directory does not exist: {directory}"
+        raise ValueError(msg)
 
     # Normalize extension
     if not extension.startswith("."):
@@ -373,15 +379,21 @@ def stack_files_to_zarr(
             continue
 
         if match.lastindex is None or match.lastindex < 1:
-            raise ValueError(
+            msg = (
                 "Pattern must have at least 2 groups (basename, counter). "
                 "Pattern has no groups."
             )
+            raise ValueError(
+                msg,
+            )
 
         if match.lastindex < 2:
-            raise ValueError(
+            msg = (
                 f"Pattern must have at least 2 groups (basename, counter). "
                 f"Got {match.lastindex} groups."
+            )
+            raise ValueError(
+                msg,
             )
 
         basename = match.group(1)
@@ -395,18 +407,12 @@ def stack_files_to_zarr(
         stacks[basename].append((counter, filepath))
 
     if not stacks:
-        print("No matching files found.")
         return {}
-
-    print(f"Found {len(stacks)} stack(s) to process")
 
     # Step 2: Stack Analysis
     results = {}
 
-    for stack_idx, (basename, file_list) in enumerate(stacks.items(), 1):
-        print(
-            f"\n[{stack_idx}/{len(stacks)}] Processing stack: {basename} ({len(file_list)} files)"
-        )
+    for _stack_idx, (basename, file_list) in enumerate(stacks.items(), 1):
         # Sort by counter
         if sort_by_counter:
             file_list.sort(key=lambda x: x[0])
@@ -420,9 +426,7 @@ def stack_files_to_zarr(
         actual_counters = set(counters)
         missing = expected_counters - actual_counters
         if missing:
-            print(
-                f"Warning: Stack '{basename}' has missing counters: {sorted(missing)}"
-            )
+            pass
 
         # Load first image to determine dimensions
         first_file = file_list[0][1]
@@ -454,41 +458,48 @@ def stack_files_to_zarr(
                 final_axis_order,
             )
         else:
-            raise ValueError(
+            msg = (
                 f"Unsupported image dimensions: {first_image.ndim}D. "
                 "Expected 2D (Y, X) or 3D (C, Y, X) or (Y, X, C)."
             )
+            raise ValueError(
+                msg,
+            )
 
         # Determine dtype
-        if dtype is None:
-            dtype = first_image.dtype
-        else:
-            dtype = np.dtype(dtype)
+        dtype = first_image.dtype if dtype is None else np.dtype(dtype)
 
         # Validate all images have same dimensions
         for _counter, filepath in file_list[1:]:
             img = _load_image(filepath)
             if img.ndim == 2:
                 if img.shape != (Y, X):
+                    msg = f"Image {filepath} has shape {img.shape}, expected ({Y}, {X})"
                     raise ValueError(
-                        f"Image {filepath} has shape {img.shape}, expected ({Y}, {X})"
+                        msg,
                     )
             elif img.ndim == 3:
                 if img.shape[2] <= 4:
                     # (Y, X, C) format
                     img_Y, img_X, img_C = img.shape
                     if img.shape[:2] != (Y, X) or img_C != C:
-                        raise ValueError(
+                        msg = (
                             f"Image {filepath} has shape {img.shape}, "
                             f"expected ({Y}, {X}, {C})"
                         )
+                        raise ValueError(
+                            msg,
+                        )
                 else:
                     # (C, Y, X) format
-                    img_C, img_Y, img_X = img.shape
+                    img_C, _img_Y, _img_X = img.shape
                     if img.shape[1:] != (Y, X) or img_C != C:
-                        raise ValueError(
+                        msg = (
                             f"Image {filepath} has shape {img.shape}, "
                             f"expected ({C}, {Y}, {X})"
+                        )
+                        raise ValueError(
+                            msg,
                         )
 
         # Determine output path
@@ -512,14 +523,12 @@ def stack_files_to_zarr(
                     zarr_chunks = (C, 1, Y, X)
                 else:
                     # Generic: use first dimension as 1
-                    zarr_chunks = (1,) + final_shape[1:]
+                    zarr_chunks = (1, *final_shape[1:])
             else:
                 zarr_chunks = (1, Y, X)
 
         # Step 3: Zarr Creation (if not dry run)
         if not dry_run:
-            print(f"  Creating zarr array: {output_path}")
-            print(f"  Shape: {final_shape}, dtype: {dtype}, chunks: {zarr_chunks}")
             # Create zarr array
             zarr_array = zarr.open(
                 str(output_path),
@@ -542,12 +551,11 @@ def stack_files_to_zarr(
                 workers = 1
 
             if use_multiprocessing:
-                print(f"  Using {workers} worker processes for parallel processing")
+                pass
 
             # For large stacks, use parallel load-and-write to avoid loading all into memory
             # and to enable parallel zarr writes
             if use_multiprocessing and len(file_list) > 10:  # Use for large stacks
-                print(f"  Loading and writing {len(file_list)} images in parallel...")
                 # Parallel load-and-write: each worker loads an image and writes it directly
                 # This avoids loading all images into memory and enables parallel zarr writes
                 # Zarr supports concurrent writes to different slices
@@ -565,7 +573,7 @@ def stack_files_to_zarr(
                             C,
                             Y,
                             X,
-                        )
+                        ),
                     )
 
                 # Use all available workers for maximum parallelism
@@ -579,33 +587,30 @@ def stack_files_to_zarr(
                                 total=len(tasks),
                                 desc=f"  Processing {basename}",
                                 unit="image",
-                            )
+                            ),
                         )
                     else:
                         # Fallback: process with periodic status updates
                         write_results = []
                         completed = 0
                         for result in pool.imap_unordered(
-                            _load_and_write_to_zarr, tasks
+                            _load_and_write_to_zarr,
+                            tasks,
                         ):
                             write_results.append(result)
                             completed += 1
                             if completed % max(
-                                1, len(tasks) // 20
+                                1,
+                                len(tasks) // 20,
                             ) == 0 or completed == len(tasks):
-                                print(
-                                    f"  Progress: {completed}/{len(tasks)} images processed ({100 * completed / len(tasks):.1f}%)"
-                                )
+                                pass
 
                     # Check for failures
                     failures = [r for r in write_results if not r[1]]
                     if failures:
-                        print(
-                            f"  Warning: {len(failures)} images failed to write out of {len(file_list)}"
-                        )
+                        pass
             else:
                 # Sequential or small stack: load all first, then write
-                print(f"  Loading {len(file_list)} images...")
                 if use_multiprocessing and len(file_list) > 1:
                     # Parallel loading only
                     load_func = partial(_load_and_process_image, dtype=dtype)
@@ -618,36 +623,31 @@ def stack_files_to_zarr(
                                     total=len(filepaths),
                                     desc="  Loading images",
                                     unit="image",
-                                )
+                                ),
                             )
                         else:
                             images = pool.map(load_func, filepaths)
-                            print(f"  Loaded {len(images)} images")
+                # Sequential loading
+                elif tqdm is not None:
+                    images = [
+                        _load_and_process_image(filepath, dtype=dtype)
+                        for filepath in tqdm(
+                            [f for _, f in file_list],
+                            desc="  Loading images",
+                            unit="image",
+                        )
+                    ]
                 else:
-                    # Sequential loading
-                    if tqdm is not None:
-                        images = [
-                            _load_and_process_image(filepath, dtype=dtype)
-                            for filepath in tqdm(
-                                [f for _, f in file_list],
-                                desc="  Loading images",
-                                unit="image",
-                            )
-                        ]
-                    else:
-                        images = []
-                        for idx, (_, filepath) in enumerate(file_list, 1):
-                            images.append(
-                                _load_and_process_image(filepath, dtype=dtype)
-                            )
-                            if idx % max(1, len(file_list) // 20) == 0 or idx == len(
-                                file_list
-                            ):
-                                print(
-                                    f"  Loaded {idx}/{len(file_list)} images ({100 * idx / len(file_list):.1f}%)"
-                                )
+                    images = []
+                    for idx, (_, filepath) in enumerate(file_list, 1):
+                        images.append(
+                            _load_and_process_image(filepath, dtype=dtype),
+                        )
+                        if idx % max(1, len(file_list) // 20) == 0 or idx == len(
+                            file_list,
+                        ):
+                            pass
 
-                print(f"  Writing {len(images)} images to zarr...")
                 # Write images to zarr
                 if has_channels:
                     # Need to apply axis order
@@ -658,30 +658,26 @@ def stack_files_to_zarr(
 
                     # Apply axis order and write
                     stack_reordered, _ = _apply_axis_order(
-                        stack_data, (len(file_list), C, Y, X), final_axis_order
+                        stack_data,
+                        (len(file_list), C, Y, X),
+                        final_axis_order,
                     )
                     zarr_array[:] = stack_reordered
+                # Single channel: direct write
+                elif tqdm is not None:
+                    for z_idx, img in enumerate(
+                        tqdm(images, desc="  Writing to zarr", unit="image"),
+                    ):
+                        zarr_array[z_idx] = img
                 else:
-                    # Single channel: direct write
-                    if tqdm is not None:
-                        for z_idx, img in enumerate(
-                            tqdm(images, desc="  Writing to zarr", unit="image")
-                        ):
-                            zarr_array[z_idx] = img
-                    else:
-                        for z_idx, img in enumerate(images):
-                            zarr_array[z_idx] = img
-                            if (z_idx + 1) % max(1, len(images) // 20) == 0 or (
-                                z_idx + 1
-                            ) == len(images):
-                                print(
-                                    f"  Wrote {z_idx + 1}/{len(images)} images ({100 * (z_idx + 1) / len(images):.1f}%)"
-                                )
-
-                print(f"  Completed writing {len(images)} images")
+                    for z_idx, img in enumerate(images):
+                        zarr_array[z_idx] = img
+                        if (z_idx + 1) % max(1, len(images) // 20) == 0 or (
+                            z_idx + 1
+                        ) == len(images):
+                            pass
 
             # Store metadata as zarr attributes
-            print("  Storing metadata...")
             zarr_array.attrs.update(
                 {
                     "basename": basename,
@@ -693,12 +689,10 @@ def stack_files_to_zarr(
                     if isinstance(pattern, re.Pattern)
                     else pattern,
                     "extension": extension,
-                }
+                },
             )
-            print(f"  ✓ Completed stack: {basename}")
         else:
-            print(f"  Dry run: Would create zarr array at {output_path}")
-            print(f"  Shape: {final_shape}, dtype: {dtype}")
+            pass
 
         # Store results
         results[basename] = {
@@ -711,7 +705,6 @@ def stack_files_to_zarr(
             "axis_order": final_axis_order,
         }
 
-    print(f"\n✓ Successfully processed {len(results)} stack(s)")
     return results
 
 
@@ -824,7 +817,8 @@ def stack_files_to_ome_zarr(
     """
     directory = Path(directory)
     if not directory.is_dir():
-        raise ValueError(f"Directory does not exist: {directory}")
+        msg = f"Directory does not exist: {directory}"
+        raise ValueError(msg)
 
     # Normalize extension
     if not extension.startswith("."):
@@ -853,15 +847,21 @@ def stack_files_to_ome_zarr(
             continue
 
         if match.lastindex is None or match.lastindex < 1:
-            raise ValueError(
+            msg = (
                 "Pattern must have at least 2 groups (basename, counter). "
                 "Pattern has no groups."
             )
+            raise ValueError(
+                msg,
+            )
 
         if match.lastindex < 2:
-            raise ValueError(
+            msg = (
                 f"Pattern must have at least 2 groups (basename, counter). "
                 f"Got {match.lastindex} groups."
+            )
+            raise ValueError(
+                msg,
             )
 
         basename = match.group(1)
@@ -875,18 +875,12 @@ def stack_files_to_ome_zarr(
         stacks[basename].append((counter, filepath))
 
     if not stacks:
-        print("No matching files found.")
         return {}
-
-    print(f"Found {len(stacks)} stack(s) to process")
 
     # Step 2: Stack Analysis (reuse logic from stack_files_to_zarr)
     results = {}
 
-    for stack_idx, (basename, file_list) in enumerate(stacks.items(), 1):
-        print(
-            f"\n[{stack_idx}/{len(stacks)}] Processing stack: {basename} ({len(file_list)} files)"
-        )
+    for _stack_idx, (basename, file_list) in enumerate(stacks.items(), 1):
         # Sort by counter
         if sort_by_counter:
             file_list.sort(key=lambda x: x[0])
@@ -900,9 +894,7 @@ def stack_files_to_ome_zarr(
         actual_counters = set(counters)
         missing = expected_counters - actual_counters
         if missing:
-            print(
-                f"Warning: Stack '{basename}' has missing counters: {sorted(missing)}"
-            )
+            pass
 
         # Load first image to determine dimensions
         first_file = file_list[0][1]
@@ -934,39 +926,46 @@ def stack_files_to_ome_zarr(
             )
             base_shape = final_shape_tuple
         else:
-            raise ValueError(
+            msg = (
                 f"Unsupported image dimensions: {first_image.ndim}D. "
                 "Expected 2D (Y, X) or 3D (C, Y, X) or (Y, X, C)."
             )
+            raise ValueError(
+                msg,
+            )
 
         # Determine dtype
-        if dtype is None:
-            dtype = first_image.dtype
-        else:
-            dtype = np.dtype(dtype)
+        dtype = first_image.dtype if dtype is None else np.dtype(dtype)
 
         # Validate all images have same dimensions
         for _counter, filepath in file_list[1:]:
             img = _load_image(filepath)
             if img.ndim == 2:
                 if img.shape != (Y, X):
+                    msg = f"Image {filepath} has shape {img.shape}, expected ({Y}, {X})"
                     raise ValueError(
-                        f"Image {filepath} has shape {img.shape}, expected ({Y}, {X})"
+                        msg,
                     )
             elif img.ndim == 3:
                 if img.shape[2] <= 4:
                     img_Y, img_X, img_C = img.shape
                     if img.shape[:2] != (Y, X) or img_C != C:
-                        raise ValueError(
+                        msg = (
                             f"Image {filepath} has shape {img.shape}, "
                             f"expected ({Y}, {X}, {C})"
                         )
-                else:
-                    img_C, img_Y, img_X = img.shape
-                    if img.shape[1:] != (Y, X) or img_C != C:
                         raise ValueError(
+                            msg,
+                        )
+                else:
+                    img_C, _img_Y, _img_X = img.shape
+                    if img.shape[1:] != (Y, X) or img_C != C:
+                        msg = (
                             f"Image {filepath} has shape {img.shape}, "
                             f"expected ({C}, {Y}, {X})"
+                        )
+                        raise ValueError(
+                            msg,
                         )
 
         # Determine output path
@@ -1009,8 +1008,9 @@ def stack_files_to_ome_zarr(
             # 3D mode: downsample Z, Y, X
             axes_to_downsample = {"z", "y", "x"}
         else:
+            msg = f"Invalid downsample_mode: {downsample_mode}. Must be '2d' or '3d'."
             raise ValueError(
-                f"Invalid downsample_mode: {downsample_mode}. Must be '2d' or '3d'."
+                msg,
             )
 
         # Generate scale factors if not provided
@@ -1025,19 +1025,25 @@ def stack_files_to_ome_zarr(
                         c_scale = 1  # Never downsample channels
                         y_scale = scale if "y" in axes_to_downsample else 1
                         x_scale = scale if "x" in axes_to_downsample else 1
-                        pyramid_scale_factors.append((z_scale, c_scale, y_scale, x_scale))
+                        pyramid_scale_factors.append(
+                            (z_scale, c_scale, y_scale, x_scale),
+                        )
                     elif final_axis_order == "CZYX":
                         c_scale = 1  # Never downsample channels
                         z_scale = scale if "z" in axes_to_downsample else 1
                         y_scale = scale if "y" in axes_to_downsample else 1
                         x_scale = scale if "x" in axes_to_downsample else 1
-                        pyramid_scale_factors.append((c_scale, z_scale, y_scale, x_scale))
+                        pyramid_scale_factors.append(
+                            (c_scale, z_scale, y_scale, x_scale),
+                        )
                     else:
                         # Generic: don't scale C, scale others based on axes_to_downsample
                         z_scale = scale if "z" in axes_to_downsample else 1
                         y_scale = scale if "y" in axes_to_downsample else 1
                         x_scale = scale if "x" in axes_to_downsample else 1
-                        pyramid_scale_factors.append((1, 1, y_scale, x_scale))  # Default ZCYX order
+                        pyramid_scale_factors.append(
+                            (1, 1, y_scale, x_scale),
+                        )  # Default ZCYX order
                 else:
                     # Single channel: (Z, Y, X)
                     z_scale = scale if "z" in axes_to_downsample else 1
@@ -1046,10 +1052,6 @@ def stack_files_to_ome_zarr(
                     pyramid_scale_factors.append((z_scale, y_scale, x_scale))
 
         if not dry_run:
-            print(f"  Creating OME-Zarr: {output_path}")
-            print(f"  Base shape: {base_shape}, dtype: {dtype}")
-            print(f"  Pyramid levels: {num_pyramid_levels}")
-
             # Create OME-Zarr root group
             root = zarr.open_group(str(output_path), mode="w")
             multiscales_metadata = []
@@ -1064,13 +1066,12 @@ def stack_files_to_ome_zarr(
                     elif final_axis_order == "CZYX":
                         base_chunks = (min(C, 4), 1, min(Y, 256), min(X, 256))
                     else:
-                        base_chunks = (1,) + tuple(min(d, 256) for d in base_shape[1:])
+                        base_chunks = (1, *tuple(min(d, 256) for d in base_shape[1:]))
                 else:
                     base_chunks = (1, min(Y, 256), min(X, 256))
             else:
                 base_chunks = zarr_chunks
 
-            print("  Loading images for base level...")
             # Load images (reuse logic from stack_files_to_zarr)
             use_multiprocessing = False
             if num_workers is None:
@@ -1093,14 +1094,18 @@ def stack_files_to_ome_zarr(
                                 total=len(filepaths),
                                 desc="    Loading",
                                 unit="image",
-                            )
+                            ),
                         )
                     else:
                         images = pool.map(load_func, filepaths)
             else:
                 images = [
                     _load_and_process_image(filepath, dtype=dtype)
-                    for filepath in (tqdm([f for _, f in file_list], desc="    Loading") if tqdm else [f for _, f in file_list])
+                    for filepath in (
+                        tqdm([f for _, f in file_list], desc="    Loading")
+                        if tqdm
+                        else [f for _, f in file_list]
+                    )
                 ]
 
             # Stack images and apply axis order
@@ -1109,12 +1114,13 @@ def stack_files_to_ome_zarr(
                 for z_idx, img in enumerate(images):
                     stack_data[z_idx] = img
                 stack_reordered, _ = _apply_axis_order(
-                    stack_data, (len(file_list), C, Y, X), final_axis_order
+                    stack_data,
+                    (len(file_list), C, Y, X),
+                    final_axis_order,
                 )
                 base_array_data = stack_reordered
             else:
                 base_array_data = np.stack(images, axis=0)
-
 
             # Create base level array (OME-Zarr stores pyramid levels as arrays at root)
             base_zarr_array = root.create_array(
@@ -1129,9 +1135,9 @@ def stack_files_to_ome_zarr(
                         {
                             "type": "scale",
                             "scale": [1.0] * len(base_shape),  # Base level has scale 1
-                        }
+                        },
                     ],
-                }
+                },
             )
 
             # Create pyramid levels using Dask for parallel processing
@@ -1139,22 +1145,21 @@ def stack_files_to_ome_zarr(
                 try:
                     import dask.array as da
                 except ImportError as err:
+                    msg = "dask is required for pyramid creation. Install with: pip install dask"
                     raise ImportError(
-                        "dask is required for pyramid creation. Install with: pip install dask"
+                        msg,
                     ) from err
-                
+
                 # Convert base array to Dask array for efficient downsampling
                 current_dask = da.from_zarr(base_zarr_array)
                 current_data = base_array_data
                 current_shape = base_shape
-                
+
                 for level_idx, scale_factors in enumerate(pyramid_scale_factors, 1):
-                    print(f"  Creating pyramid level {level_idx + 1}/{num_pyramid_levels}...")
-                    
                     # Determine which dimensions to downsample based on scale factors
                     # Build coarsen dictionary: {axis_index: scale_factor}
                     coarsen_dict = {}
-                    
+
                     if has_channels:
                         if final_axis_order == "ZCYX":
                             # Shape: (Z, C, Y, X), scale_factors: (z_scale, c_scale, y_scale, x_scale)
@@ -1180,7 +1185,9 @@ def stack_files_to_ome_zarr(
                             # Generic: assume standard order and downsample based on scale factors
                             # This is a fallback - ideally users should specify correct axis order
                             for dim_idx, scale in enumerate(scale_factors):
-                                if scale > 1 and dim_idx != 1:  # Don't downsample channels
+                                if (
+                                    scale > 1 and dim_idx != 1
+                                ):  # Don't downsample channels
                                     coarsen_dict[dim_idx] = scale
                     else:
                         # Single channel: (Z, Y, X), scale_factors: (z_scale, y_scale, x_scale)
@@ -1196,47 +1203,73 @@ def stack_files_to_ome_zarr(
                     if downsample_method == "dask_coarsen":
                         if coarsen_dict:
                             # Use dask coarsen with mean reduction for block averaging
-                            downsampled_dask = da.coarsen(np.mean, current_dask, coarsen_dict)
+                            downsampled_dask = da.coarsen(
+                                np.mean,
+                                current_dask,
+                                coarsen_dict,
+                            )
                             # Compute the result and convert to numpy
                             downsampled = downsampled_dask.compute().astype(dtype)
                         else:
                             # No downsampling needed for this level (shouldn't happen, but handle gracefully)
                             downsampled = current_data
-                    
+
                     elif downsample_method == "scipy_zoom":
                         # Fallback to scipy zoom
                         try:
                             from scipy.ndimage import zoom
                         except ImportError as err:
+                            msg = "scipy is required for scipy_zoom method. Install with: pip install scipy"
                             raise ImportError(
-                                "scipy is required for scipy_zoom method. Install with: pip install scipy"
+                                msg,
                             ) from err
-                        
+
                         # Build zoom factors
                         if has_channels:
                             if final_axis_order == "ZCYX":
                                 z_scale, c_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [1.0 / z_scale, 1.0, 1.0 / y_scale, 1.0 / x_scale]
+                                zoom_factors = [
+                                    1.0 / z_scale,
+                                    1.0,
+                                    1.0 / y_scale,
+                                    1.0 / x_scale,
+                                ]
                             elif final_axis_order == "CZYX":
                                 c_scale, z_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [1.0, 1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
+                                zoom_factors = [
+                                    1.0,
+                                    1.0 / z_scale,
+                                    1.0 / y_scale,
+                                    1.0 / x_scale,
+                                ]
                             else:
-                                zoom_factors = [1.0] * (len(current_shape) - 2) + [1.0 / y_scale, 1.0 / x_scale]
+                                zoom_factors = [1.0] * (len(current_shape) - 2) + [
+                                    1.0 / y_scale,
+                                    1.0 / x_scale,
+                                ]
                         else:
                             z_scale, y_scale, x_scale = scale_factors
                             zoom_factors = [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
-                        
-                        downsampled = zoom(current_data, zoom_factors, order=1, prefilter=False).astype(dtype)
-                    
+
+                        downsampled = zoom(
+                            current_data,
+                            zoom_factors,
+                            order=1,
+                            prefilter=False,
+                        ).astype(dtype)
+
                     else:
-                        raise ValueError(
+                        msg = (
                             f"Unknown downsample_method: {downsample_method}. "
                             "Supported methods: 'dask_coarsen', 'scipy_zoom'"
+                        )
+                        raise ValueError(
+                            msg,
                         )
 
                     current_data = downsampled
                     current_shape = current_data.shape
-                    
+
                     # Create array for this pyramid level (stored at root)
                     level_zarr_array = root.create_array(
                         str(level_idx),
@@ -1250,11 +1283,11 @@ def stack_files_to_ome_zarr(
                                 {
                                     "type": "scale",
                                     "scale": list(scale_factors),
-                                }
+                                },
                             ],
-                        }
+                        },
                     )
-                    
+
                     # Convert to Dask for next iteration (if there are more levels)
                     if level_idx < len(pyramid_scale_factors):
                         current_dask = da.from_zarr(level_zarr_array)
@@ -1275,10 +1308,16 @@ def stack_files_to_ome_zarr(
                 "multiscales": [
                     {
                         "version": "0.4",
-                        "axes": [{"name": ax, "type": "space" if ax in ["x", "y", "z"] else "channel"} for ax in axes],
+                        "axes": [
+                            {
+                                "name": ax,
+                                "type": "space" if ax in ["x", "y", "z"] else "channel",
+                            }
+                            for ax in axes
+                        ],
                         "datasets": multiscales_metadata,
-                    }
-                ]
+                    },
+                ],
             }
 
             # Add OME metadata to root
@@ -1300,11 +1339,8 @@ def stack_files_to_ome_zarr(
             )
             root.attrs["extension"] = extension
 
-            print(f"  ✓ Completed OME-Zarr: {basename}")
         else:
-            print(f"  Dry run: Would create OME-Zarr at {output_path}")
-            print(f"  Base shape: {base_shape}, dtype: {dtype}")
-            print(f"  Pyramid levels: {num_pyramid_levels}")
+            pass
 
         # Store results
         results[basename] = {
@@ -1318,5 +1354,4 @@ def stack_files_to_ome_zarr(
             "pyramid_levels": num_pyramid_levels,
         }
 
-    print(f"\n✓ Successfully processed {len(results)} stack(s) as OME-Zarr")
     return results

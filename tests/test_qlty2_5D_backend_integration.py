@@ -25,7 +25,10 @@ def test_qlty_with_tensor_like_in_memory():
     # Create quilt
     spec = {"identity": [0]}
     quilt = NCZYX25DQuilt(
-        data_source=tensor_like, channel_spec=spec, accumulation_mode="2d", z_slices=[0]
+        data_source=tensor_like,
+        channel_spec=spec,
+        accumulation_mode="2d",
+        z_slices=[0],
     )
 
     # Convert
@@ -86,12 +89,7 @@ def test_qlty_with_direct_tensor():
 
 if __name__ == "__main__":
     test_qlty_with_tensor_like_in_memory()
-    print("✓ qlty_with_tensor_like_in_memory")
 
     test_qlty_with_tensor_like_zarr()
-    print("✓ qlty_with_tensor_like_zarr")
 
     test_qlty_with_direct_tensor()
-    print("✓ qlty_with_direct_tensor")
-
-    print("\nAll integration tests passed!")

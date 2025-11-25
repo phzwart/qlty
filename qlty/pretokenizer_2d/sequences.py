@@ -4,8 +4,7 @@ This module provides functions to prepare patches for tokenization by splitting 
 into subpatches (tokens) and computing overlap information between patch pairs.
 The actual tokenization (conversion to embeddings) is done by downstream models.
 """
-
-from typing import Dict, Tuple, Union
+from __future__ import annotations
 
 import torch
 
@@ -22,8 +21,10 @@ except ImportError:
 
 
 def tokenize_patch(
-    patch: torch.Tensor, patch_size: int, stride: int = None
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    patch: torch.Tensor,
+    patch_size: int,
+    stride: int | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Pre-tokenize a patch by splitting it into a sequence of subpatches with absolute coordinates.
 
@@ -68,25 +69,30 @@ def tokenize_patch(
     >>> # coords[1] = [0, 2] for next token to the right (with stride=2)
     """
     if len(patch.shape) != 3:
-        raise ValueError(f"patch must be 3D (C, H, W), got shape {patch.shape}")
+        msg = f"patch must be 3D (C, H, W), got shape {patch.shape}"
+        raise ValueError(msg)
 
     C, H, W = patch.shape
 
     if patch_size <= 0:
-        raise ValueError(f"patch_size must be positive, got {patch_size}")
+        msg = f"patch_size must be positive, got {patch_size}"
+        raise ValueError(msg)
 
     if stride is None:
         stride = patch_size // 2
 
     if stride <= 0:
-        raise ValueError(f"stride must be positive, got {stride}")
+        msg = f"stride must be positive, got {stride}"
+        raise ValueError(msg)
 
     if stride > patch_size:
-        raise ValueError(f"stride ({stride}) must be <= patch_size ({patch_size})")
+        msg = f"stride ({stride}) must be <= patch_size ({patch_size})"
+        raise ValueError(msg)
 
     if patch_size > H or patch_size > W:
+        msg = f"patch_size ({patch_size}) must be <= patch dimensions ({H}, {W})"
         raise ValueError(
-            f"patch_size ({patch_size}) must be <= patch dimensions ({H}, {W})"
+            msg,
         )
 
     # Use qlty's NCYXQuilt framework for patch extraction
@@ -130,8 +136,8 @@ def _find_overlapping_tokens(
     dy: float,
     rot_k90: int,
     patch_size: int,
-    patch_shape: Tuple[int, int],
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    patch_shape: tuple[int, int],
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Find overlapping tokens between two patches given their geometric relationship.
 
@@ -176,11 +182,17 @@ def _find_overlapping_tokens(
 
     overlap_mask1 = torch.zeros(T1, dtype=torch.bool, device=coords1.device)
     overlap_indices1_to_2 = torch.full(
-        (T1,), -1, dtype=torch.long, device=coords1.device
+        (T1,),
+        -1,
+        dtype=torch.long,
+        device=coords1.device,
     )
     overlap_mask2 = torch.zeros(T2, dtype=torch.bool, device=coords2.device)
     overlap_indices2_to_1 = torch.full(
-        (T2,), -1, dtype=torch.long, device=coords2.device
+        (T2,),
+        -1,
+        dtype=torch.long,
+        device=coords2.device,
     )
     overlap_fractions = torch.zeros(T1, dtype=torch.float32, device=coords1.device)
 
@@ -226,7 +238,8 @@ def _find_overlapping_tokens(
                 x2 = y_unrot
                 y2 = H - x_unrot
             else:
-                raise ValueError(f"Invalid rotation: {rot_k90}")
+                msg = f"Invalid rotation: {rot_k90}"
+                raise ValueError(msg)
 
             corners2.append((x2, y2))
 
@@ -434,7 +447,11 @@ if HAS_NUMBA:
 
 
 def _to_tensor_batch(
-    value, N: int, dtype: torch.dtype, device: torch.device, name: str
+    value,
+    N: int,
+    dtype: torch.dtype,
+    device: torch.device,
+    name: str,
 ) -> torch.Tensor:
     """
     Convert a value (scalar, tensor, or numpy array) to a batched tensor.
@@ -460,8 +477,9 @@ def _to_tensor_batch(
     if isinstance(value, torch.Tensor):
         value = value.to(device)
         if value.shape[0] != N:
+            msg = f"{name} must have shape ({N},) or be scalar, got {value.shape}"
             raise ValueError(
-                f"{name} must have shape ({N},) or be scalar, got {value.shape}"
+                msg,
             )
         return value
 
@@ -472,8 +490,9 @@ def _to_tensor_batch(
         if isinstance(value, np.ndarray):
             value = torch.from_numpy(value).to(device)
             if value.shape[0] != N:
+                msg = f"{name} must have shape ({N},) or be scalar, got {value.shape}"
                 raise ValueError(
-                    f"{name} must have shape ({N},) or be scalar, got {value.shape}"
+                    msg,
                 )
             return value
     except ImportError:
@@ -486,12 +505,12 @@ def _to_tensor_batch(
 def build_sequence_pair(
     patch1: torch.Tensor,
     patch2: torch.Tensor,
-    dx: Union[float, torch.Tensor],
-    dy: Union[float, torch.Tensor],
-    rot_k90: Union[int, torch.Tensor],
+    dx: float | torch.Tensor,
+    dy: float | torch.Tensor,
+    rot_k90: int | torch.Tensor,
     patch_size: int,
-    stride: int = None,
-) -> Dict[str, torch.Tensor]:
+    stride: int | None = None,
+) -> dict[str, torch.Tensor]:
     """
     Build sequence pair from two patches with overlap information.
 
@@ -562,13 +581,15 @@ def build_sequence_pair(
         N2, C2, H2, W2 = patch2.shape
 
         if N != N2:
+            msg = f"Batch sizes must match: patch1 has {N} patches, patch2 has {N2}"
             raise ValueError(
-                f"Batch sizes must match: patch1 has {N} patches, patch2 has {N2}"
+                msg,
             )
 
         if C1 != C2 or H1 != H2 or W1 != W2:
+            msg = f"Patches must have same shape, got {patch1.shape} and {patch2.shape}"
             raise ValueError(
-                f"Patches must have same shape, got {patch1.shape} and {patch2.shape}"
+                msg,
             )
 
         # Convert dx, dy, rot_k90 to tensors if needed
@@ -581,10 +602,7 @@ def build_sequence_pair(
         C, H, W = patch1.shape[1:]
 
         # Determine stride (same logic as tokenize_patch)
-        if stride is None:
-            stride_val = patch_size // 2
-        else:
-            stride_val = stride
+        stride_val = patch_size // 2 if stride is None else stride
 
         # Create quilt object once (same for all patches)
         quilt = NCYXQuilt(
@@ -612,7 +630,9 @@ def build_sequence_pair(
                 start_x = min(xx * stride_val, W - patch_size)
                 coords_list.append([start_y, start_x])
         coords = torch.tensor(
-            coords_list, dtype=torch.long, device=patch1.device
+            coords_list,
+            dtype=torch.long,
+            device=patch1.device,
         )  # (T, 2)
 
         # Flatten patches to tokens: (N*T, C, patch_size, patch_size) -> (N*T, C*patch_size*patch_size)
@@ -630,19 +650,31 @@ def build_sequence_pair(
 
         # Initialize overlap tensors
         overlap_mask1_batch = torch.zeros(
-            (N, T), dtype=torch.bool, device=patch1.device
+            (N, T),
+            dtype=torch.bool,
+            device=patch1.device,
         )
         overlap_mask2_batch = torch.zeros(
-            (N, T), dtype=torch.bool, device=patch1.device
+            (N, T),
+            dtype=torch.bool,
+            device=patch1.device,
         )
         overlap_indices1_to_2_batch = torch.full(
-            (N, T), -1, dtype=torch.long, device=patch1.device
+            (N, T),
+            -1,
+            dtype=torch.long,
+            device=patch1.device,
         )
         overlap_indices2_to_1_batch = torch.full(
-            (N, T), -1, dtype=torch.long, device=patch1.device
+            (N, T),
+            -1,
+            dtype=torch.long,
+            device=patch1.device,
         )
         overlap_fractions_batch = torch.zeros(
-            (N, T), dtype=torch.float32, device=patch1.device
+            (N, T),
+            dtype=torch.float32,
+            device=patch1.device,
         )
 
         # Process overlaps - use numba-accelerated batch processing if available
@@ -684,13 +716,13 @@ def build_sequence_pair(
             overlap_mask1_batch = torch.from_numpy(overlap_mask1_np).to(patch1.device)
             overlap_mask2_batch = torch.from_numpy(overlap_mask2_np).to(patch1.device)
             overlap_indices1_to_2_batch = torch.from_numpy(overlap_indices1_to_2_np).to(
-                patch1.device
+                patch1.device,
             )
             overlap_indices2_to_1_batch = torch.from_numpy(overlap_indices2_to_1_np).to(
-                patch1.device
+                patch1.device,
             )
             overlap_fractions_batch = torch.from_numpy(overlap_fractions_np).to(
-                patch1.device
+                patch1.device,
             )
 
             # Build overlap pairs (vectorized for all pairs)
@@ -704,7 +736,7 @@ def build_sequence_pair(
                     overlap_pairs_all.append(pairs)
                 else:
                     overlap_pairs_all.append(
-                        torch.empty((0, 2), dtype=torch.long, device=patch1.device)
+                        torch.empty((0, 2), dtype=torch.long, device=patch1.device),
                     )
         else:
             # Sequential processing (for small batches or when numba unavailable)
@@ -741,7 +773,7 @@ def build_sequence_pair(
                     overlap_pairs_all.append(pairs)
                 else:
                     overlap_pairs_all.append(
-                        torch.empty((0, 2), dtype=torch.long, device=patch1.device)
+                        torch.empty((0, 2), dtype=torch.long, device=patch1.device),
                     )
 
         # Find maximum number of overlap pairs
@@ -754,11 +786,16 @@ def build_sequence_pair(
         # Create overlap_pairs_batch tensor
         if max_pairs == 0:
             overlap_pairs_batch = torch.empty(
-                (N, 0, 2), dtype=torch.long, device=patch1.device
+                (N, 0, 2),
+                dtype=torch.long,
+                device=patch1.device,
             )
         else:
             overlap_pairs_batch = torch.full(
-                (N, max_pairs, 2), -1, dtype=torch.long, device=patch1.device
+                (N, max_pairs, 2),
+                -1,
+                dtype=torch.long,
+                device=patch1.device,
             )
             for i, pairs in enumerate(overlap_pairs_all):
                 num_pairs = pairs.shape[0]
@@ -788,66 +825,75 @@ def build_sequence_pair(
             "overlap_pair_counts": overlap_pair_counts,  # (N,) - number of overlap pairs per sample
         }
 
-    else:
-        # Single patch processing (original behavior)
-        if len(patch1.shape) != 3 or len(patch2.shape) != 3:
-            raise ValueError(
-                f"Both patches must be 3D (C, H, W) or 4D (N, C, H, W), "
-                f"got shapes {patch1.shape} and {patch2.shape}"
-            )
-
-        C1, H1, W1 = patch1.shape
-        C2, H2, W2 = patch2.shape
-
-        if C1 != C2 or H1 != H2 or W1 != W2:
-            raise ValueError(
-                f"Patches must have same shape, got {patch1.shape} and {patch2.shape}"
-            )
-
-        # Convert scalars to floats/ints if they're tensors
-        if isinstance(dx, torch.Tensor):
-            dx = dx.item()
-        if isinstance(dy, torch.Tensor):
-            dy = dy.item()
-        if isinstance(rot_k90, torch.Tensor):
-            rot_k90 = rot_k90.item()
-
-        # Tokenize both patches
-        tokens1, coords1 = tokenize_patch(patch1, patch_size, stride=stride)
-        tokens2, coords2 = tokenize_patch(patch2, patch_size, stride=stride)
-
-        # Find overlapping tokens
-        (
-            overlap_mask1,
-            overlap_indices1_to_2,
-            overlap_mask2,
-            overlap_indices2_to_1,
-            overlap_fractions,
-        ) = _find_overlapping_tokens(
-            coords1, coords2, dx, dy, rot_k90, patch_size, (H1, W1)
+    # Single patch processing (original behavior)
+    if len(patch1.shape) != 3 or len(patch2.shape) != 3:
+        msg = (
+            f"Both patches must be 3D (C, H, W) or 4D (N, C, H, W), "
+            f"got shapes {patch1.shape} and {patch2.shape}"
+        )
+        raise ValueError(
+            msg,
         )
 
-        # Build list of overlap pairs: [(i, j), ...] where token i in patch1 overlaps with token j in patch2
-        overlap_pairs = []
-        for i in range(overlap_mask1.shape[0]):
-            if overlap_mask1[i]:
-                j = overlap_indices1_to_2[i].item()
-                overlap_pairs.append((i, j))
-        overlap_pairs_tensor = (
-            torch.tensor(overlap_pairs, dtype=torch.long, device=tokens1.device)
-            if overlap_pairs
-            else torch.empty((0, 2), dtype=torch.long, device=tokens1.device)
+    C1, H1, W1 = patch1.shape
+    C2, H2, W2 = patch2.shape
+
+    if C1 != C2 or H1 != H2 or W1 != W2:
+        msg = f"Patches must have same shape, got {patch1.shape} and {patch2.shape}"
+        raise ValueError(
+            msg,
         )
 
-        return {
-            "tokens1": tokens1,
-            "tokens2": tokens2,
-            "coords1": coords1,
-            "coords2": coords2,
-            "overlap_mask1": overlap_mask1,
-            "overlap_mask2": overlap_mask2,
-            "overlap_indices1_to_2": overlap_indices1_to_2,
-            "overlap_indices2_to_1": overlap_indices2_to_1,
-            "overlap_fractions": overlap_fractions,  # Fraction of overlap for each patch1 token (0.0 to 1.0)
-            "overlap_pairs": overlap_pairs_tensor,  # Shape (N_overlaps, 2) with (i, j) pairs
-        }
+    # Convert scalars to floats/ints if they're tensors
+    if isinstance(dx, torch.Tensor):
+        dx = dx.item()
+    if isinstance(dy, torch.Tensor):
+        dy = dy.item()
+    if isinstance(rot_k90, torch.Tensor):
+        rot_k90 = rot_k90.item()
+
+    # Tokenize both patches
+    tokens1, coords1 = tokenize_patch(patch1, patch_size, stride=stride)
+    tokens2, coords2 = tokenize_patch(patch2, patch_size, stride=stride)
+
+    # Find overlapping tokens
+    (
+        overlap_mask1,
+        overlap_indices1_to_2,
+        overlap_mask2,
+        overlap_indices2_to_1,
+        overlap_fractions,
+    ) = _find_overlapping_tokens(
+        coords1,
+        coords2,
+        dx,
+        dy,
+        rot_k90,
+        patch_size,
+        (H1, W1),
+    )
+
+    # Build list of overlap pairs: [(i, j), ...] where token i in patch1 overlaps with token j in patch2
+    overlap_pairs = []
+    for i in range(overlap_mask1.shape[0]):
+        if overlap_mask1[i]:
+            j = overlap_indices1_to_2[i].item()
+            overlap_pairs.append((i, j))
+    overlap_pairs_tensor = (
+        torch.tensor(overlap_pairs, dtype=torch.long, device=tokens1.device)
+        if overlap_pairs
+        else torch.empty((0, 2), dtype=torch.long, device=tokens1.device)
+    )
+
+    return {
+        "tokens1": tokens1,
+        "tokens2": tokens2,
+        "coords1": coords1,
+        "coords2": coords2,
+        "overlap_mask1": overlap_mask1,
+        "overlap_mask2": overlap_mask2,
+        "overlap_indices1_to_2": overlap_indices1_to_2,
+        "overlap_indices2_to_1": overlap_indices2_to_1,
+        "overlap_fractions": overlap_fractions,  # Fraction of overlap for each patch1 token (0.0 to 1.0)
+        "overlap_pairs": overlap_pairs_tensor,  # Shape (N_overlaps, 2) with (i, j) pairs
+    }

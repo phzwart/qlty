@@ -240,7 +240,7 @@ def test_zarr_backend_missing_import():
     """Test error when zarr is not available."""
     # This is hard to test directly, but we can check the import error message
     try:
-        import zarr  # noqa: F401
+        import zarr
     except ImportError:
         # If zarr is not available, the error should mention installation
         pass
@@ -259,7 +259,9 @@ def test_hdf5_backend_invalid_shape():
     try:
         with h5py.File(temp_path, "w") as f:
             dset = f.create_dataset(
-                "data", shape=(2, 3, 5), dtype="float32"
+                "data",
+                shape=(2, 3, 5),
+                dtype="float32",
             )  # 3D - should fail
             HDF5Backend(dset)  # Should raise ValueError
     except ValueError as e:
@@ -416,7 +418,7 @@ def test_tensor_like_3d_invalid_indexing():
     tensor_like = TensorLike3D(backend)
 
     with pytest.raises(TypeError, match="Unsupported indexing type"):
-        tensor_like["invalid"]  # noqa: B015
+        tensor_like["invalid"]
 
 
 def test_tensor_like_3d_slice_indexing():

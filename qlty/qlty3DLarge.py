@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from __future__ import annotations
 
 import einops
 import numpy as np
@@ -30,9 +30,9 @@ class LargeNCZYXQuilt:
         Z: int,
         Y: int,
         X: int,
-        window: Tuple[int, int, int],
-        step: Tuple[int, int, int],
-        border: Optional[Union[int, Tuple[int, int, int]]] = None,
+        window: tuple[int, int, int],
+        step: tuple[int, int, int],
+        border: int | tuple[int, int, int] | None = None,
         border_weight: float = 0.1,
     ) -> None:
         """
@@ -64,12 +64,16 @@ class LargeNCZYXQuilt:
 
         # Compute chunk times
         self.nZ, self.nY, self.nX = compute_chunk_times(
-            dimension_sizes=(Z, Y, X), window=window, step=step
+            dimension_sizes=(Z, Y, X),
+            window=window,
+            step=step,
         )
 
         # Compute weight matrix (as torch tensor for compatibility)
         weight_np = compute_weight_matrix_numpy(
-            window=window, border=self.border, border_weight=self.border_weight
+            window=window,
+            border=self.border,
+            border_weight=self.border_weight,
         )
         self.weight = torch.from_numpy(weight_np)
 
@@ -83,21 +87,23 @@ class LargeNCZYXQuilt:
         """Compute border tensor indicating valid (non-border) regions."""
         return compute_border_tensor_numpy(window=self.window, border=self.border)
 
-    def get_times(self) -> Tuple[int, int, int]:
+    def get_times(self) -> tuple[int, int, int]:
         """
         Computes the number of chunks along Z, Y, and X dimensions, ensuring the last chunk
         is included by adjusting the starting points.
         """
         return compute_chunk_times(
-            dimension_sizes=(self.Z, self.Y, self.X), window=self.window, step=self.step
+            dimension_sizes=(self.Z, self.Y, self.X),
+            window=self.window,
+            step=self.step,
         )
 
     def unstitch_and_clean_sparse_data_pair(
         self,
         tensor_in: torch.Tensor,
         tensor_out: torch.Tensor,
-        missing_label: Union[int, float],
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        missing_label: float,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Split input and output 3D tensors into patches, filtering out patches with no valid data.
 
@@ -197,7 +203,7 @@ class LargeNCZYXQuilt:
         >>> patch = quilt.unstitch(volume, index=0)
         >>> print(patch.shape)  # (1, 32, 32, 32)
         """
-        N, C, Z, Y, X = tensor.shape
+        N, _C, Z, Y, X = tensor.shape
 
         out_shape = (N, self.nZ, self.nY, self.nX)
         n, zz, yy, xx = np.unravel_index(index, out_shape)
@@ -211,14 +217,13 @@ class LargeNCZYXQuilt:
         stop_y = start_y + self.window[1]
         stop_x = start_x + self.window[2]
 
-        patch = tensor[n, :, start_z:stop_z, start_y:stop_y, start_x:stop_x]
-        return patch
+        return tensor[n, :, start_z:stop_z, start_y:stop_y, start_x:stop_x]
 
     def stitch(
         self,
         patch: torch.Tensor,
         index_flat: int,
-        patch_var: Optional[torch.Tensor] = None,
+        patch_var: torch.Tensor | None = None,
     ) -> None:
         C = patch.shape[1]
         if self.mean is None:
@@ -270,10 +275,12 @@ class LargeNCZYXQuilt:
 
         if n == 0:
             self.norma[
-                start_z:stop_z, start_y:stop_y, start_x:stop_x
+                start_z:stop_z,
+                start_y:stop_y,
+                start_x:stop_x,
             ] += self.weight.numpy()
 
-    def unstitch_next(self, tensor: torch.Tensor) -> Tuple[int, torch.Tensor]:
+    def unstitch_next(self, tensor: torch.Tensor) -> tuple[int, torch.Tensor]:
         """
         Get the next 3D patch in sequence (generator-like interface).
 
@@ -307,10 +314,14 @@ class LargeNCZYXQuilt:
         return this_ind, tmp
 
     def return_mean(
-        self, std: bool = False, renormalize_channels: bool = False, eps: float = 1e-8
-    ) -> Union[
-        npt.NDArray[np.float64], Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
-    ]:
+        self,
+        std: bool = False,
+        renormalize_channels: bool = False,
+        eps: float = 1e-8,
+    ) -> (
+        npt.NDArray[np.float64]
+        | tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
+    ):
         """
         Compute and return the final stitched 3D result.
 
@@ -406,10 +417,10 @@ def tst():
         border=(1, 1, 1),
     )
 
-    d, n = qobj.unstitch_and_clean_sparse_data_pair(Tdata, Tlabels, -1)
+    d, _n = qobj.unstitch_and_clean_sparse_data_pair(Tdata, Tlabels, -1)
     assert d.shape[0] == 16
     for ii in range(qobj.N_chunks):
-        ind, tmp = qobj.unstitch_next(Tdata)
+        _ind, tmp = qobj.unstitch_next(Tdata)
         neural_network_result = tmp.unsqueeze(0)
         qobj.stitch(neural_network_result, ii)
     mean = qobj.return_mean()
@@ -419,4 +430,3 @@ def tst():
 
 if __name__ == "__main__":
     tst()
-    print("OK")

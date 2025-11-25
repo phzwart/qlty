@@ -11,7 +11,12 @@ from qlty import qlty2D
 def test_stitch_without_numba():
     """Test stitching without numba (use_numba=False)."""
     quilt = qlty2D.NCYXQuilt(
-        Y=128, X=128, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=128,
+        X=128,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     # Create test data
@@ -28,7 +33,12 @@ def test_stitch_without_numba():
 def test_stitch_with_numba():
     """Test stitching with numba (use_numba=True, default)."""
     quilt = qlty2D.NCYXQuilt(
-        Y=128, X=128, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=128,
+        X=128,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     # Create test data
@@ -45,7 +55,12 @@ def test_stitch_with_numba():
 def test_stitch_numba_vs_no_numba_consistency():
     """Test that numba and non-numba paths produce similar results."""
     quilt = qlty2D.NCYXQuilt(
-        Y=128, X=128, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=128,
+        X=128,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     # Create test data

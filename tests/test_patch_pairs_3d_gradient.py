@@ -4,7 +4,7 @@
 
 import pytest
 import torch
-import torch.nn as nn
+from torch import nn
 
 from qlty.patch_pairs_3d import extract_overlapping_pixels_3d, extract_patch_pairs_3d
 
@@ -25,7 +25,11 @@ def test_kernel_optimization_3d_with_overlapping_pixels():
     delta_range = (3.0, 5.0)  # Valid range
 
     patches1, patches2, deltas = extract_patch_pairs_3d(
-        input_tensor, window, num_patches, delta_range, random_seed=789
+        input_tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=789,
     )
 
     # Detach patches for optimization
@@ -88,7 +92,9 @@ def test_kernel_optimization_3d_with_overlapping_pixels():
 
         # Extract overlapping pixels
         overlapping1, overlapping2 = extract_overlapping_pixels_3d(
-            output1, output2, deltas
+            output1,
+            output2,
+            deltas,
         )
 
         # Compute L1 loss on overlapping pixels
@@ -101,7 +107,8 @@ def test_kernel_optimization_3d_with_overlapping_pixels():
         # Track progress
         losses.append(loss.item())
         kernel_diff = torch.nn.functional.l1_loss(
-            trainable_conv.weight.data, fixed_kernel
+            trainable_conv.weight.data,
+            fixed_kernel,
         ).item()
         kernel_diffs.append(kernel_diff)
 
@@ -111,13 +118,9 @@ def test_kernel_optimization_3d_with_overlapping_pixels():
 
     # Final kernel difference
     final_kernel_diff = torch.nn.functional.l1_loss(
-        trainable_conv.weight.data, fixed_kernel
+        trainable_conv.weight.data,
+        fixed_kernel,
     ).item()
-
-    print(f"\nFinal kernel L1 difference: {final_kernel_diff:.6f}")
-    print(f"Final loss: {losses[-1]:.6f}")
-    print(f"Initial kernel diff: {kernel_diffs[0]:.6f}")
-    print(f"Number of iterations: {len(losses)}")
 
     # Assertions - focus on kernel convergence
     assert (
@@ -151,7 +154,11 @@ def test_alternating_kernel_optimization_3d():
     delta_range = (3.0, 5.0)
 
     patches1, patches2, deltas = extract_patch_pairs_3d(
-        input_tensor, window, num_patches, delta_range, random_seed=999
+        input_tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=999,
     )
 
     # Detach patches for optimization
@@ -159,8 +166,10 @@ def test_alternating_kernel_optimization_3d():
     patches2 = patches2.detach()
 
     # Verify that overlap fraction is less than 100%
-    overlapping1_check, overlapping2_check = extract_overlapping_pixels_3d(
-        patches1, patches2, deltas
+    overlapping1_check, _overlapping2_check = extract_overlapping_pixels_3d(
+        patches1,
+        patches2,
+        deltas,
     )
     total_pixels_per_patch = window[0] * window[1] * window[2]  # 9*9*9 = 729
     total_patches = patches1.shape[0]  # 6 patches
@@ -168,13 +177,6 @@ def test_alternating_kernel_optimization_3d():
     overlapping_pixels_count = overlapping1_check.shape[0]  # K
 
     overlap_fraction = overlapping_pixels_count / total_possible_pixels
-
-    print("\nOverlap statistics:")
-    print(f"  Total patches: {total_patches}")
-    print(f"  Pixels per patch: {total_pixels_per_patch}")
-    print(f"  Total possible pixels: {total_possible_pixels}")
-    print(f"  Overlapping pixels: {overlapping_pixels_count}")
-    print(f"  Overlap fraction: {overlap_fraction:.4f} ({overlap_fraction * 100:.2f}%)")
 
     # Verify overlap is less than 100%
     assert (
@@ -233,7 +235,9 @@ def test_alternating_kernel_optimization_3d():
             output2 = conv2(patches2)
 
             overlapping1, overlapping2 = extract_overlapping_pixels_3d(
-                output1, output2, deltas
+                output1,
+                output2,
+                deltas,
             )
 
             loss = torch.nn.functional.l1_loss(overlapping1, overlapping2)
@@ -242,7 +246,8 @@ def test_alternating_kernel_optimization_3d():
 
             losses.append(loss.item())
             kernel_diff = torch.nn.functional.l1_loss(
-                conv1.weight.data, conv2.weight.data
+                conv1.weight.data,
+                conv2.weight.data,
             ).item()
             kernel_diffs.append(kernel_diff)
 
@@ -254,7 +259,9 @@ def test_alternating_kernel_optimization_3d():
             output2 = conv2(patches2)
 
             overlapping1, overlapping2 = extract_overlapping_pixels_3d(
-                output1, output2, deltas
+                output1,
+                output2,
+                deltas,
             )
 
             loss = torch.nn.functional.l1_loss(overlapping1, overlapping2)
@@ -263,19 +270,16 @@ def test_alternating_kernel_optimization_3d():
 
             losses.append(loss.item())
             kernel_diff = torch.nn.functional.l1_loss(
-                conv1.weight.data, conv2.weight.data
+                conv1.weight.data,
+                conv2.weight.data,
             ).item()
             kernel_diffs.append(kernel_diff)
 
     # Final kernel difference
     final_kernel_diff = torch.nn.functional.l1_loss(
-        conv1.weight.data, conv2.weight.data
+        conv1.weight.data,
+        conv2.weight.data,
     ).item()
-
-    print(f"\nInitial kernel L1 difference: {initial_diff:.6f}")
-    print(f"Final kernel L1 difference: {final_kernel_diff:.6f}")
-    print(f"Final loss: {losses[-1]:.6f}")
-    print(f"Total optimization steps: {len(losses)}")
 
     # Verify that kernels converged toward each other
     assert (

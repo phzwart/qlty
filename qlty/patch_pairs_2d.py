@@ -4,24 +4,23 @@ Extract pairs of patches from 2D image tensors with controlled displacement.
 This module provides functionality to extract pairs of patches from 2D tensors
 where the displacement between patch centers follows specified constraints.
 """
+from __future__ import annotations
 
 import multiprocessing
-from functools import partial
-from typing import Dict, Optional, Sequence, Tuple, Union
+from typing import Sequence
 
 import torch
 import zarr
 
 
-
 def extract_patch_pairs(
     tensor: torch.Tensor,
-    window: Tuple[int, int],
+    window: tuple[int, int],
     num_patches: int,
-    delta_range: Tuple[float, float],
-    random_seed: Optional[int] = None,
-    rotation_choices: Optional[Sequence[int]] = None,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    delta_range: tuple[float, float],
+    random_seed: int | None = None,
+    rotation_choices: Sequence[int] | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Extract pairs of patches from 2D image tensors with controlled displacement.
 
@@ -89,8 +88,9 @@ def extract_patch_pairs(
     """
     # Validate input tensor shape
     if len(tensor.shape) != 4:
+        msg = f"Input tensor must be 4D (N, C, Y, X), got shape {tensor.shape}"
         raise ValueError(
-            f"Input tensor must be 4D (N, C, Y, X), got shape {tensor.shape}"
+            msg,
         )
 
     N, C, Y, X = tensor.shape
@@ -103,20 +103,27 @@ def extract_patch_pairs(
 
     low, high = delta_range
     if low < window_quarter or high > window_three_quarters:
-        raise ValueError(
+        msg = (
             f"delta_range must satisfy: {window_quarter} <= low <= high <= {window_three_quarters}, "
             f"got ({low}, {high})"
         )
+        raise ValueError(
+            msg,
+        )
     if low > high:
-        raise ValueError(f"delta_range low ({low}) must be <= high ({high})")
+        msg = f"delta_range low ({low}) must be <= high ({high})"
+        raise ValueError(msg)
 
     # Check if image is large enough for window and delta range
     min_y = U + int(high)
     min_x = V + int(high)
-    if Y < min_y or X < min_x:
-        raise ValueError(
+    if min_y > Y or min_x > X:
+        msg = (
             f"Image dimensions ({Y}, {X}) are too small for window ({U}, {V}) "
             f"and delta_range ({low}, {high}). Minimum required: ({min_y}, {min_x})"
+        )
+        raise ValueError(
+            msg,
         )
 
     # Set random seed if provided
@@ -129,16 +136,24 @@ def extract_patch_pairs(
     # Pre-allocate output tensors
     total_patches = N * num_patches
     patches1 = torch.empty(
-        (total_patches, C, U, V), dtype=tensor.dtype, device=tensor.device
+        (total_patches, C, U, V),
+        dtype=tensor.dtype,
+        device=tensor.device,
     )
     patches2 = torch.empty(
-        (total_patches, C, U, V), dtype=tensor.dtype, device=tensor.device
+        (total_patches, C, U, V),
+        dtype=tensor.dtype,
+        device=tensor.device,
     )
     deltas_tensor = torch.empty(
-        (total_patches, 2), dtype=torch.float32, device=tensor.device
+        (total_patches, 2),
+        dtype=torch.float32,
+        device=tensor.device,
     )
     rotations_tensor = torch.zeros(
-        total_patches, dtype=torch.int64, device=tensor.device
+        total_patches,
+        dtype=torch.int64,
+        device=tensor.device,
     )
 
     if rotation_choices is None:
@@ -148,7 +163,9 @@ def extract_patch_pairs(
         if len(rotation_choices) == 0:
             rotation_choices = (0,)
     rotation_choices_tensor = torch.tensor(
-        rotation_choices, dtype=torch.int64, device=tensor.device
+        rotation_choices,
+        dtype=torch.int64,
+        device=tensor.device,
     )
     allow_rotations = any(choice != 0 for choice in rotation_choices)
 
@@ -162,7 +179,10 @@ def extract_patch_pairs(
         for _ in range(num_patches):
             # Sample displacement vector (dx, dy) with Euclidean distance constraint
             dx, dy = _sample_displacement_vector(
-                low, high, generator, device=tensor.device
+                low,
+                high,
+                generator,
+                device=tensor.device,
             )
 
             # Sample first patch location (x, y) ensuring both patches fit
@@ -183,7 +203,10 @@ def extract_patch_pairs(
                 attempts = 0
                 while (x_min >= x_max or y_min >= y_max) and attempts < 10:
                     dx, dy = _sample_displacement_vector(
-                        low, high, generator, device=tensor.device
+                        low,
+                        high,
+                        generator,
+                        device=tensor.device,
                     )
                     x_min = max(0, -dx)
                     x_max = min(X - V, X - V - dx)
@@ -192,18 +215,29 @@ def extract_patch_pairs(
                     attempts += 1
 
                 if x_min >= x_max or y_min >= y_max:
-                    raise ValueError(
+                    msg = (
                         f"Could not find valid patch locations for displacement ({dx}, {dy}) "
                         f"in image of size ({Y}, {X}) with window ({U}, {V})"
+                    )
+                    raise ValueError(
+                        msg,
                     )
 
             # Sample random location for first patch (keep on GPU if possible)
             if generator is not None:
                 x = torch.randint(
-                    x_min, x_max, (1,), generator=generator, device=tensor.device
+                    x_min,
+                    x_max,
+                    (1,),
+                    generator=generator,
+                    device=tensor.device,
                 )[0]
                 y = torch.randint(
-                    y_min, y_max, (1,), generator=generator, device=tensor.device
+                    y_min,
+                    y_max,
+                    (1,),
+                    generator=generator,
+                    device=tensor.device,
                 )[0]
             else:
                 x = torch.randint(x_min, x_max, (1,), device=tensor.device)[0]
@@ -218,7 +252,9 @@ def extract_patch_pairs(
 
             # Extract second patch at (x + dx, y + dy)
             patch2 = image[
-                :, y_int + dy : y_int + dy + U, x_int + dx : x_int + dx + V
+                :,
+                y_int + dy : y_int + dy + U,
+                x_int + dx : x_int + dx + V,
             ]  # Shape: (C, U, V)
 
             if allow_rotations:
@@ -252,9 +288,9 @@ def extract_patch_pairs(
 def _sample_displacement_vector(
     low: float,
     high: float,
-    generator: Optional[torch.Generator] = None,
-    device: Optional[torch.device] = None,
-) -> Tuple[int, int]:
+    generator: torch.Generator | None = None,
+    device: torch.device | None = None,
+) -> tuple[int, int]:
     """
     Sample a displacement vector (dx, dy) such that low <= sqrt(dx² + dy²) <= high.
 
@@ -285,10 +321,18 @@ def _sample_displacement_vector(
 
         if generator is not None:
             dx_tensor = torch.randint(
-                -max_delta, max_delta + 1, (1,), generator=generator, device=device
+                -max_delta,
+                max_delta + 1,
+                (1,),
+                generator=generator,
+                device=device,
             )
             dy_tensor = torch.randint(
-                -max_delta, max_delta + 1, (1,), generator=generator, device=device
+                -max_delta,
+                max_delta + 1,
+                (1,),
+                generator=generator,
+                device=device,
             )
         else:
             dx_tensor = torch.randint(-max_delta, max_delta + 1, (1,), device=device)
@@ -309,7 +353,9 @@ def _sample_displacement_vector(
             torch.rand(1, generator=generator, device=device) * 2 * 3.141592653589793
         )
         distance_tensor = low + (high - low) * torch.rand(
-            1, generator=generator, device=device
+            1,
+            generator=generator,
+            device=device,
         )
     else:
         angle_tensor = torch.rand(1, device=device) * 2 * 3.141592653589793
@@ -320,21 +366,21 @@ def _sample_displacement_vector(
     # Compute cos and sin on GPU if device is GPU
     cos_val = torch.cos(angle_tensor)[0]
     sin_val = torch.sin(angle_tensor)[0]
-    dx = int(round(distance * float(cos_val)))
-    dy = int(round(distance * float(sin_val)))
+    dx = round(distance * float(cos_val))
+    dy = round(distance * float(sin_val))
 
     # Ensure distance is still in range (may have been affected by rounding)
     actual_distance = (dx**2 + dy**2) ** 0.5
     if actual_distance < low:
         # Scale up to meet minimum
         scale = low / actual_distance
-        dx = int(round(dx * scale))
-        dy = int(round(dy * scale))
+        dx = round(dx * scale)
+        dy = round(dy * scale)
     elif actual_distance > high:
         # Scale down to meet maximum
         scale = high / actual_distance
-        dx = int(round(dx * scale))
-        dy = int(round(dy * scale))
+        dx = round(dx * scale)
+        dy = round(dy * scale)
 
     return dx, dy
 
@@ -343,8 +389,8 @@ def extract_overlapping_pixels(
     patches1: torch.Tensor,
     patches2: torch.Tensor,
     deltas: torch.Tensor,
-    rotations: Optional[torch.Tensor] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    rotations: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Extract overlapping pixels from patch pairs based on displacement vectors.
 
@@ -391,33 +437,42 @@ def extract_overlapping_pixels(
     """
     # Validate input shapes
     if len(patches1.shape) != 4 or len(patches2.shape) != 4:
-        raise ValueError(
+        msg = (
             f"Both patches1 and patches2 must be 4D tensors (N*P, C, U, V), "
             f"got shapes {patches1.shape} and {patches2.shape}"
         )
+        raise ValueError(
+            msg,
+        )
 
     if patches1.shape != patches2.shape:
-        raise ValueError(
+        msg = (
             f"patches1 and patches2 must have the same shape, "
             f"got {patches1.shape} and {patches2.shape}"
         )
+        raise ValueError(
+            msg,
+        )
 
     if len(deltas.shape) != 2 or deltas.shape[1] != 2:
+        msg = f"deltas must be 2D tensor of shape (N*P, 2), got {deltas.shape}"
         raise ValueError(
-            f"deltas must be 2D tensor of shape (N*P, 2), got {deltas.shape}"
+            msg,
         )
 
     num_pairs, C, U, V = patches1.shape
 
     if deltas.shape[0] != num_pairs:
+        msg = f"Number of deltas ({deltas.shape[0]}) must match number of patch pairs ({num_pairs})"
         raise ValueError(
-            f"Number of deltas ({deltas.shape[0]}) must match number of patch pairs ({num_pairs})"
+            msg,
         )
 
     if rotations is not None:
         if rotations.shape[0] != num_pairs:
+            msg = f"Number of rotations ({rotations.shape[0]}) must match number of patch pairs ({num_pairs})"
             raise ValueError(
-                f"Number of rotations ({rotations.shape[0]}) must match number of patch pairs ({num_pairs})"
+                msg,
             )
         rotations_int = rotations.int()
     else:
@@ -465,7 +520,9 @@ def extract_overlapping_pixels(
 
         # Extract overlapping region from patch1
         overlap_region1 = patch1[
-            :, u_min:u_max, v_min:v_max
+            :,
+            u_min:u_max,
+            v_min:v_max,
         ]  # Shape: (C, u_max-u_min, v_max-v_min)
 
         # Extract corresponding region from patch2
@@ -478,7 +535,9 @@ def extract_overlapping_pixels(
         v2_max = v_max - dx
 
         overlap_region2 = patch2[
-            :, u2_min:u2_max, v2_min:v2_max
+            :,
+            u2_min:u2_max,
+            v2_min:v2_max,
         ]  # Shape: (C, u_max-u_min, v_max-v_min)
 
         # Reshape to (C, K') where K' is the number of overlapping pixels for this pair
@@ -502,8 +561,16 @@ def extract_overlapping_pixels(
 
 
 def _process_image_for_metadata(
-    args: Tuple[int, torch.Tensor, Tuple[int, int], int, Tuple[float, float], Optional[int], Optional[Sequence[int]]]
-) -> Dict[str, torch.Tensor]:
+    args: tuple[
+        int,
+        torch.Tensor,
+        tuple[int, int],
+        int,
+        tuple[float, float],
+        int | None,
+        Sequence[int] | None,
+    ],
+) -> dict[str, torch.Tensor]:
     """
     Process a single image to generate patch metadata (locations and statistics).
 
@@ -526,9 +593,17 @@ def _process_image_for_metadata(
     Dict[str, torch.Tensor]
         Dictionary containing metadata tensors for this image
     """
-    image_idx, image, window, num_patches, delta_range, random_seed, rotation_choices = args
+    (
+        image_idx,
+        image,
+        window,
+        num_patches,
+        delta_range,
+        random_seed,
+        rotation_choices,
+    ) = args
 
-    C, Y, X = image.shape
+    _C, Y, X = image.shape
     U, V = window
     low, high = delta_range
 
@@ -540,7 +615,12 @@ def _process_image_for_metadata(
         generator = None
 
     # Pre-allocate metadata tensors
-    image_idx_tensor = torch.full((num_patches,), image_idx, dtype=torch.int64, device=image.device)
+    image_idx_tensor = torch.full(
+        (num_patches,),
+        image_idx,
+        dtype=torch.int64,
+        device=image.device,
+    )
     patch1_y = torch.empty(num_patches, dtype=torch.int64, device=image.device)
     patch1_x = torch.empty(num_patches, dtype=torch.int64, device=image.device)
     patch2_y = torch.empty(num_patches, dtype=torch.int64, device=image.device)
@@ -559,7 +639,9 @@ def _process_image_for_metadata(
         if len(rotation_choices) == 0:
             rotation_choices = (0,)
     rotation_choices_tensor = torch.tensor(
-        rotation_choices, dtype=torch.int64, device=image.device
+        rotation_choices,
+        dtype=torch.int64,
+        device=image.device,
     )
     allow_rotations = any(choice != 0 for choice in rotation_choices)
 
@@ -576,7 +658,12 @@ def _process_image_for_metadata(
         if x_min >= x_max or y_min >= y_max:
             attempts = 0
             while (x_min >= x_max or y_min >= y_max) and attempts < 10:
-                dx, dy = _sample_displacement_vector(low, high, generator, device=image.device)
+                dx, dy = _sample_displacement_vector(
+                    low,
+                    high,
+                    generator,
+                    device=image.device,
+                )
                 x_min = max(0, -dx)
                 x_max = min(X - V, X - V - dx)
                 y_min = max(0, -dy)
@@ -584,15 +671,30 @@ def _process_image_for_metadata(
                 attempts += 1
 
             if x_min >= x_max or y_min >= y_max:
-                raise ValueError(
+                msg = (
                     f"Could not find valid patch locations for displacement ({dx}, {dy}) "
                     f"in image {image_idx} of size ({Y}, {X}) with window ({U}, {V})"
+                )
+                raise ValueError(
+                    msg,
                 )
 
         # Sample random location for first patch
         if generator is not None:
-            x = torch.randint(x_min, x_max, (1,), generator=generator, device=image.device)[0]
-            y = torch.randint(y_min, y_max, (1,), generator=generator, device=image.device)[0]
+            x = torch.randint(
+                x_min,
+                x_max,
+                (1,),
+                generator=generator,
+                device=image.device,
+            )[0]
+            y = torch.randint(
+                y_min,
+                y_max,
+                (1,),
+                generator=generator,
+                device=image.device,
+            )[0]
         else:
             x = torch.randint(x_min, x_max, (1,), device=image.device)[0]
             y = torch.randint(y_min, y_max, (1,), device=image.device)[0]
@@ -603,7 +705,9 @@ def _process_image_for_metadata(
         # Extract patches to compute statistics
         patch1 = image[:, y_int : y_int + U, x_int : x_int + V]  # Shape: (C, U, V)
         patch2 = image[
-            :, y_int + dy : y_int + dy + U, x_int + dx : x_int + dx + V
+            :,
+            y_int + dy : y_int + dy + U,
+            x_int + dx : x_int + dx + V,
         ]  # Shape: (C, U, V)
 
         # Apply rotation if needed
@@ -661,13 +765,13 @@ def _process_image_for_metadata(
 
 def extract_patch_pairs_metadata(
     tensor: torch.Tensor,
-    window: Tuple[int, int],
+    window: tuple[int, int],
     num_patches: int,
-    delta_range: Tuple[float, float],
-    random_seed: Optional[int] = None,
-    rotation_choices: Optional[Sequence[int]] = None,
-    num_workers: Optional[int] = None,
-) -> Dict[str, torch.Tensor]:
+    delta_range: tuple[float, float],
+    random_seed: int | None = None,
+    rotation_choices: Sequence[int] | None = None,
+    num_workers: int | None = None,
+) -> dict[str, torch.Tensor]:
     """
     Extract patch pair metadata (locations and statistics) without loading full patches.
 
@@ -738,11 +842,12 @@ def extract_patch_pairs_metadata(
     """
     # Validate input tensor shape
     if len(tensor.shape) != 4:
+        msg = f"Input tensor must be 4D (N, C, Y, X), got shape {tensor.shape}"
         raise ValueError(
-            f"Input tensor must be 4D (N, C, Y, X), got shape {tensor.shape}"
+            msg,
         )
 
-    N, C, Y, X = tensor.shape
+    N, _C, Y, X = tensor.shape
     U, V = window
 
     # Validate delta_range constraints (same as extract_patch_pairs)
@@ -752,20 +857,27 @@ def extract_patch_pairs_metadata(
 
     low, high = delta_range
     if low < window_quarter or high > window_three_quarters:
-        raise ValueError(
+        msg = (
             f"delta_range must satisfy: {window_quarter} <= low <= high <= {window_three_quarters}, "
             f"got ({low}, {high})"
         )
+        raise ValueError(
+            msg,
+        )
     if low > high:
-        raise ValueError(f"delta_range low ({low}) must be <= high ({high})")
+        msg = f"delta_range low ({low}) must be <= high ({high})"
+        raise ValueError(msg)
 
     # Check if image is large enough
     min_y = U + int(high)
     min_x = V + int(high)
-    if Y < min_y or X < min_x:
-        raise ValueError(
+    if min_y > Y or min_x > X:
+        msg = (
             f"Image dimensions ({Y}, {X}) are too small for window ({U}, {V}) "
             f"and delta_range ({low}, {high}). Minimum required: ({min_y}, {min_x})"
+        )
+        raise ValueError(
+            msg,
         )
 
     # Determine number of workers
@@ -786,7 +898,9 @@ def extract_patch_pairs_metadata(
     tasks = []
     for n in range(N):
         image = tensor[n].cpu() if device.type == "cuda" else tensor[n]
-        tasks.append((n, image, window, num_patches, delta_range, random_seed, rotation_choices))
+        tasks.append(
+            (n, image, window, num_patches, delta_range, random_seed, rotation_choices),
+        )
 
     # Process images
     if num_workers > 1 and N > 1:
@@ -798,7 +912,6 @@ def extract_patch_pairs_metadata(
         results = [_process_image_for_metadata(task) for task in tasks]
 
     # Concatenate results from all images
-    total_patches = N * num_patches
     metadata = {
         "image_idx": torch.cat([r["image_idx"] for r in results], dim=0),
         "patch1_y": torch.cat([r["patch1_y"] for r in results], dim=0),
@@ -828,9 +941,9 @@ def extract_patch_pairs_metadata(
 
 def extract_patches_from_metadata(
     tensor: torch.Tensor,
-    metadata: Dict[str, Union[torch.Tensor, Tuple[int, int]]],
-    selected_indices: Union[torch.Tensor, Sequence[int]],
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    metadata: dict[str, torch.Tensor | tuple[int, int]],
+    selected_indices: torch.Tensor | Sequence[int],
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Extract patch pairs from tensor using pre-computed metadata and selected indices.
 
@@ -865,22 +978,37 @@ def extract_patches_from_metadata(
     """
     # Convert selected_indices to tensor if needed
     if not isinstance(selected_indices, torch.Tensor):
-        selected_indices = torch.tensor(selected_indices, dtype=torch.int64, device=tensor.device)
+        selected_indices = torch.tensor(
+            selected_indices,
+            dtype=torch.int64,
+            device=tensor.device,
+        )
     else:
         selected_indices = selected_indices.to(tensor.device)
 
     num_selected = len(selected_indices)
-    N, C, Y, X = tensor.shape
+    _N, C, _Y, _X = tensor.shape
 
     # Get window size from metadata
     if "window" not in metadata:
-        raise ValueError("metadata must contain 'window' key. Use extract_patch_pairs_metadata() to generate metadata.")
+        msg = "metadata must contain 'window' key. Use extract_patch_pairs_metadata() to generate metadata."
+        raise ValueError(
+            msg,
+        )
     window = metadata["window"]
     U, V = window
 
     # Pre-allocate output tensors
-    patches1 = torch.empty((num_selected, C, U, V), dtype=tensor.dtype, device=tensor.device)
-    patches2 = torch.empty((num_selected, C, U, V), dtype=tensor.dtype, device=tensor.device)
+    patches1 = torch.empty(
+        (num_selected, C, U, V),
+        dtype=tensor.dtype,
+        device=tensor.device,
+    )
+    patches2 = torch.empty(
+        (num_selected, C, U, V),
+        dtype=tensor.dtype,
+        device=tensor.device,
+    )
     deltas = torch.empty((num_selected, 2), dtype=torch.float32, device=tensor.device)
     rotations = torch.empty(num_selected, dtype=torch.int64, device=tensor.device)
 
@@ -899,8 +1027,16 @@ def extract_patches_from_metadata(
         image = tensor[image_idx]  # Shape: (C, Y, X)
 
         # Extract patches
-        patch1 = image[:, patch1_y : patch1_y + U, patch1_x : patch1_x + V]  # Shape: (C, U, V)
-        patch2 = image[:, patch2_y : patch2_y + U, patch2_x : patch2_x + V]  # Shape: (C, U, V)
+        patch1 = image[
+            :,
+            patch1_y : patch1_y + U,
+            patch1_x : patch1_x + V,
+        ]  # Shape: (C, U, V)
+        patch2 = image[
+            :,
+            patch2_y : patch2_y + U,
+            patch2_x : patch2_x + V,
+        ]  # Shape: (C, U, V)
 
         # Apply rotation if needed
         if rotation != 0:
@@ -917,11 +1053,11 @@ def extract_patches_from_metadata(
 
 def extract_patches_to_zarr(
     tensor: torch.Tensor,
-    metadata: Dict[str, Union[torch.Tensor, Tuple[int, int]]],
-    selected_indices: Union[torch.Tensor, Sequence[int]],
-    zarr_path: Union[str, "zarr.Group"],
-    zarr_chunks: Optional[Tuple[int, ...]] = None,
-) -> "zarr.Group":
+    metadata: dict[str, torch.Tensor | tuple[int, int]],
+    selected_indices: torch.Tensor | Sequence[int],
+    zarr_path: str | zarr.Group,
+    zarr_chunks: tuple[int, ...] | None = None,
+) -> zarr.Group:
     """
     Extract patch pairs to a Zarr group for on-disk storage.
 
@@ -959,20 +1095,28 @@ def extract_patches_to_zarr(
     >>> print(zarr_group["patches1"].shape)  # (num_selected, C, U, V)
     """
     if zarr is None:
-        raise ImportError("zarr is required. Install with: pip install zarr")
+        msg = "zarr is required. Install with: pip install zarr"
+        raise ImportError(msg)
 
     # Convert selected_indices to tensor if needed
     if not isinstance(selected_indices, torch.Tensor):
-        selected_indices = torch.tensor(selected_indices, dtype=torch.int64, device=tensor.device)
+        selected_indices = torch.tensor(
+            selected_indices,
+            dtype=torch.int64,
+            device=tensor.device,
+        )
     else:
         selected_indices = selected_indices.to(tensor.device)
 
     num_selected = len(selected_indices)
-    N, C, Y, X = tensor.shape
+    _N, C, _Y, _X = tensor.shape
 
     # Get window size from metadata
     if "window" not in metadata:
-        raise ValueError("metadata must contain 'window' key. Use extract_patch_pairs_metadata() to generate metadata.")
+        msg = "metadata must contain 'window' key. Use extract_patch_pairs_metadata() to generate metadata."
+        raise ValueError(
+            msg,
+        )
     window = metadata["window"]
     U, V = window
 
@@ -1038,8 +1182,16 @@ def extract_patches_to_zarr(
         image = tensor[image_idx]  # Shape: (C, Y, X)
 
         # Extract patches
-        patch1 = image[:, patch1_y : patch1_y + U, patch1_x : patch1_x + V]  # Shape: (C, U, V)
-        patch2 = image[:, patch2_y : patch2_y + U, patch2_x : patch2_x + V]  # Shape: (C, U, V)
+        patch1 = image[
+            :,
+            patch1_y : patch1_y + U,
+            patch1_x : patch1_x + V,
+        ]  # Shape: (C, U, V)
+        patch2 = image[
+            :,
+            patch2_y : patch2_y + U,
+            patch2_x : patch2_x + V,
+        ]  # Shape: (C, U, V)
 
         # Apply rotation if needed
         if rotation != 0:
@@ -1058,7 +1210,7 @@ def extract_patches_to_zarr(
             "num_patches": num_selected,
             "num_channels": C,
             "patch_shape": (U, V),
-        }
+        },
     )
 
     return zarr_group
@@ -1094,11 +1246,12 @@ class ZarrPatchPairDataset:
 
     def __init__(
         self,
-        zarr_path: Union[str, "zarr.Group"],
-        transform: Optional[callable] = None,
+        zarr_path: str | zarr.Group,
+        transform: callable | None = None,
     ):
         if zarr is None:
-            raise ImportError("zarr is required. Install with: pip install zarr")
+            msg = "zarr is required. Install with: pip install zarr"
+            raise ImportError(msg)
 
         # Open zarr group
         if isinstance(zarr_path, str):
@@ -1118,7 +1271,10 @@ class ZarrPatchPairDataset:
         """Return number of patch pairs in dataset."""
         return self.patches1.shape[0]
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(
+        self,
+        idx: int,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Get a patch pair by index.
 
@@ -1150,6 +1306,11 @@ class ZarrPatchPairDataset:
 
         # Apply transform if provided
         if self.transform is not None:
-            patch1, patch2, delta, rotation = self.transform(patch1, patch2, delta, rotation)
+            patch1, patch2, delta, rotation = self.transform(
+                patch1,
+                patch2,
+                delta,
+                rotation,
+            )
 
         return patch1, patch2, delta, rotation

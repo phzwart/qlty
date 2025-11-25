@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from __future__ import annotations
 
 import einops
 import torch
@@ -7,9 +7,9 @@ import torch
 def weed_sparse_classification_training_pairs_2D(
     tensor_in: torch.Tensor,
     tensor_out: torch.Tensor,
-    missing_label: Union[int, float],
+    missing_label: float,
     border_tensor: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Filter out patches that contain no valid data after unstitching.
 
@@ -91,9 +91,9 @@ def weed_sparse_classification_training_pairs_2D(
 def weed_sparse_classification_training_pairs_3D(
     tensor_in: torch.Tensor,
     tensor_out: torch.Tensor,
-    missing_label: Union[int, float],
+    missing_label: float,
     border_tensor: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Filter out 3D patches that contain no valid data after unstitching.
 

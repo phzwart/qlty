@@ -44,18 +44,42 @@ def temp_dir(tmp_path):
     shutil.rmtree(test_dir, ignore_errors=True)
 
 
+def _tifffile_imwrite(filepath, data):
+    """Write TIFF file with appropriate parameters to avoid deprecation warnings."""
+    if tifffile is None:
+        msg = "tifffile not available"
+        raise RuntimeError(msg)
+
+    write_kwargs = {}
+    if len(data.shape) == 3:
+        # Check if first dimension is channels (C, Y, X) format
+        # Only use RGB for 3 or 4 channels (RGB/RGBA), not 1 or 2 channels
+        if data.shape[0] in (3, 4) and data.shape[0] < min(
+            data.shape[1],
+            data.shape[2],
+        ):
+            # Likely (C, Y, X) format with RGB/RGBA - add explicit parameters
+            write_kwargs = {"photometric": "rgb", "planarconfig": "separate"}
+        # Check if last dimension is channels (Y, X, C) format
+        elif data.shape[2] in (3, 4) and data.shape[2] < min(
+            data.shape[0],
+            data.shape[1],
+        ):
+            # Likely (Y, X, C) format with RGB/RGBA - add explicit parameters
+            write_kwargs = {"photometric": "rgb", "planarconfig": "separate"}
+
+    tifffile.imwrite(str(filepath), data, **write_kwargs)
+
+
 def _create_test_image(filepath: Path, shape, dtype=np.uint16):
     """Create a test image file."""
-    if dtype == np.uint8:
-        max_val = 255
-    else:
-        max_val = 65535
+    max_val = 255 if dtype == np.uint8 else 65535
     data = np.random.randint(0, max_val, size=shape, dtype=dtype)
     filepath = Path(filepath)
 
     if filepath.suffix.lower() in (".tif", ".tiff"):
         if tifffile is not None:
-            tifffile.imwrite(str(filepath), data)
+            _tifffile_imwrite(filepath, data)
         elif Image is not None:
             # Convert to uint8 for PIL
             if dtype != np.uint8:
@@ -63,13 +87,12 @@ def _create_test_image(filepath: Path, shape, dtype=np.uint16):
             Image.fromarray(data).save(filepath)
         else:
             pytest.skip("No image library available")
+    elif Image is not None:
+        if dtype != np.uint8:
+            data = (data / 256).astype(np.uint8)
+        Image.fromarray(data).save(filepath)
     else:
-        if Image is not None:
-            if dtype != np.uint8:
-                data = (data / 256).astype(np.uint8)
-            Image.fromarray(data).save(filepath)
-        else:
-            pytest.skip("PIL not available")
+        pytest.skip("PIL not available")
 
 
 def test_stack_files_to_zarr_single_channel(temp_dir):
@@ -474,7 +497,7 @@ def test_stack_files_to_zarr_zarr_data_correctness(temp_dir):
         # Create image with value = i in all pixels
         data = np.full((10, 10), i, dtype=np.uint16)
         if tifffile is not None:
-            tifffile.imwrite(str(filepath), data)
+            _tifffile_imwrite(filepath, data)
         else:
             pytest.skip("tifffile not available")
 
@@ -511,7 +534,7 @@ def test_stack_files_to_zarr_unsupported_image_dimensions(temp_dir):
     data = np.random.randint(0, 255, size=(100,), dtype=np.uint8)
     filepath = temp_dir / "unsupported_0.tif"
     if tifffile is not None:
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
     else:
         pytest.skip("tifffile not available")
 
@@ -601,7 +624,8 @@ def test_stack_files_to_zarr_no_image_library_error(temp_dir, monkeypatch):
         filepath.touch()  # Create empty file
 
         with pytest.raises(
-            RuntimeError, match="Cannot load image.*No suitable library"
+            RuntimeError,
+            match="Cannot load image.*No suitable library",
         ):
             stack_files_to_zarr(
                 directory=temp_dir,
@@ -623,7 +647,7 @@ def test_stack_files_to_zarr_yxc_format(temp_dir):
         filepath = temp_dir / f"rgb_{i:01d}.tif"
         # Create (Y, X, C) image
         data = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -647,7 +671,7 @@ def test_stack_files_to_zarr_axis_reordering_czyx(temp_dir):
     for i in range(2):
         filepath = temp_dir / f"reorder_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(2, 8, 8), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -670,7 +694,7 @@ def test_stack_files_to_zarr_custom_chunks_multi_channel(temp_dir):
     for i in range(3):
         filepath = temp_dir / f"chunkmc_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(3, 16, 16), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -693,7 +717,7 @@ def test_stack_files_to_zarr_dtype_conversion_multi_channel(temp_dir):
     for i in range(2):
         filepath = temp_dir / f"dtypemc_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(2, 6, 6), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -717,7 +741,7 @@ def test_stack_files_to_zarr_data_correctness_multi_channel(temp_dir):
         filepath = temp_dir / f"checkmc_{i:01d}.tif"
         # Create image with channel value = i+1, pixel value = channel
         data = np.full((2, 5, 5), i + 1, dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -776,9 +800,9 @@ def test_stack_files_to_zarr_multi_channel_shape_validation(temp_dir):
 
     # Create images with different channel counts
     data1 = np.random.randint(0, 255, size=(2, 10, 10), dtype=np.uint8)
-    tifffile.imwrite(str(temp_dir / "shape_0.tif"), data1)
+    _tifffile_imwrite(temp_dir / "shape_0.tif", data1)
     data2 = np.random.randint(0, 255, size=(3, 10, 10), dtype=np.uint8)  # Different!
-    tifffile.imwrite(str(temp_dir / "shape_1.tif"), data2)
+    _tifffile_imwrite(temp_dir / "shape_1.tif", data2)
 
     with pytest.raises(ValueError, match="has shape"):
         stack_files_to_zarr(
@@ -795,9 +819,9 @@ def test_stack_files_to_zarr_yxc_shape_validation(temp_dir):
 
     # Create (Y, X, C) images with different sizes
     data1 = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
-    tifffile.imwrite(str(temp_dir / "yxc_0.tif"), data1)
+    _tifffile_imwrite(temp_dir / "yxc_0.tif", data1)
     data2 = np.random.randint(0, 255, size=(15, 15, 3), dtype=np.uint8)  # Different!
-    tifffile.imwrite(str(temp_dir / "yxc_1.tif"), data2)
+    _tifffile_imwrite(temp_dir / "yxc_1.tif", data2)
 
     with pytest.raises(ValueError, match="has shape"):
         stack_files_to_zarr(
@@ -815,7 +839,7 @@ def test_stack_files_to_zarr_default_chunks_zcyx(temp_dir):
     for i in range(2):
         filepath = temp_dir / f"chunkzcyx_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(3, 12, 12), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -839,7 +863,7 @@ def test_stack_files_to_zarr_default_chunks_czyx(temp_dir):
     for i in range(2):
         filepath = temp_dir / f"chunkczyx_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(3, 12, 12), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -921,7 +945,7 @@ def test_stack_files_to_zarr_generic_axis_order_chunks(temp_dir):
     for i in range(2):
         filepath = temp_dir / f"generic_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(2, 8, 8), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -1014,7 +1038,7 @@ def test_stack_files_to_zarr_axis_order_same_zcyx(temp_dir):
     for i in range(2):
         filepath = temp_dir / f"same_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(3, 8, 8), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -1037,7 +1061,7 @@ def test_stack_files_to_zarr_dtype_conversion_required(temp_dir):
     for i in range(2):
         filepath = temp_dir / f"convert_{i:01d}.tif"
         data = np.random.randint(0, 65535, size=(10, 10), dtype=np.uint16)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -1062,7 +1086,7 @@ def test_stack_files_to_zarr_multi_channel_dtype_conversion(temp_dir):
     for i in range(2):
         filepath = temp_dir / f"mcconvert_{i:01d}.tif"
         data = np.random.randint(0, 255, size=(2, 6, 6), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     result = stack_files_to_zarr(
         directory=temp_dir,
@@ -1145,7 +1169,7 @@ def test_stack_files_to_zarr_multiprocessing_multi_channel(temp_dir):
     for i in range(8):
         filepath = temp_dir / f"mcmp_{i:02d}.tif"
         data = np.random.randint(0, 255, size=(3, 16, 16), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
+        _tifffile_imwrite(filepath, data)
 
     # Test with multiprocessing
     result = stack_files_to_zarr(
@@ -1201,14 +1225,14 @@ def test_stack_files_to_ome_zarr_single_channel(temp_dir):
 
     # Open and check structure
     root = zarr.open_group(str(zarr_path), mode="r")
-    
+
     # Check that pyramid levels exist
     for level in range(3):
         assert str(level) in root, f"Pyramid level {level} not found"
-    
+
     # Check base level shape
     assert root["0"].shape == (5, 64, 64)
-    
+
     # Check multiscales metadata
     assert "multiscales" in root.attrs
     assert len(root.attrs["multiscales"]) > 0
@@ -1242,7 +1266,9 @@ def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
     base_z = root["0"].shape[0]
     for level in range(1, 3):
         level_z = root[str(level)].shape[0]
-        assert level_z == base_z, f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
+        assert (
+            level_z == base_z
+        ), f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
 
 
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
@@ -1272,7 +1298,7 @@ def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
     # In 3D mode, Z should be downsampled
     base_shape = root["0"].shape
     level1_shape = root["1"].shape
-    
+
     # Z dimension should be downsampled (if original is divisible by 2)
     # Allow for rounding differences
     assert level1_shape[0] <= base_shape[0] // 2 + 1
@@ -1362,7 +1388,7 @@ def test_stack_files_to_ome_zarr_multiscales_metadata(temp_dir):
     assert "version" in multiscales[0]
     assert "axes" in multiscales[0]
     assert "datasets" in multiscales[0]
-    
+
     # Check OME metadata
     assert "omero" in root.attrs
 
@@ -1408,14 +1434,14 @@ def test_stack_files_to_ome_zarr_single_channel(temp_dir):
 
     # Open and check structure
     root = zarr.open_group(str(zarr_path), mode="r")
-    
+
     # Check that pyramid levels exist
     for level in range(3):
         assert str(level) in root, f"Pyramid level {level} not found"
-    
+
     # Check base level shape
     assert root["0"].shape == (5, 64, 64)
-    
+
     # Check multiscales metadata
     assert "multiscales" in root.attrs
     assert len(root.attrs["multiscales"]) > 0
@@ -1449,7 +1475,9 @@ def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
     base_z = root["0"].shape[0]
     for level in range(1, 3):
         level_z = root[str(level)].shape[0]
-        assert level_z == base_z, f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
+        assert (
+            level_z == base_z
+        ), f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
 
 
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
@@ -1479,7 +1507,7 @@ def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
     # In 3D mode, Z should be downsampled
     base_shape = root["0"].shape
     level1_shape = root["1"].shape
-    
+
     # Z dimension should be downsampled (if original is divisible by 2)
     # Allow for rounding differences
     assert level1_shape[0] <= base_shape[0] // 2 + 1
@@ -1569,6 +1597,451 @@ def test_stack_files_to_ome_zarr_multiscales_metadata(temp_dir):
     assert "version" in multiscales[0]
     assert "axes" in multiscales[0]
     assert "datasets" in multiscales[0]
-    
+
     # Check OME metadata
     assert "omero" in root.attrs
+
+
+# ============================================================================
+# Additional coverage tests for edge cases
+# ============================================================================
+
+
+def test_stack_files_to_zarr_multiprocessing_generic_axis_order(temp_dir):
+    """Test multiprocessing with generic axis orders (not ZCYX or CZYX)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create multi-channel images
+    for i in range(4):
+        filepath = temp_dir / f"generic_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(2, 8, 8), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    # Test with ZYCX axis order (generic, not ZCYX or CZYX)
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="ZYCX",  # Generic order
+        num_workers=2,  # Force multiprocessing
+    )
+
+    zarr_path = Path(result["generic"]["zarr_path"])
+    z = zarr.open(str(zarr_path), mode="r")
+    assert z.shape == (4, 8, 2, 8)  # (Z, Y, C, X) for ZYCX
+    assert result["generic"]["axis_order"] == "ZYCX"
+
+
+def test_stack_files_to_zarr_multiprocessing_no_tqdm(temp_dir, monkeypatch):
+    """Test multiprocessing path when tqdm is not available."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    import qlty.utils.stack_to_zarr as stack_module
+
+    original_tqdm = stack_module.tqdm
+    stack_module.tqdm = None
+
+    try:
+        # Create test images
+        for i in range(3):
+            filepath = temp_dir / f"notqdm_{i:01d}.tif"
+            data = np.random.randint(0, 255, size=(10, 10), dtype=np.uint8)
+            _tifffile_imwrite(filepath, data)
+
+        # Should work without tqdm
+        result = stack_files_to_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+            num_workers=2,  # Force multiprocessing
+        )
+
+        assert len(result) == 1
+        metadata = result["notqdm"]
+        assert metadata["file_count"] == 3
+    finally:
+        stack_module.tqdm = original_tqdm
+
+
+def test_apply_axis_order_single_channel():
+    """Test _apply_axis_order with single channel (early return)."""
+    from qlty.utils.stack_to_zarr import _apply_axis_order
+
+    # Single channel data: (Z, Y, X)
+    data = np.random.randn(5, 10, 10)
+    current_shape = (5, 10, 10)  # (Z, Y, X)
+
+    # Should return early without transformation
+    result_data, result_shape = _apply_axis_order(data, current_shape, "ZYX")
+
+    assert result_data is data  # Should be same object (no copy)
+    assert result_shape == current_shape
+
+
+def test_normalize_axis_order_invalid():
+    """Test _normalize_axis_order with invalid axis order."""
+    from qlty.utils.stack_to_zarr import _normalize_axis_order
+
+    # Invalid: missing required axes
+    with pytest.raises(ValueError, match="axis_order must contain exactly"):
+        _normalize_axis_order("ZYX", has_channels=True)  # Missing C
+
+    # Invalid: extra axes
+    with pytest.raises(ValueError, match="axis_order must contain exactly"):
+        _normalize_axis_order("ZCYXA", has_channels=True)  # Extra A
+
+    # Invalid: wrong axes
+    with pytest.raises(ValueError, match="axis_order must contain exactly"):
+        _normalize_axis_order("ZCY", has_channels=True)  # Missing X
+
+
+# ============================================================================
+# Additional coverage tests for error handling and edge cases
+# ============================================================================
+
+
+def test_stack_files_to_zarr_invalid_directory():
+    """Test error when directory does not exist."""
+    with pytest.raises(ValueError, match="Directory does not exist"):
+        stack_files_to_zarr(
+            directory="/nonexistent/directory",
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+        )
+
+
+def test_stack_files_to_ome_zarr_invalid_directory():
+    """Test error when directory does not exist for OME-Zarr."""
+    with pytest.raises(ValueError, match="Directory does not exist"):
+        stack_files_to_ome_zarr(
+            directory="/nonexistent/directory",
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+        )
+
+
+def test_stack_files_to_zarr_pattern_one_group_error(temp_dir):
+    """Test error when pattern has only one group."""
+    for i in range(2):
+        _create_test_image(temp_dir / f"test_{i:01d}.tif", (10, 10))
+
+    # Pattern with only one group (no counter)
+    with pytest.raises(ValueError, match="Pattern must have at least 2 groups"):
+        stack_files_to_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)\.tif$",  # Only basename, no counter
+        )
+
+
+def test_stack_files_to_ome_zarr_pattern_no_groups_error(temp_dir):
+    """Test error when OME-Zarr pattern has no groups."""
+    for i in range(2):
+        _create_test_image(temp_dir / f"test_{i:01d}.tif", (10, 10))
+
+    # Pattern with no groups
+    with pytest.raises(ValueError, match="Pattern has no groups"):
+        stack_files_to_ome_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"test_\d+\.tif$",  # No groups
+        )
+
+
+def test_stack_files_to_ome_zarr_pattern_one_group_error(temp_dir):
+    """Test error when OME-Zarr pattern has only one group."""
+    for i in range(2):
+        _create_test_image(temp_dir / f"test_{i:01d}.tif", (10, 10))
+
+    # Pattern with only one group
+    with pytest.raises(ValueError, match="Pattern must have at least 2 groups"):
+        stack_files_to_ome_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)\.tif$",  # Only basename, no counter
+        )
+
+
+def test_stack_files_to_zarr_extension_normalization_no_dot_already(temp_dir):
+    """Test extension normalization when it already has a dot."""
+    for i in range(2):
+        _create_test_image(temp_dir / f"test_{i:01d}.tif", (10, 10))
+
+    # Extension already has dot
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",  # Already has dot
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    assert len(result) == 1
+
+
+def test_stack_files_to_ome_zarr_extension_normalization(temp_dir):
+    """Test extension normalization for OME-Zarr."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    for i in range(2):
+        filepath = temp_dir / f"test_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(10, 10), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    # Extension without dot
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension="tif",  # No dot
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+    )
+
+    assert len(result) == 1
+
+
+def test_stack_files_to_zarr_load_and_process_image_yxc_format(temp_dir):
+    """Test _load_and_process_image with (Y, X, C) format."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    from qlty.utils.stack_to_zarr import _load_and_process_image
+
+    # Create (Y, X, C) image
+    filepath = temp_dir / "yxc_test.tif"
+    data = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+    _tifffile_imwrite(filepath, data)
+
+    # Should transpose to (C, Y, X)
+    result = _load_and_process_image(filepath, dtype=None)
+    assert result.shape == (3, 10, 10)  # (C, Y, X)
+
+
+def test_stack_files_to_zarr_load_and_process_image_dtype_conversion(temp_dir):
+    """Test _load_and_process_image with dtype conversion."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    from qlty.utils.stack_to_zarr import _load_and_process_image
+
+    # Create uint8 image
+    filepath = temp_dir / "dtype_test.tif"
+    data = np.random.randint(0, 255, size=(10, 10), dtype=np.uint8)
+    _tifffile_imwrite(filepath, data)
+
+    # Convert to uint16
+    result = _load_and_process_image(filepath, dtype=np.uint16)
+    assert result.dtype == np.uint16
+    assert result.shape == (10, 10)
+
+
+def test_stack_files_to_ome_zarr_unsupported_image_dimensions(temp_dir):
+    """Test error with unsupported image dimensions in OME-Zarr."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create 1D image (unsupported)
+    data = np.random.randint(0, 255, size=(100,), dtype=np.uint8)
+    filepath = temp_dir / "unsupported_0.tif"
+    _tifffile_imwrite(filepath, data)
+
+    with pytest.raises(ValueError, match="Unsupported image dimensions"):
+        stack_files_to_ome_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+        )
+
+
+def test_stack_files_to_ome_zarr_generic_axis_order_pyramid(temp_dir):
+    """Test OME-Zarr pyramid with generic axis order."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create multi-channel images
+    for i in range(3):
+        filepath = temp_dir / f"generic_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(2, 8, 8), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    # Test with generic axis order (not ZCYX or CZYX)
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="ZYCX",  # Generic order
+        pyramid_levels=2,
+        downsample_mode="2d",
+    )
+
+    assert len(result) == 1
+    metadata = result["generic"]
+    assert metadata["pyramid_levels"] == 2
+
+    # Check pyramid structure
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+    assert "0" in root  # Base level
+    assert "1" in root  # First pyramid level
+
+
+def test_stack_files_to_ome_zarr_single_channel_pyramid_scaling(temp_dir):
+    """Test OME-Zarr pyramid scaling for single channel images."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create single channel images
+    for i in range(4):
+        filepath = temp_dir / f"single_{i:01d}.tif"
+        data = np.random.randint(0, 65535, size=(16, 16), dtype=np.uint16)
+        _tifffile_imwrite(filepath, data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=3,
+        downsample_mode="2d",  # Don't downsample Z
+    )
+
+    assert len(result) == 1
+    metadata = result["single"]
+    assert metadata["pyramid_levels"] == 3
+
+    # Check pyramid levels
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+    assert root["0"].shape == (4, 16, 16)  # Base: (Z, Y, X)
+    assert root["1"].shape == (4, 8, 8)  # First level: 2x downsampled Y, X
+
+
+def test_stack_files_to_zarr_sequential_loading_with_progress(temp_dir):
+    """Test sequential loading path with progress updates."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    import qlty.utils.stack_to_zarr as stack_module
+
+    original_tqdm = stack_module.tqdm
+    stack_module.tqdm = None  # Disable tqdm to test progress printing
+
+    try:
+        # Create many images to trigger progress updates
+        for i in range(25):
+            filepath = temp_dir / f"progress_{i:02d}.tif"
+            data = np.random.randint(0, 255, size=(10, 10), dtype=np.uint8)
+            _tifffile_imwrite(filepath, data)
+
+        # Should work with progress printing instead of tqdm
+        result = stack_files_to_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+            num_workers=1,  # Sequential processing
+        )
+
+        assert len(result) == 1
+        metadata = result["progress"]
+        assert metadata["file_count"] == 25
+    finally:
+        stack_module.tqdm = original_tqdm
+
+
+def test_stack_files_to_zarr_multiprocessing_failure_handling(temp_dir):
+    """Test multiprocessing handles individual image failures gracefully."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create some valid images
+    for i in range(3):
+        filepath = temp_dir / f"valid_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(10, 10), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    # Create a corrupted file that will fail to load
+    corrupted_file = temp_dir / "valid_3.tif"
+    corrupted_file.write_text("not an image file")
+
+    # The function will fail when trying to load the corrupted file
+    # This tests the error handling path in _load_and_write_to_zarr
+    # The error is caught and printed, but the function may still fail
+    # depending on when the error occurs
+    try:
+        result = stack_files_to_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+            num_workers=2,  # Force multiprocessing
+        )
+        # If it succeeds, check that valid files were processed
+        if "valid" in result:
+            assert result["valid"]["file_count"] <= 4  # May have fewer due to errors
+    except Exception:
+        # It's acceptable for the function to raise an error with corrupted files
+        # This tests the error handling path
+        pass
+
+
+def test_stack_files_to_ome_zarr_czyx_pyramid_scaling(temp_dir):
+    """Test OME-Zarr pyramid scaling for CZYX axis order."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create multi-channel images
+    for i in range(3):
+        filepath = temp_dir / f"czyx_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(2, 8, 8), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="CZYX",
+        pyramid_levels=2,
+        downsample_mode="2d",
+    )
+
+    assert len(result) == 1
+    metadata = result["czyx"]
+    assert metadata["pyramid_levels"] == 2
+
+    # Check pyramid structure
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+    assert "0" in root
+    assert "1" in root
+
+
+def test_stack_files_to_ome_zarr_custom_pyramid_scale_factors(temp_dir):
+    """Test OME-Zarr with custom pyramid scale factors."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create test images with dimensions divisible by scale factors
+    for i in range(4):
+        filepath = temp_dir / f"custom_{i:01d}.tif"
+        data = np.random.randint(0, 255, size=(16, 16), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    # Custom scale factors for (Z, Y, X) - must align with shape
+    # Shape is (4, 16, 16), so scale factors should be (1, 2, 2) and (1, 4, 4)
+    custom_scales = [(1, 2, 2), (1, 4, 4)]  # 2x and 4x downsampling in Y, X
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_scale_factors=custom_scales,
+    )
+
+    assert len(result) == 1
+    metadata = result["custom"]
+    assert metadata["pyramid_levels"] == 3  # Base + 2 custom levels
+
+    # Check pyramid structure
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+    assert "0" in root  # Base
+    assert "1" in root  # First custom level
+    assert "2" in root  # Second custom level

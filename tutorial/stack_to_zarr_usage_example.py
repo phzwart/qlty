@@ -27,10 +27,6 @@ zarr_path = (
 zarr_array = zarr.open(zarr_path, mode="r")
 
 # Print info about the zarr array
-print(f"Zarr array shape: {zarr_array.shape}")
-print(f"Zarr array dtype: {zarr_array.dtype}")
-print(f"Zarr array chunks: {zarr_array.chunks}")
-print(f"Metadata: {zarr_array.attrs.asdict()}")
 
 # ============================================================================
 # Step 2: Wrap zarr array with TensorLike3D for use with 2.5D Quilt
@@ -43,7 +39,6 @@ print(f"Metadata: {zarr_array.attrs.asdict()}")
 
 # Check the shape and adjust if needed
 shape = zarr_array.shape
-print(f"\nOriginal zarr shape: {shape}")
 
 # If single channel (Z, Y, X), reshape to (1, 1, Z, Y, X)
 if len(shape) == 3:
@@ -51,26 +46,17 @@ if len(shape) == 3:
     # Create backend
     backend = ZarrBackend(zarr_array, dtype=torch.float32)
     # The backend will automatically add N=1, C=1 dimensions
-    print(f"Backend shape (N, C, Z, Y, X): {backend.get_shape()}")
 
 # If multi-channel with C first (C, Z, Y, X), reshape to (1, C, Z, Y, X)
-elif len(shape) == 4 and shape[0] <= 10:  # Likely (C, Z, Y, X)
+elif (len(shape) == 4 and shape[0] <= 10) or len(shape) == 5:  # Likely (C, Z, Y, X)
     backend = ZarrBackend(zarr_array, dtype=torch.float32)
-    print(f"Backend shape (N, C, Z, Y, X): {backend.get_shape()}")
-
-# If already 5D (N, C, Z, Y, X)
-elif len(shape) == 5:
-    backend = ZarrBackend(zarr_array, dtype=torch.float32)
-    print(f"Backend shape (N, C, Z, Y, X): {backend.get_shape()}")
 
 # Wrap backend in TensorLike3D interface
 tensor_like = TensorLike3D(backend)
-print(f"TensorLike3D shape (N, C, Z, Y, X): {tensor_like.shape}")
 
 # Verify we can load data correctly
 # Test load: should return (C, Z, Y, X) = (1, 800, 3232, 3232)
 test_load = tensor_like[0]  # Get first image: (C, Z, Y, X)
-print(f"Test load shape [0]: {test_load.shape}")  # Should be (1, 800, 3232, 3232)
 
 # ============================================================================
 # Step 3: Create 2.5D slices using NCZYX25DQuilt
@@ -79,7 +65,7 @@ print(f"Test load shape [0]: {test_load.shape}")  # Should be (1, 800, 3232, 323
 # Define channel specification for 2.5D conversion
 # Example 1: Extract z-1, z, z+1 as separate channels
 channel_spec = {
-    "identity": [-1, 0, 1]  # 3 channels: previous slice, current slice, next slice
+    "identity": [-1, 0, 1],  # 3 channels: previous slice, current slice, next slice
 }
 
 # Example 2: More complex specification with mean operations
@@ -104,9 +90,7 @@ quilt = NCZYX25DQuilt(
 )
 
 # Convert to 2.5D
-print("\nConverting to 2.5D...")
 result_2_5d = quilt.convert()
-print(f"2.5D result shape: {result_2_5d.shape}")  # Should be (N*Z_selected, C', Y, X)
 
 # ============================================================================
 # Step 4: Extract partially overlapping patch pairs from 2.5D slices
@@ -120,10 +104,6 @@ num_patches = 100  # Number of patch pairs per image
 delta_range = (16.0, 32.0)  # Euclidean distance between patch centers
 # delta_range means: 16 <= sqrt(dx² + dy²) <= 32 pixels
 
-print("\nExtracting patch pairs...")
-print(f"  Window size: {window}")
-print(f"  Patches per image: {num_patches}")
-print(f"  Displacement range: {delta_range}")
 
 patches1, patches2, deltas, rotations = extract_patch_pairs(
     tensor=result_2_5d,
@@ -134,11 +114,6 @@ patches1, patches2, deltas, rotations = extract_patch_pairs(
     rotation_choices=None,  # Or [0, 1, 2, 3] for quarter-turn rotations
 )
 
-print("\nPatch extraction results:")
-print(f"  patches1 shape: {patches1.shape}")  # (N*Z_selected*num_patches, C', 64, 64)
-print(f"  patches2 shape: {patches2.shape}")  # (N*Z_selected*num_patches, C', 64, 64)
-print(f"  deltas shape: {deltas.shape}")  # (N*Z_selected*num_patches, 2) - (dx, dy)
-print(f"  rotations shape: {rotations.shape}")  # (N*Z_selected*num_patches,)
 
 # ============================================================================
 # Step 5: Use the patches for training or analysis
@@ -151,9 +126,6 @@ patch1 = patches1[0]  # Shape: (C', 64, 64)
 patch2 = patches2[0]  # Shape: (C', 64, 64)
 delta = deltas[0]  # Shape: (2,) - displacement vector
 
-print("\nFirst patch pair:")
-print(f"  Delta (dx, dy): ({delta[0]:.2f}, {delta[1]:.2f})")
-print(f"  Distance: {torch.sqrt(delta[0] ** 2 + delta[1] ** 2):.2f} pixels")
 
 # Visualize (if you have matplotlib and the patches are reasonable size)
 # fig, axes = plt.subplots(1, 2, figsize=(10, 5))
@@ -163,8 +135,3 @@ print(f"  Distance: {torch.sqrt(delta[0] ** 2 + delta[1] ** 2):.2f} pixels")
 # axes[1].set_title(f'Patch 2 (dx={delta[0]:.1f}, dy={delta[1]:.1f})')
 # plt.tight_layout()
 # plt.show()
-
-print("\nDone! You now have:")
-print(f"  - {len(patches1)} patch pairs")
-print(f"  - Each patch is {window[0]}x{window[1]} pixels")
-print(f"  - Each pair has displacement in range {delta_range}")

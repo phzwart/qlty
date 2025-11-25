@@ -21,7 +21,10 @@ def test_extract_patch_pairs_3d_basic():
     delta_range = (3.0, 5.0)  # Valid range for 8x8x8 window
 
     patches1, patches2, deltas = extract_patch_pairs_3d(
-        tensor, window, num_patches, delta_range
+        tensor,
+        window,
+        num_patches,
+        delta_range,
     )
 
     # Check output shapes
@@ -44,8 +47,12 @@ def test_extract_patch_pairs_3d_delta_constraints():
     num_patches = 10
     delta_range = (6.0, 10.0)  # Valid range
 
-    patches1, patches2, deltas = extract_patch_pairs_3d(
-        tensor, window, num_patches, delta_range, random_seed=42
+    _patches1, _patches2, deltas = extract_patch_pairs_3d(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
     )
 
     # Check that all delta vectors satisfy the Euclidean distance constraint
@@ -66,10 +73,18 @@ def test_extract_patch_pairs_3d_reproducibility():
 
     # Extract with same seed twice
     patches1_a, patches2_a, deltas_a = extract_patch_pairs_3d(
-        tensor, window, num_patches, delta_range, random_seed=123
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=123,
     )
     patches1_b, patches2_b, deltas_b = extract_patch_pairs_3d(
-        tensor, window, num_patches, delta_range, random_seed=123
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=123,
     )
 
     # Results should be identical
@@ -129,7 +144,8 @@ def test_extract_patch_pairs_3d_exhausts_invalid_displacements(monkeypatch):
         return 100, 0, 0  # too large to ever fit
 
     monkeypatch.setattr(
-        "qlty.patch_pairs_3d._sample_displacement_vector_3d", always_invalid
+        "qlty.patch_pairs_3d._sample_displacement_vector_3d",
+        always_invalid,
     )
 
     with pytest.raises(ValueError, match="Could not find valid patch locations"):
@@ -173,7 +189,7 @@ def test_sample_displacement_vector_3d_fallback_with_generator(monkeypatch):
         return torch.zeros(shape, dtype=torch.int64, device=device)
 
     rand_values = iter(
-        [0.125, 0.5, 1.0]
+        [0.125, 0.5, 1.0],
     )  # theta -> pi/4, phi -> pi/2, distance -> high
 
     def fake_rand(size, generator=None, device=None):
@@ -201,7 +217,9 @@ def test_extract_overlapping_pixels_3d_basic():
     deltas = torch.tensor([[2.0, 1.0, 1.0], [-1.0, -2.0, 0.0], [0.0, 0.0, 0.0]])
 
     overlapping1, overlapping2 = extract_overlapping_pixels_3d(
-        patches1, patches2, deltas
+        patches1,
+        patches2,
+        deltas,
     )
 
     # Check output shapes
@@ -227,7 +245,9 @@ def test_extract_overlapping_pixels_3d_no_overlap():
     deltas = torch.tensor([[10.0, 10.0, 10.0], [-10.0, -10.0, -10.0]])
 
     overlapping1, overlapping2 = extract_overlapping_pixels_3d(
-        patches1, patches2, deltas
+        patches1,
+        patches2,
+        deltas,
     )
 
     # Should return empty tensors with correct shape
@@ -246,7 +266,9 @@ def test_extract_overlapping_pixels_3d_full_overlap():
     deltas = torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
 
     overlapping1, overlapping2 = extract_overlapping_pixels_3d(
-        patches1, patches2, deltas
+        patches1,
+        patches2,
+        deltas,
     )
 
     # Should have all pixels from both patches
@@ -254,16 +276,20 @@ def test_extract_overlapping_pixels_3d_full_overlap():
     assert overlapping2.shape == (2 * 8 * 8 * 8, 3)
     # Check that values match patches1 and patches2
     assert torch.allclose(
-        overlapping1[:512], patches1[0].permute(1, 2, 3, 0).reshape(-1, 3)
+        overlapping1[:512],
+        patches1[0].permute(1, 2, 3, 0).reshape(-1, 3),
     )
     assert torch.allclose(
-        overlapping1[512:], patches1[1].permute(1, 2, 3, 0).reshape(-1, 3)
+        overlapping1[512:],
+        patches1[1].permute(1, 2, 3, 0).reshape(-1, 3),
     )
     assert torch.allclose(
-        overlapping2[:512], patches2[0].permute(1, 2, 3, 0).reshape(-1, 3)
+        overlapping2[:512],
+        patches2[0].permute(1, 2, 3, 0).reshape(-1, 3),
     )
     assert torch.allclose(
-        overlapping2[512:], patches2[1].permute(1, 2, 3, 0).reshape(-1, 3)
+        overlapping2[512:],
+        patches2[1].permute(1, 2, 3, 0).reshape(-1, 3),
     )
 
 
@@ -317,18 +343,27 @@ def test_extract_overlapping_pixels_3d_correspondence():
                         # dx=2, dy=1, dz=1: patch2[u, v, w] corresponds to patch1[u+1, v+1, w+2]
                         if u + 1 < 8 and v + 1 < 8 and w + 2 < 8:
                             patches2[i, 0, u, v, w] = patches1[
-                                i, 0, u + 1, v + 1, w + 2
+                                i,
+                                0,
+                                u + 1,
+                                v + 1,
+                                w + 2,
                             ]
-                    else:
-                        # dx=-1, dy=-1, dz=-1: patch2[u, v, w] corresponds to patch1[u-1, v-1, w-1]
-                        if u - 1 >= 0 and v - 1 >= 0 and w - 1 >= 0:
-                            patches2[i, 0, u, v, w] = patches1[
-                                i, 0, u - 1, v - 1, w - 1
-                            ]
+                    # dx=-1, dy=-1, dz=-1: patch2[u, v, w] corresponds to patch1[u-1, v-1, w-1]
+                    elif u - 1 >= 0 and v - 1 >= 0 and w - 1 >= 0:
+                        patches2[i, 0, u, v, w] = patches1[
+                            i,
+                            0,
+                            u - 1,
+                            v - 1,
+                            w - 1,
+                        ]
 
     deltas = torch.tensor([[2.0, 1.0, 1.0], [-1.0, -1.0, -1.0]])
     overlapping1, overlapping2 = extract_overlapping_pixels_3d(
-        patches1, patches2, deltas
+        patches1,
+        patches2,
+        deltas,
     )
 
     # For corresponding pixels, they should have the same values
@@ -347,11 +382,13 @@ def test_extract_overlapping_pixels_3d_partial_overlap():
             [0.0, 4.0, 0.0],  # Y shift only
             [0.0, 0.0, 2.0],  # Z shift only
             [-1.0, -1.0, -1.0],  # Negative diagonal shift
-        ]
+        ],
     )
 
     overlapping1, overlapping2 = extract_overlapping_pixels_3d(
-        patches1, patches2, deltas
+        patches1,
+        patches2,
+        deltas,
     )
 
     # All should have some overlap

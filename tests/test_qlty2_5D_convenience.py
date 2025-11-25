@@ -19,11 +19,17 @@ def test_extract_patch_pairs():
 
     spec = {"identity": [0]}
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="2d", z_slices=[5]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="2d",
+        z_slices=[5],
     )
 
     patches1, patches2, deltas, rotations = quilt.extract_patch_pairs(
-        window=(16, 16), num_patches=10, delta_range=(4.0, 8.0), random_seed=42
+        window=(16, 16),
+        num_patches=10,
+        delta_range=(4.0, 8.0),
+        random_seed=42,
     )
 
     # Check shapes
@@ -46,7 +52,9 @@ def test_extract_patch_pairs_requires_2d_mode():
 
     with pytest.raises(ValueError, match="accumulation_mode='2d'"):
         quilt.extract_patch_pairs(
-            window=(16, 16), num_patches=10, delta_range=(4.0, 8.0)
+            window=(16, 16),
+            num_patches=10,
+            delta_range=(4.0, 8.0),
         )
 
 
@@ -56,7 +64,10 @@ def test_to_ncyx_quilt():
 
     spec = {"identity": [0]}
     quilt_2_5d = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="2d", z_slices=[5]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="2d",
+        z_slices=[5],
     )
 
     quilt_2d = quilt_2_5d.to_ncyx_quilt(window=(32, 32), step=(16, 16), border=(4, 4))
@@ -101,7 +112,10 @@ def test_from_zarr():
         zarr_path = os.path.join(tmpdir, "test.zarr")
         # Create zarr array directly in directory
         z_saved = zarr.open_array(
-            store=zarr_path, mode="w", shape=shape, dtype="float32"
+            store=zarr_path,
+            mode="w",
+            shape=shape,
+            dtype="float32",
         )
         z_saved[:] = data[:]
 
@@ -155,21 +169,13 @@ def test_from_hdf5():
 
 if __name__ == "__main__":
     test_extract_patch_pairs()
-    print("✓ extract_patch_pairs")
 
     test_extract_patch_pairs_requires_2d_mode()
-    print("✓ extract_patch_pairs_requires_2d_mode")
 
     test_to_ncyx_quilt()
-    print("✓ to_ncyx_quilt")
 
     test_to_ncyx_quilt_requires_2d_mode()
-    print("✓ to_ncyx_quilt_requires_2d_mode")
 
     test_from_zarr()
-    print("✓ from_zarr")
 
     test_from_hdf5()
-    print("✓ from_hdf5")
-
-    print("\nAll convenience method tests passed!")

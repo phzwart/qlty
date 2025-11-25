@@ -75,7 +75,7 @@ def test_tokenize_patch_round_trip():
     patch = torch.randn(1, 8, 8)
     patch_size = 2
 
-    tokens, coords = tokenize_patch(patch, patch_size)
+    tokens, _coords = tokenize_patch(patch, patch_size)
 
     # Verify we can reconstruct by checking a specific token
     # Token at (0, 0) should match patch[0, 0:2, 0:2]
@@ -89,7 +89,12 @@ def test_build_sequence_pair_no_transform():
     patch2 = patch1.clone()
 
     result = build_sequence_pair(
-        patch1, patch2, dx=0.0, dy=0.0, rot_k90=0, patch_size=4
+        patch1,
+        patch2,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
     )
 
     assert "tokens1" in result
@@ -119,7 +124,12 @@ def test_build_sequence_pair_with_translation():
     patch2 = torch.randn(1, 16, 16)
 
     result = build_sequence_pair(
-        patch1, patch2, dx=4.0, dy=0.0, rot_k90=0, patch_size=4
+        patch1,
+        patch2,
+        dx=4.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
     )
 
     # Should have some overlap but not all
@@ -133,7 +143,12 @@ def test_build_sequence_pair_coordinates():
     patch2 = torch.randn(1, 16, 16)
 
     result = build_sequence_pair(
-        patch1, patch2, dx=0.0, dy=0.0, rot_k90=0, patch_size=4
+        patch1,
+        patch2,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
     )
 
     # Coordinates should be in [0, 16) range
@@ -161,7 +176,12 @@ def test_build_sequence_pair_overlap_fractions():
 
     # With no transform, all overlaps should be 1.0
     result = build_sequence_pair(
-        patch1, patch2, dx=0.0, dy=0.0, rot_k90=0, patch_size=4
+        patch1,
+        patch2,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
     )
     assert torch.allclose(
         result["overlap_fractions"][result["overlap_mask1"]],
@@ -171,7 +191,12 @@ def test_build_sequence_pair_overlap_fractions():
 
     # With partial translation, overlaps should be < 1.0
     result = build_sequence_pair(
-        patch1, patch2, dx=2.0, dy=0.0, rot_k90=0, patch_size=4
+        patch1,
+        patch2,
+        dx=2.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
     )
     # Overlapping tokens should have fractions between 0 and 1
     if result["overlap_mask1"].any():
@@ -189,14 +214,25 @@ def test_build_sequence_pair_with_stride():
 
     # With stride=patch_size (non-overlapping), should get fewer tokens
     result_non_overlap = build_sequence_pair(
-        patch1, patch2, dx=0.0, dy=0.0, rot_k90=0, patch_size=4, stride=4
+        patch1,
+        patch2,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
+        stride=4,
     )
     # Should get 4x4 = 16 tokens
     assert result_non_overlap["tokens1"].shape[0] == 16
 
     # With default stride (overlapping), should get more tokens
     result_overlap = build_sequence_pair(
-        patch1, patch2, dx=0.0, dy=0.0, rot_k90=0, patch_size=4
+        patch1,
+        patch2,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
     )
     # Should get 7x7 = 49 tokens with stride=2
     assert result_overlap["tokens1"].shape[0] == 49
@@ -221,7 +257,7 @@ def test_tokenize_patch_edge_cases():
 
     # Test with very small patch (should still work if patch_size fits)
     patch = torch.randn(1, 4, 4)
-    tokens, coords = tokenize_patch(patch, patch_size=2, stride=1)
+    tokens, _coords = tokenize_patch(patch, patch_size=2, stride=1)
     # Should get 3x3 = 9 tokens (positions: 0, 1, 2 in each dimension)
     assert tokens.shape[0] == 9
 
@@ -239,7 +275,12 @@ def test_build_sequence_pair_batch():
     rot_k90 = torch.tensor([0, 0, 0, 0, 1])
 
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx,
+        dy,
+        rot_k90,
+        patch_size=4,
     )
 
     # Should return dictionary of tensors
@@ -278,13 +319,18 @@ def test_build_sequence_pair_batch():
         assert result["tokens1"][i, :T].shape[0] == T
         assert result["tokens2"][i, :T].shape[0] == T
         # Padding should be zeros (for tokens) or False (for masks)
-        if T < result["tokens1"].shape[1]:
+        if result["tokens1"].shape[1] > T:
             assert (result["tokens1"][i, T:] == 0).all()
             assert (result["tokens2"][i, T:] == 0).all()
 
     # Test with scalar inputs (should broadcast)
     result_scalar = build_sequence_pair(
-        patch1_batch, patch2_batch, dx=0.0, dy=0.0, rot_k90=0, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
     )
     assert isinstance(result_scalar, dict)
 
@@ -308,7 +354,12 @@ def test_build_sequence_pair_batch_numba_path():
     rot_k90 = torch.tensor([0, 0, 0, 0, 1, 2, 0, 0, 1, 0])
 
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx,
+        dy,
+        rot_k90,
+        patch_size=4,
     )
 
     # Verify results are correct
@@ -334,7 +385,12 @@ def test_build_sequence_pair_batch_sequential_path():
     rot_k90 = torch.tensor([0, 0, 0])
 
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx,
+        dy,
+        rot_k90,
+        patch_size=4,
     )
 
     # Verify results are correct
@@ -355,7 +411,12 @@ def test_build_sequence_pair_batch_no_overlaps():
     rot_k90 = torch.tensor([0, 0, 0, 0, 0, 0])
 
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx,
+        dy,
+        rot_k90,
+        patch_size=4,
     )
 
     # First pair may have no overlaps
@@ -372,7 +433,12 @@ def test_build_sequence_pair_with_rotations():
     # Test all rotation values
     for rot in [0, 1, 2, 3]:
         result = build_sequence_pair(
-            patch1, patch2, dx=0.0, dy=0.0, rot_k90=rot, patch_size=4
+            patch1,
+            patch2,
+            dx=0.0,
+            dy=0.0,
+            rot_k90=rot,
+            patch_size=4,
         )
         assert "tokens1" in result
         assert "tokens2" in result
@@ -391,7 +457,12 @@ def test_build_sequence_pair_batch_with_rotations():
     dy = torch.zeros(N)
 
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx,
+        dy,
+        rot_k90,
+        patch_size=4,
     )
 
     assert result["tokens1"].shape[0] == N
@@ -406,7 +477,12 @@ def test_build_sequence_pair_batch_scalar_broadcast():
 
     # Test with scalar values (should broadcast to all batch elements)
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx=2.0, dy=1.0, rot_k90=1, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx=2.0,
+        dy=1.0,
+        rot_k90=1,
+        patch_size=4,
     )
 
     assert result["tokens1"].shape[0] == N
@@ -427,7 +503,12 @@ def test_build_sequence_pair_batch_numpy_inputs():
     rot_k90 = np.array([0, 0, 0, 0, 0, 0], dtype=np.int64)
 
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx,
+        dy,
+        rot_k90,
+        patch_size=4,
     )
 
     assert result["tokens1"].shape[0] == N
@@ -446,7 +527,12 @@ def test_build_sequence_pair_batch_empty_overlap_pairs():
     rot_k90 = torch.tensor([0, 0, 0, 0])
 
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx,
+        dy,
+        rot_k90,
+        patch_size=4,
     )
 
     # Should handle empty overlap pairs gracefully
@@ -462,7 +548,12 @@ def test_build_sequence_pair_batch_mismatch_error():
 
     with pytest.raises(ValueError, match="Batch sizes must match"):
         build_sequence_pair(
-            patch1_batch, patch2_batch, dx=0.0, dy=0.0, rot_k90=0, patch_size=4
+            patch1_batch,
+            patch2_batch,
+            dx=0.0,
+            dy=0.0,
+            rot_k90=0,
+            patch_size=4,
         )
 
 
@@ -473,7 +564,12 @@ def test_build_sequence_pair_batch_shape_mismatch_error():
 
     with pytest.raises(ValueError, match="Patches must have same shape"):
         build_sequence_pair(
-            patch1_batch, patch2_batch, dx=0.0, dy=0.0, rot_k90=0, patch_size=4
+            patch1_batch,
+            patch2_batch,
+            dx=0.0,
+            dy=0.0,
+            rot_k90=0,
+            patch_size=4,
         )
 
 
@@ -488,7 +584,12 @@ def test_build_sequence_pair_batch_tensor_size_mismatch():
 
     with pytest.raises(ValueError, match="must have shape"):
         build_sequence_pair(
-            patch1_batch, patch2_batch, dx, dy=0.0, rot_k90=0, patch_size=4
+            patch1_batch,
+            patch2_batch,
+            dx,
+            dy=0.0,
+            rot_k90=0,
+            patch_size=4,
         )
 
 
@@ -559,20 +660,40 @@ def test_build_sequence_pair_rotation_normalization():
 
     # Test with rotation > 3 (should be normalized: 5 % 4 = 1)
     result1 = build_sequence_pair(
-        patch1, patch2, dx=0.0, dy=0.0, rot_k90=5, patch_size=4
+        patch1,
+        patch2,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=5,
+        patch_size=4,
     )
     result2 = build_sequence_pair(
-        patch1, patch2, dx=0.0, dy=0.0, rot_k90=1, patch_size=4
+        patch1,
+        patch2,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=1,
+        patch_size=4,
     )
     # Should produce same result
     assert torch.allclose(result1["tokens1"], result2["tokens1"])
 
     # Test with negative rotation (should be normalized: -1 % 4 = 3)
     result3 = build_sequence_pair(
-        patch1, patch2, dx=0.0, dy=0.0, rot_k90=-1, patch_size=4
+        patch1,
+        patch2,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=-1,
+        patch_size=4,
     )
     result4 = build_sequence_pair(
-        patch1, patch2, dx=0.0, dy=0.0, rot_k90=3, patch_size=4
+        patch1,
+        patch2,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=3,
+        patch_size=4,
     )
     # Should produce same result
     assert torch.allclose(result3["tokens1"], result4["tokens1"])
@@ -591,7 +712,12 @@ def test_build_sequence_pair_batch_numpy_wrong_shape():
 
     with pytest.raises(ValueError, match="must have shape"):
         build_sequence_pair(
-            patch1_batch, patch2_batch, dx, dy=0.0, rot_k90=0, patch_size=4
+            patch1_batch,
+            patch2_batch,
+            dx,
+            dy=0.0,
+            rot_k90=0,
+            patch_size=4,
         )
 
 
@@ -608,7 +734,12 @@ def test_build_sequence_pair_batch_numba_path_coverage():
     rot_k90 = torch.tensor([0, 1, 2, 3, 0, 1, 2, 3, 0, 1])  # Mix of all rotations
 
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx,
+        dy,
+        rot_k90,
+        patch_size=4,
     )
 
     # Verify numba path was used (results should be correct)
@@ -632,7 +763,12 @@ def test_build_sequence_pair_batch_numba_all_rotations():
         rot_k90 = torch.full((N,), rot, dtype=torch.int64)
 
         result = build_sequence_pair(
-            patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+            patch1_batch,
+            patch2_batch,
+            dx,
+            dy,
+            rot_k90,
+            patch_size=4,
         )
 
         assert result["tokens1"].shape[0] == N
@@ -652,7 +788,12 @@ def test_build_sequence_pair_batch_numba_edge_cases():
     rot_k90 = torch.tensor([0, 1, 0, 2, 3, 0, 1])
 
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+        patch1_batch,
+        patch2_batch,
+        dx,
+        dy,
+        rot_k90,
+        patch_size=4,
     )
 
     assert result["tokens1"].shape[0] == N
@@ -668,13 +809,25 @@ def test_build_sequence_pair_batch_with_explicit_stride():
 
     # Test with explicit stride (not None)
     result = build_sequence_pair(
-        patch1_batch, patch2_batch, dx=0.0, dy=0.0, rot_k90=0, patch_size=4, stride=2
+        patch1_batch,
+        patch2_batch,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
+        stride=2,
     )
 
     assert result["tokens1"].shape[0] == N
     # With stride=2, should get more tokens than with stride=4
     result_stride4 = build_sequence_pair(
-        patch1_batch, patch2_batch, dx=0.0, dy=0.0, rot_k90=0, patch_size=4, stride=4
+        patch1_batch,
+        patch2_batch,
+        dx=0.0,
+        dy=0.0,
+        rot_k90=0,
+        patch_size=4,
+        stride=4,
     )
     assert result["tokens1"].shape[1] > result_stride4["tokens1"].shape[1]
 
@@ -683,7 +836,8 @@ def test_build_sequence_pair_batch_without_numba():
     """Test batch processing when numba is not available (covers HAS_NUMBA=False path)."""
     # Mock numba import to simulate it not being available
     with patch.dict(
-        "sys.modules", {"numba": None, "numba.njit": None, "numba.prange": None}
+        "sys.modules",
+        {"numba": None, "numba.njit": None, "numba.prange": None},
     ):
         # Reload the module to get the HAS_NUMBA=False path
         import importlib
@@ -703,7 +857,12 @@ def test_build_sequence_pair_batch_without_numba():
 
         # Should fall back to sequential processing
         result = seq_module.build_sequence_pair(
-            patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+            patch1_batch,
+            patch2_batch,
+            dx,
+            dy,
+            rot_k90,
+            patch_size=4,
         )
 
         assert result["tokens1"].shape[0] == N
@@ -770,7 +929,12 @@ def test_build_sequence_pair_batch_with_mocked_numba():
 
             # This should now execute the numba function as regular Python code
             result = seq_module.build_sequence_pair(
-                patch1_batch, patch2_batch, dx, dy, rot_k90, patch_size=4
+                patch1_batch,
+                patch2_batch,
+                dx,
+                dy,
+                rot_k90,
+                patch_size=4,
             )
 
             assert result["tokens1"].shape[0] == N

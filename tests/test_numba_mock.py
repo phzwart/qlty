@@ -19,12 +19,17 @@ from qlty import qlty2D
 def test_stitch_with_numba_available():
     """Test that code works when numba is available (normal case)."""
     try:
-        import numba  # noqa: F401
+        import numba
     except ImportError:
         pytest.skip("Numba is not available in this environment")
 
     quilt = qlty2D.NCYXQuilt(
-        Y=128, X=128, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=128,
+        X=128,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     data = torch.randn(2, 3, 128, 128)

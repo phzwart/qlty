@@ -4,19 +4,18 @@ Extract pairs of patches from 3D image tensors with controlled displacement.
 This module provides functionality to extract pairs of patches from 3D tensors
 where the displacement between patch centers follows specified constraints.
 """
-
-from typing import Optional, Tuple
+from __future__ import annotations
 
 import torch
 
 
 def extract_patch_pairs_3d(
     tensor: torch.Tensor,
-    window: Tuple[int, int, int],
+    window: tuple[int, int, int],
     num_patches: int,
-    delta_range: Tuple[float, float],
-    random_seed: Optional[int] = None,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    delta_range: tuple[float, float],
+    random_seed: int | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Extract pairs of patches from 3D image tensors with controlled displacement.
 
@@ -77,8 +76,9 @@ def extract_patch_pairs_3d(
     """
     # Validate input tensor shape
     if len(tensor.shape) != 5:
+        msg = f"Input tensor must be 5D (N, C, Z, Y, X), got shape {tensor.shape}"
         raise ValueError(
-            f"Input tensor must be 5D (N, C, Z, Y, X), got shape {tensor.shape}"
+            msg,
         )
 
     N, C, Z, Y, X = tensor.shape
@@ -91,21 +91,28 @@ def extract_patch_pairs_3d(
 
     low, high = delta_range
     if low < window_quarter or high > window_three_quarters:
-        raise ValueError(
+        msg = (
             f"delta_range must satisfy: {window_quarter} <= low <= high <= {window_three_quarters}, "
             f"got ({low}, {high})"
         )
+        raise ValueError(
+            msg,
+        )
     if low > high:
-        raise ValueError(f"delta_range low ({low}) must be <= high ({high})")
+        msg = f"delta_range low ({low}) must be <= high ({high})"
+        raise ValueError(msg)
 
     # Check if volume is large enough for window and delta range
     min_z = U + int(high)
     min_y = V + int(high)
     min_x = W + int(high)
-    if Z < min_z or Y < min_y or X < min_x:
-        raise ValueError(
+    if min_z > Z or min_y > Y or min_x > X:
+        msg = (
             f"Volume dimensions ({Z}, {Y}, {X}) are too small for window ({U}, {V}, {W}) "
             f"and delta_range ({low}, {high}). Minimum required: ({min_z}, {min_y}, {min_x})"
+        )
+        raise ValueError(
+            msg,
         )
 
     # Set random seed if provided
@@ -118,13 +125,19 @@ def extract_patch_pairs_3d(
     # Pre-allocate output tensors
     total_patches = N * num_patches
     patches1 = torch.empty(
-        (total_patches, C, U, V, W), dtype=tensor.dtype, device=tensor.device
+        (total_patches, C, U, V, W),
+        dtype=tensor.dtype,
+        device=tensor.device,
     )
     patches2 = torch.empty(
-        (total_patches, C, U, V, W), dtype=tensor.dtype, device=tensor.device
+        (total_patches, C, U, V, W),
+        dtype=tensor.dtype,
+        device=tensor.device,
     )
     deltas_tensor = torch.empty(
-        (total_patches, 3), dtype=torch.float32, device=tensor.device
+        (total_patches, 3),
+        dtype=torch.float32,
+        device=tensor.device,
     )
 
     patch_idx = 0
@@ -137,7 +150,10 @@ def extract_patch_pairs_3d(
         for _ in range(num_patches):
             # Sample displacement vector (dx, dy, dz) with Euclidean distance constraint
             dx, dy, dz = _sample_displacement_vector_3d(
-                low, high, generator, device=tensor.device
+                low,
+                high,
+                generator,
+                device=tensor.device,
             )
 
             # Sample first patch location (x, y, z) ensuring both patches fit
@@ -155,7 +171,10 @@ def extract_patch_pairs_3d(
                     x_min >= x_max or y_min >= y_max or z_min >= z_max
                 ) and attempts < 10:
                     dx, dy, dz = _sample_displacement_vector_3d(
-                        low, high, generator, device=tensor.device
+                        low,
+                        high,
+                        generator,
+                        device=tensor.device,
                     )
                     x_min = max(0, -dx)
                     x_max = min(X - W, X - W - dx)
@@ -166,21 +185,36 @@ def extract_patch_pairs_3d(
                     attempts += 1
 
                 if x_min >= x_max or y_min >= y_max or z_min >= z_max:
-                    raise ValueError(
+                    msg = (
                         f"Could not find valid patch locations for displacement ({dx}, {dy}, {dz}) "
                         f"in volume of size ({Z}, {Y}, {X}) with window ({U}, {V}, {W})"
+                    )
+                    raise ValueError(
+                        msg,
                     )
 
             # Sample random location for first patch
             if generator is not None:
                 x = torch.randint(
-                    x_min, x_max, (1,), generator=generator, device=tensor.device
+                    x_min,
+                    x_max,
+                    (1,),
+                    generator=generator,
+                    device=tensor.device,
                 )[0]
                 y = torch.randint(
-                    y_min, y_max, (1,), generator=generator, device=tensor.device
+                    y_min,
+                    y_max,
+                    (1,),
+                    generator=generator,
+                    device=tensor.device,
                 )[0]
                 z = torch.randint(
-                    z_min, z_max, (1,), generator=generator, device=tensor.device
+                    z_min,
+                    z_max,
+                    (1,),
+                    generator=generator,
+                    device=tensor.device,
                 )[0]
             else:
                 x = torch.randint(x_min, x_max, (1,), device=tensor.device)[0]
@@ -194,7 +228,10 @@ def extract_patch_pairs_3d(
 
             # Extract first patch at (x, y, z)
             patch1 = volume[
-                :, z_int : z_int + U, y_int : y_int + V, x_int : x_int + W
+                :,
+                z_int : z_int + U,
+                y_int : y_int + V,
+                x_int : x_int + W,
             ]  # Shape: (C, U, V, W)
 
             # Extract second patch at (x + dx, y + dy, z + dz)
@@ -220,9 +257,9 @@ def extract_patch_pairs_3d(
 def _sample_displacement_vector_3d(
     low: float,
     high: float,
-    generator: Optional[torch.Generator] = None,
-    device: Optional[torch.device] = None,
-) -> Tuple[int, int, int]:
+    generator: torch.Generator | None = None,
+    device: torch.device | None = None,
+) -> tuple[int, int, int]:
     """
     Sample a displacement vector (dx, dy, dz) such that low <= sqrt(dx² + dy² + dz²) <= high.
 
@@ -253,13 +290,25 @@ def _sample_displacement_vector_3d(
 
         if generator is not None:
             dx_tensor = torch.randint(
-                -max_delta, max_delta + 1, (1,), generator=generator, device=device
+                -max_delta,
+                max_delta + 1,
+                (1,),
+                generator=generator,
+                device=device,
             )
             dy_tensor = torch.randint(
-                -max_delta, max_delta + 1, (1,), generator=generator, device=device
+                -max_delta,
+                max_delta + 1,
+                (1,),
+                generator=generator,
+                device=device,
             )
             dz_tensor = torch.randint(
-                -max_delta, max_delta + 1, (1,), generator=generator, device=device
+                -max_delta,
+                max_delta + 1,
+                (1,),
+                generator=generator,
+                device=device,
             )
         else:
             dx_tensor = torch.randint(-max_delta, max_delta + 1, (1,), device=device)
@@ -285,7 +334,9 @@ def _sample_displacement_vector_3d(
             torch.rand(1, generator=generator, device=device) * 3.141592653589793
         )
         distance_tensor = low + (high - low) * torch.rand(
-            1, generator=generator, device=device
+            1,
+            generator=generator,
+            device=device,
         )
     else:
         theta_tensor = torch.rand(1, device=device) * 2 * 3.141592653589793
@@ -300,22 +351,22 @@ def _sample_displacement_vector_3d(
     cos_phi = torch.cos(phi_tensor)[0]
     sin_phi = torch.sin(phi_tensor)[0]
 
-    dx = int(round(distance * float(sin_phi) * float(cos_theta)))
-    dy = int(round(distance * float(sin_phi) * float(sin_theta)))
-    dz = int(round(distance * float(cos_phi)))
+    dx = round(distance * float(sin_phi) * float(cos_theta))
+    dy = round(distance * float(sin_phi) * float(sin_theta))
+    dz = round(distance * float(cos_phi))
 
     # Ensure distance is still in range (may have been affected by rounding)
     actual_distance = (dx**2 + dy**2 + dz**2) ** 0.5
     if actual_distance < low:
         scale = low / actual_distance
-        dx = int(round(dx * scale))
-        dy = int(round(dy * scale))
-        dz = int(round(dz * scale))
+        dx = round(dx * scale)
+        dy = round(dy * scale)
+        dz = round(dz * scale)
     elif actual_distance > high:
         scale = high / actual_distance
-        dx = int(round(dx * scale))
-        dy = int(round(dy * scale))
-        dz = int(round(dz * scale))
+        dx = round(dx * scale)
+        dy = round(dy * scale)
+        dz = round(dz * scale)
 
     return dx, dy, dz
 
@@ -324,7 +375,7 @@ def extract_overlapping_pixels_3d(
     patches1: torch.Tensor,
     patches2: torch.Tensor,
     deltas: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Extract overlapping pixels from 3D patch pairs based on displacement vectors.
 
@@ -368,27 +419,35 @@ def extract_overlapping_pixels_3d(
     """
     # Validate input shapes
     if len(patches1.shape) != 5 or len(patches2.shape) != 5:
-        raise ValueError(
+        msg = (
             f"Both patches1 and patches2 must be 5D tensors (N*P, C, U, V, W), "
             f"got shapes {patches1.shape} and {patches2.shape}"
         )
+        raise ValueError(
+            msg,
+        )
 
     if patches1.shape != patches2.shape:
-        raise ValueError(
+        msg = (
             f"patches1 and patches2 must have the same shape, "
             f"got {patches1.shape} and {patches2.shape}"
         )
+        raise ValueError(
+            msg,
+        )
 
     if len(deltas.shape) != 2 or deltas.shape[1] != 3:
+        msg = f"deltas must be 2D tensor of shape (N*P, 3), got {deltas.shape}"
         raise ValueError(
-            f"deltas must be 2D tensor of shape (N*P, 3), got {deltas.shape}"
+            msg,
         )
 
     num_pairs, C, U, V, W = patches1.shape
 
     if deltas.shape[0] != num_pairs:
+        msg = f"Number of deltas ({deltas.shape[0]}) must match number of patch pairs ({num_pairs})"
         raise ValueError(
-            f"Number of deltas ({deltas.shape[0]}) must match number of patch pairs ({num_pairs})"
+            msg,
         )
 
     # Convert deltas to integers for indexing (keep on same device)
@@ -432,7 +491,10 @@ def extract_overlapping_pixels_3d(
 
         # Extract overlapping region from patch1
         overlap_region1 = patch1[
-            :, u_min:u_max, v_min:v_max, w_min:w_max
+            :,
+            u_min:u_max,
+            v_min:v_max,
+            w_min:w_max,
         ]  # Shape: (C, u_max-u_min, v_max-v_min, w_max-w_min)
 
         # Extract corresponding region from patch2
@@ -445,7 +507,10 @@ def extract_overlapping_pixels_3d(
         w2_max = w_max - dx
 
         overlap_region2 = patch2[
-            :, u2_min:u2_max, v2_min:v2_max, w2_min:w2_max
+            :,
+            u2_min:u2_max,
+            v2_min:v2_max,
+            w2_min:w2_max,
         ]  # Shape: (C, u_max-u_min, v_max-v_min, w_max-w_min)
 
         # Reshape to (C, K') where K' is the number of overlapping pixels for this pair
