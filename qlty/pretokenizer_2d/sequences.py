@@ -4,6 +4,7 @@ This module provides functions to prepare patches for tokenization by splitting 
 into subpatches (tokens) and computing overlap information between patch pairs.
 The actual tokenization (conversion to embeddings) is done by downstream models.
 """
+
 from __future__ import annotations
 
 import torch

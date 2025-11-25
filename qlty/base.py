@@ -4,6 +4,7 @@ Base classes and utilities for quilt operations.
 This module provides base classes and shared utilities to eliminate code duplication
 across 2D/3D and in-memory/disk-cached quilt implementations.
 """
+
 from __future__ import annotations
 
 import numpy as np

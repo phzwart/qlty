@@ -4,6 +4,7 @@ Extract pairs of patches from 2D image tensors with controlled displacement.
 This module provides functionality to extract pairs of patches from 2D tensors
 where the displacement between patch centers follows specified constraints.
 """
+
 from __future__ import annotations
 
 import multiprocessing

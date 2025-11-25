@@ -426,7 +426,9 @@ def stack_files_to_zarr(
         actual_counters = set(counters)
         missing = expected_counters - actual_counters
         if missing:
-            pass
+            print(
+                f"Warning: Stack '{basename}' has missing counters: {sorted(missing)}",
+            )
 
         # Load first image to determine dimensions
         first_file = file_list[0][1]
@@ -894,7 +896,9 @@ def stack_files_to_ome_zarr(
         actual_counters = set(counters)
         missing = expected_counters - actual_counters
         if missing:
-            pass
+            print(
+                f"Warning: Stack '{basename}' has missing counters: {sorted(missing)}",
+            )
 
         # Load first image to determine dimensions
         first_file = file_list[0][1]
@@ -1123,7 +1127,7 @@ def stack_files_to_ome_zarr(
                 base_array_data = np.stack(images, axis=0)
 
             # Create base level array (OME-Zarr stores pyramid levels as arrays at root)
-            base_zarr_array = root.create_array(
+            base_zarr_array = root.create(
                 "0",
                 data=base_array_data,
                 chunks=base_chunks,
@@ -1271,7 +1275,7 @@ def stack_files_to_ome_zarr(
                     current_shape = current_data.shape
 
                     # Create array for this pyramid level (stored at root)
-                    level_zarr_array = root.create_array(
+                    level_zarr_array = root.create(
                         str(level_idx),
                         data=current_data,
                         chunks=tuple(min(d, 256) for d in current_shape),
