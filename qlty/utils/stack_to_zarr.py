@@ -83,7 +83,7 @@ def _create_zarr_array(group, name, **kwargs):
                 return group.create(name, data=data, **kwargs)
             else:
                 return group.create(name, **kwargs)
-        except (TypeError, AttributeError) as e:
+        except (TypeError, AttributeError):
             # If create() exists but doesn't work, try create_array()
             # This happens in zarr 2.x where create() requires shape, not data
             if hasattr(group, "create_array"):
