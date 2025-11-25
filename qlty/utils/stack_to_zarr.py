@@ -43,6 +43,38 @@ except ImportError:
     tqdm = None
 
 
+def _create_zarr_array(group, name, **kwargs):
+    """
+    Create a zarr array in a group, compatible with both zarr 2.x and 3.x.
+
+    Parameters
+    ----------
+    group : zarr.Group
+        The zarr group to create the array in
+    name : str
+        Name of the array
+    **kwargs
+        Additional arguments passed to create/create_array
+
+    Returns
+    -------
+    zarr.Array
+        The created zarr array
+    """
+    # Try create() first (zarr 3.x), fall back to create_array() (zarr 2.x)
+    if hasattr(group, "create") and callable(getattr(group, "create", None)):
+        try:
+            return group.create(name, **kwargs)
+        except (TypeError, AttributeError):
+            # If create() exists but doesn't work, try create_array()
+            pass
+    # Fall back to create_array() for zarr 2.x
+    if hasattr(group, "create_array"):
+        return group.create_array(name, **kwargs)
+    # Last resort: try create() anyway
+    return group.create(name, **kwargs)
+
+
 def _load_image(filepath: Path) -> np.ndarray:
     """
     Load an image file using the best available library.
@@ -1127,7 +1159,8 @@ def stack_files_to_ome_zarr(
                 base_array_data = np.stack(images, axis=0)
 
             # Create base level array (OME-Zarr stores pyramid levels as arrays at root)
-            base_zarr_array = root.create(
+            base_zarr_array = _create_zarr_array(
+                root,
                 "0",
                 data=base_array_data,
                 chunks=base_chunks,
@@ -1275,7 +1308,8 @@ def stack_files_to_ome_zarr(
                     current_shape = current_data.shape
 
                     # Create array for this pyramid level (stored at root)
-                    level_zarr_array = root.create(
+                    level_zarr_array = _create_zarr_array(
+                        root,
                         str(level_idx),
                         data=current_data,
                         chunks=tuple(min(d, 256) for d in current_shape),
