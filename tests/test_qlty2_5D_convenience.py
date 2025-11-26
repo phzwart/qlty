@@ -110,9 +110,9 @@ def test_from_zarr():
     # Save to temporary file
     with tempfile.TemporaryDirectory() as tmpdir:
         zarr_path = os.path.join(tmpdir, "test.zarr")
-        # Create zarr array directly in directory
-        z_saved = zarr.open_array(
-            store=zarr_path,
+        # Create zarr array directly in directory (zarr 3.x API)
+        z_saved = zarr.open(
+            zarr_path,
             mode="w",
             shape=shape,
             dtype="float32",

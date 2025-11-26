@@ -484,8 +484,8 @@ def test_from_zarr():
     with tempfile.TemporaryDirectory() as tmpdir:
         zarr_path = os.path.join(tmpdir, "test.zarr")
         shape = (2, 3, 5, 10, 10)
-        # Create zarr array and save data
-        z = zarr.open_array(store=zarr_path, mode="w", shape=shape, dtype="float32")
+        # Create zarr array and save data (zarr 3.x API)
+        z = zarr.open(zarr_path, mode="w", shape=shape, dtype="float32")
         data = np.random.randn(*shape).astype(np.float32)
         z[:] = data[:]
         del z  # Close the array
