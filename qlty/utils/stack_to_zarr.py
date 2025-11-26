@@ -45,7 +45,7 @@ except ImportError:
 
 def _create_zarr_array(group, name, **kwargs):
     """
-    Create a zarr array in a group, compatible with both zarr 2.x and 3.x.
+    Create a zarr array in a group (requires zarr >= 3.0.0).
 
     Parameters
     ----------
@@ -54,49 +54,14 @@ def _create_zarr_array(group, name, **kwargs):
     name : str
         Name of the array
     **kwargs
-        Additional arguments passed to create/create_array
-        If 'data' is provided, it will be written after array creation
+        Additional arguments passed to create()
 
     Returns
     -------
     zarr.Array
         The created zarr array
     """
-    # Extract data if provided (needed for zarr 2.x compatibility)
-    data = kwargs.pop("data", None)
-
-    # Always use create_array() when data is provided for zarr 2.x compatibility
-    # zarr 2.x create() doesn't accept data parameter, only shape
-    if data is not None:
-        if hasattr(group, "create_array"):
-            # For zarr 2.x, need to extract shape and dtype from data
-            kwargs["shape"] = data.shape
-            kwargs["dtype"] = data.dtype
-            arr = group.create_array(name, **kwargs)
-            arr[:] = data
-            return arr
-        # If create_array doesn't exist, try create() (zarr 3.x)
-        if hasattr(group, "create") and callable(getattr(group, "create", None)):
-            return group.create(name, data=data, **kwargs)
-        msg = "Neither create_array() nor create() method found on zarr group"
-        raise AttributeError(msg)
-
-    # No data provided: try create() first (zarr 3.x), fall back to create_array() (zarr 2.x)
-    if hasattr(group, "create") and callable(getattr(group, "create", None)):
-        try:
-            return group.create(name, **kwargs)
-        except (TypeError, AttributeError):
-            # Fall back to create_array() if create() fails
-            if hasattr(group, "create_array"):
-                return group.create_array(name, **kwargs)
-            raise
-
-    # Fall back to create_array() for zarr 2.x
-    if hasattr(group, "create_array"):
-        return group.create_array(name, **kwargs)
-
-    msg = "Neither create_array() nor create() method found on zarr group"
-    raise AttributeError(msg)
+    return group.create(name, **kwargs)
 
 
 def _load_image(filepath: Path) -> np.ndarray:
