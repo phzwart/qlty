@@ -45,7 +45,7 @@ except ImportError:
 
 def _create_zarr_array(group, name, **kwargs):
     """
-    Create a zarr array in a group (requires zarr >= 3.0.0).
+    Create a zarr array in a group (requires zarr >= 3.0.0a5).
 
     Parameters
     ----------
@@ -55,12 +55,25 @@ def _create_zarr_array(group, name, **kwargs):
         Name of the array
     **kwargs
         Additional arguments passed to create()
+        If 'data' is provided, shape and dtype will be extracted from it
 
     Returns
     -------
     zarr.Array
         The created zarr array
     """
+    # Extract data if provided
+    data = kwargs.pop("data", None)
+
+    # If data is provided, extract shape and dtype for zarr 3.0.0a5 compatibility
+    # zarr 3.0.0a5's create() calls create_array() which requires shape as keyword-only arg
+    if data is not None:
+        kwargs["shape"] = data.shape
+        kwargs["dtype"] = data.dtype
+        arr = group.create(name, **kwargs)
+        arr[:] = data
+        return arr
+
     return group.create(name, **kwargs)
 
 
