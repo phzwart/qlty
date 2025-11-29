@@ -106,7 +106,12 @@ def test_qlty2D_zero_border():
 def test_qlty2D_unstitch_single_image():
     """Test unstitching a single image."""
     quilt = qlty2D.NCYXQuilt(
-        Y=64, X=64, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     # Single image
@@ -122,7 +127,12 @@ def test_qlty2D_unstitch_single_image():
 def test_qlty2D_stitch_mismatch():
     """Test that stitch with wrong number of patches raises error."""
     quilt = qlty2D.NCYXQuilt(
-        Y=64, X=64, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     # Wrong number of patches
@@ -136,7 +146,12 @@ def test_qlty2D_stitch_mismatch():
 def test_qlty2D_get_times():
     """Test get_times returns correct values."""
     quilt = qlty2D.NCYXQuilt(
-        Y=100, X=100, window=(50, 50), step=(25, 25), border=(5, 5), border_weight=0.1
+        Y=100,
+        X=100,
+        window=(50, 50),
+        step=(25, 25),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     nY, nX = quilt.get_times()
@@ -168,7 +183,12 @@ def test_qlty3D_border_tensor():
 def test_qlty2D_unstitch_data_pair_with_missing_label():
     """Test unstitch_data_pair with missing labels."""
     quilt = qlty2D.NCYXQuilt(
-        Y=64, X=64, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     data_in = torch.randn(2, 3, 64, 64)
@@ -176,7 +196,9 @@ def test_qlty2D_unstitch_data_pair_with_missing_label():
     data_out[:, 10:54, 10:54] = 1.0  # Some valid data
 
     patches_in, patches_out = quilt.unstitch_data_pair(
-        data_in, data_out, missing_label=-1
+        data_in,
+        data_out,
+        missing_label=-1,
     )
 
     assert patches_in.shape[0] == patches_out.shape[0]
@@ -187,7 +209,12 @@ def test_qlty2D_unstitch_data_pair_with_missing_label():
 def test_qlty2D_weight_matrix():
     """Test weight matrix computation."""
     quilt = qlty2D.NCYXQuilt(
-        Y=64, X=64, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     weight = quilt.weight
@@ -218,7 +245,7 @@ def test_qlty3D_get_times():
 
 
 @pytest.mark.parametrize(
-    "border_input,expected",
+    ("border_input", "expected"),
     [
         (None, None),
         (0, None),

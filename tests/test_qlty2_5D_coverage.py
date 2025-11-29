@@ -158,7 +158,9 @@ def test_nczyx25dquilt_invalid_boundary_mode():
     data = torch.randn(1, 1, 5, 10, 10)
     with pytest.raises(ValueError, match="boundary_mode must be"):
         NCZYX25DQuilt(
-            data_source=data, channel_spec={"identity": [0]}, boundary_mode="invalid"
+            data_source=data,
+            channel_spec={"identity": [0]},
+            boundary_mode="invalid",
         )
 
 
@@ -167,7 +169,9 @@ def test_nczyx25dquilt_invalid_z_slices_type():
     data = torch.randn(1, 1, 5, 10, 10)
     with pytest.raises(ValueError, match="z_slices must be slice"):
         NCZYX25DQuilt(
-            data_source=data, channel_spec={"identity": [0]}, z_slices="invalid"
+            data_source=data,
+            channel_spec={"identity": [0]},
+            z_slices="invalid",
         )
 
 
@@ -183,7 +187,9 @@ def test_nczyx25dquilt_empty_z_slices():
     data = torch.randn(1, 1, 5, 10, 10)
     with pytest.raises(ValueError, match="results in empty list"):
         NCZYX25DQuilt(
-            data_source=data, channel_spec={"identity": [0]}, z_slices=slice(10, 5)
+            data_source=data,
+            channel_spec={"identity": [0]},
+            z_slices=slice(10, 5),
         )
 
 
@@ -208,7 +214,10 @@ def test_boundary_mode_zero():
 
     spec = {"identity": [-2, -1, 0]}  # Will go out of bounds for z_slices=[2]
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, boundary_mode="zero", z_slices=[2]
+        data_source=data,
+        channel_spec=spec,
+        boundary_mode="zero",
+        z_slices=[2],
     )
 
     result = quilt.convert()
@@ -228,7 +237,10 @@ def test_boundary_mode_skip():
 
     spec = {"identity": [-2, -1, 0]}  # Some will go out of bounds
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, boundary_mode="skip", z_slices=[2]
+        data_source=data,
+        channel_spec=spec,
+        boundary_mode="skip",
+        z_slices=[2],
     )
 
     result = quilt.convert()
@@ -243,7 +255,10 @@ def test_boundary_mode_reflect_operation():
 
     spec = {"identity": [-1, 0, 1]}
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, boundary_mode="reflect", z_slices=[0]
+        data_source=data,
+        channel_spec=spec,
+        boundary_mode="reflect",
+        z_slices=[0],
     )
 
     result = quilt.convert()
@@ -267,7 +282,10 @@ def test_operation_all_skipped_error():
 
     spec = {"identity": [-10]}  # Way out of bounds
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, boundary_mode="skip", z_slices=[2]
+        data_source=data,
+        channel_spec=spec,
+        boundary_mode="skip",
+        z_slices=[2],
     )
 
     # This should raise an error when all channels are skipped
@@ -308,7 +326,10 @@ def test_group_by_operation():
 
     spec = {"identity": [0], "mean": [[-1, 0, 1]]}
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, group_by_operation=True, z_slices=[5]
+        data_source=data,
+        channel_spec=spec,
+        group_by_operation=True,
+        z_slices=[5],
     )
 
     result = quilt.convert()
@@ -322,7 +343,10 @@ def test_convert_3d_mode():
 
     spec = {"identity": [0, 1]}
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="3d", z_slices=[1, 2, 3]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="3d",
+        z_slices=[1, 2, 3],
     )
 
     result = quilt.convert()
@@ -360,7 +384,9 @@ def test_get_required_z_range():
 
     # IDENTITY operation
     op = ChannelOperation(
-        op_type=ZOperation.IDENTITY, offsets=(-1, 0, 1), output_channels=3
+        op_type=ZOperation.IDENTITY,
+        offsets=(-1, 0, 1),
+        output_channels=3,
     )
     z_min, z_max = op.get_required_z_range(z0=5)
     assert z_min == 4  # 5 + (-1)

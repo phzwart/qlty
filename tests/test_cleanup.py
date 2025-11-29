@@ -16,7 +16,12 @@ from qlty.cleanup import (
 def test_weed_sparse_2D_all_valid():
     """Test weeding with all valid patches."""
     quilt = qlty2D.NCYXQuilt(
-        Y=64, X=64, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     border_tensor = quilt.border_tensor()
@@ -26,7 +31,10 @@ def test_weed_sparse_2D_all_valid():
     tensor_out = torch.ones(10, 32, 32) * 2  # All valid (not missing_label)
 
     newin, newout, sel = weed_sparse_classification_training_pairs_2D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     # Should keep all patches
@@ -38,7 +46,12 @@ def test_weed_sparse_2D_all_valid():
 def test_weed_sparse_2D_all_missing():
     """Test weeding with all missing patches."""
     quilt = qlty2D.NCYXQuilt(
-        Y=64, X=64, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     border_tensor = quilt.border_tensor()
@@ -48,7 +61,10 @@ def test_weed_sparse_2D_all_missing():
     tensor_out = torch.ones(10, 32, 32) * (-1)  # All missing
 
     newin, newout, sel = weed_sparse_classification_training_pairs_2D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     # Should remove all patches (only border areas have data, but border is masked)
@@ -60,7 +76,12 @@ def test_weed_sparse_2D_all_missing():
 def test_weed_sparse_2D_mixed():
     """Test weeding with mixed valid/missing patches."""
     quilt = qlty2D.NCYXQuilt(
-        Y=64, X=64, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     border_tensor = quilt.border_tensor()
@@ -75,7 +96,10 @@ def test_weed_sparse_2D_mixed():
         tensor_out[i, valid_mask] = 1.0
 
     newin, newout, sel = weed_sparse_classification_training_pairs_2D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     # Should keep patches with valid data
@@ -104,7 +128,10 @@ def test_weed_sparse_3D_all_valid():
     tensor_out = torch.ones(10, 16, 16, 16) * 2  # All valid
 
     newin, newout, sel = weed_sparse_classification_training_pairs_3D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     # Should keep all patches
@@ -132,7 +159,10 @@ def test_weed_sparse_3D_all_missing():
     tensor_out = torch.ones(10, 16, 16, 16) * (-1)  # All missing
 
     newin, newout, sel = weed_sparse_classification_training_pairs_3D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     # Should remove all patches
@@ -144,7 +174,12 @@ def test_weed_sparse_3D_all_missing():
 def test_weed_sparse_2D_with_channels():
     """Test 2D weeding with channel dimension."""
     quilt = qlty2D.NCYXQuilt(
-        Y=64, X=64, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     border_tensor = quilt.border_tensor()
@@ -154,7 +189,10 @@ def test_weed_sparse_2D_with_channels():
     tensor_out = torch.ones(10, 1, 32, 32) * 2  # With channel dimension
 
     newin, newout, sel = weed_sparse_classification_training_pairs_2D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     # Should work with channel dimension

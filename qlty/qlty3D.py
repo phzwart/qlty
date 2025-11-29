@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from __future__ import annotations
 
 import einops
 import torch
@@ -24,9 +24,9 @@ class NCZYXQuilt:
         Z: int,
         Y: int,
         X: int,
-        window: Tuple[int, int, int],
-        step: Tuple[int, int, int],
-        border: Optional[Union[int, Tuple[int, int, int]]],
+        window: tuple[int, int, int],
+        step: tuple[int, int, int],
+        border: int | tuple[int, int, int] | None,
         border_weight: float = 0.1,
     ) -> None:
         """
@@ -55,30 +55,38 @@ class NCZYXQuilt:
 
         # Compute chunk times
         self.nZ, self.nY, self.nX = compute_chunk_times(
-            dimension_sizes=(Z, Y, X), window=window, step=step
+            dimension_sizes=(Z, Y, X),
+            window=window,
+            step=step,
         )
 
         # Compute weight matrix
         self.weight = compute_weight_matrix_torch(
-            window=window, border=self.border, border_weight=self.border_weight
+            window=window,
+            border=self.border,
+            border_weight=self.border_weight,
         )
 
     def border_tensor(self) -> torch.Tensor:
         """Compute border tensor indicating valid (non-border) regions."""
         return compute_border_tensor_torch(window=self.window, border=self.border)
 
-    def get_times(self) -> Tuple[int, int, int]:
+    def get_times(self) -> tuple[int, int, int]:
         """
         Computes the number of chunks along Z, Y, and X dimensions, ensuring the last chunk
         is included by adjusting the starting points.
         """
         return compute_chunk_times(
-            dimension_sizes=(self.Z, self.Y, self.X), window=self.window, step=self.step
+            dimension_sizes=(self.Z, self.Y, self.X),
+            window=self.window,
+            step=self.step,
         )
 
     def unstitch_data_pair(
-        self, tensor_in: torch.Tensor, tensor_out: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self,
+        tensor_in: torch.Tensor,
+        tensor_out: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Split input and output 3D tensors into smaller overlapping patches.
 
@@ -151,7 +159,7 @@ class NCZYXQuilt:
         >>> patches = quilt.unstitch(volume)
         >>> print(patches.shape)  # (M, 1, 32, 32, 32)
         """
-        N, C, Z, Y, X = tensor.shape
+        N, _C, _Z, _Y, _X = tensor.shape
         result = []
         for n in range(N):
             tmp = tensor[n, ...]
@@ -168,10 +176,9 @@ class NCZYXQuilt:
 
                         patch = tmp[:, start_z:stop_z, start_y:stop_y, start_x:stop_x]
                         result.append(patch)
-        result = einops.rearrange(result, "M C Z Y X -> M C Z Y X")
-        return result
+        return einops.rearrange(result, "M C Z Y X -> M C Z Y X")
 
-    def stitch(self, ml_tensor: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def stitch(self, ml_tensor: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Reassemble 3D patches back into full-size volumes.
 
@@ -224,7 +231,7 @@ class NCZYXQuilt:
         >>> reconstructed, weights = quilt.stitch(processed)
         >>> print(reconstructed.shape)  # (5, C, 64, 64, 64)
         """
-        N, C, Z, Y, X = ml_tensor.shape
+        N, C, _Z, _Y, _X = ml_tensor.shape
         # we now need to figure out how to sticth this back into what dimension
         times = self.nZ * self.nY * self.nX
         M_images = N // times
@@ -259,7 +266,9 @@ class NCZYXQuilt:
                         # get the weight matrix, only compute once
                         if m == 0:
                             norma[
-                                start_z:stop_z, start_y:stop_y, start_x:stop_x
+                                start_z:stop_z,
+                                start_y:stop_y,
+                                start_x:stop_x,
                             ] += self.weight
 
             this_image += 1

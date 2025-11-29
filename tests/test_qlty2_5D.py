@@ -110,7 +110,10 @@ def test_basic_conversion_3d():
     }
 
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="3d", z_slices=[0, 1, 2]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="3d",
+        z_slices=[0, 1, 2],
     )
 
     result = quilt.convert()
@@ -194,36 +197,23 @@ def test_validate_spec():
 if __name__ == "__main__":
     # Run basic tests
     test_parse_channel_spec_string()
-    print("✓ parse_channel_spec_string")
 
     test_parse_channel_spec_enum()
-    print("✓ parse_channel_spec_enum")
 
     test_apply_boundary_mode_clamp()
-    print("✓ apply_boundary_mode_clamp")
 
     test_apply_boundary_mode_reflect()
-    print("✓ apply_boundary_mode_reflect")
 
     test_compute_channel_count()
-    print("✓ compute_channel_count")
 
     test_basic_conversion_2d()
-    print("✓ basic_conversion_2d")
 
     test_basic_conversion_3d()
-    print("✓ basic_conversion_3d")
 
     test_multiple_operations()
-    print("✓ multiple_operations")
 
     test_selective_z_slices()
-    print("✓ selective_z_slices")
 
     test_get_channel_metadata()
-    print("✓ get_channel_metadata")
 
     test_validate_spec()
-    print("✓ validate_spec")
-
-    print("\nAll tests passed!")

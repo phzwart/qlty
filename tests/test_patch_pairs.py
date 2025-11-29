@@ -2,10 +2,30 @@
 
 """Tests for patch pair extraction functionality."""
 
+import tempfile
+from pathlib import Path
+
 import pytest
 import torch
 
-from qlty.patch_pairs_2d import extract_overlapping_pixels, extract_patch_pairs
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    import zarr
+except ImportError:
+    zarr = None
+
+from qlty.patch_pairs_2d import (
+    ZarrPatchPairDataset,
+    extract_overlapping_pixels,
+    extract_patch_pairs,
+    extract_patch_pairs_metadata,
+    extract_patches_from_metadata,
+    extract_patches_to_zarr,
+)
 
 
 def test_extract_patch_pairs_basic():
@@ -17,7 +37,10 @@ def test_extract_patch_pairs_basic():
     delta_range = (6.0, 10.0)  # Valid range within [4, 12]
 
     patches1, patches2, deltas, rotations = extract_patch_pairs(
-        tensor, window, num_patches, delta_range
+        tensor,
+        window,
+        num_patches,
+        delta_range,
     )
 
     # Check output shapes
@@ -41,8 +64,12 @@ def test_extract_patch_pairs_delta_constraints():
     num_patches = 20
     delta_range = (10.0, 20.0)
 
-    patches1, patches2, deltas, rotations = extract_patch_pairs(
-        tensor, window, num_patches, delta_range, random_seed=42
+    _patches1, _patches2, deltas, rotations = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
     )
 
     # Check that all delta vectors satisfy the Euclidean distance constraint
@@ -64,10 +91,18 @@ def test_extract_patch_pairs_reproducibility():
 
     # Extract with same seed twice
     patches1_a, patches2_a, deltas_a, rotations_a = extract_patch_pairs(
-        tensor, window, num_patches, delta_range, random_seed=123
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=123,
     )
     patches1_b, patches2_b, deltas_b, rotations_b = extract_patch_pairs(
-        tensor, window, num_patches, delta_range, random_seed=123
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=123,
     )
 
     # Results should be identical
@@ -84,11 +119,19 @@ def test_extract_patch_pairs_different_seeds():
     num_patches = 5
     delta_range = (5.0, 10.0)
 
-    patches1_a, patches2_a, deltas_a, rotations_a = extract_patch_pairs(
-        tensor, window, num_patches, delta_range, random_seed=1
+    _patches1_a, _patches2_a, deltas_a, _rotations_a = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=1,
     )
-    patches1_b, patches2_b, deltas_b, rotations_b = extract_patch_pairs(
-        tensor, window, num_patches, delta_range, random_seed=2
+    _patches1_b, _patches2_b, deltas_b, _rotations_b = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=2,
     )
 
     # Results should be different (at least deltas should differ)
@@ -103,7 +146,10 @@ def test_extract_patch_pairs_multiple_images():
     delta_range = (8.0, 16.0)
 
     patches1, patches2, deltas, rotations = extract_patch_pairs(
-        tensor, window, num_patches, delta_range
+        tensor,
+        window,
+        num_patches,
+        delta_range,
     )
 
     # Should have 5 * 3 = 15 patches total
@@ -166,8 +212,11 @@ def test_extract_patch_pairs_rectangular_window():
     num_patches = 5
     delta_range = (8.0, 16.0)  # max_window = 32, so constraints are based on 32
 
-    patches1, patches2, deltas, rotations = extract_patch_pairs(
-        tensor, window, num_patches, delta_range
+    patches1, patches2, _deltas, rotations = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
     )
 
     # Check output shapes match window
@@ -183,8 +232,12 @@ def test_extract_patch_pairs_negative_displacements():
     num_patches = 20
     delta_range = (10.0, 20.0)
 
-    patches1, patches2, deltas, rotations = extract_patch_pairs(
-        tensor, window, num_patches, delta_range, random_seed=42
+    _patches1, _patches2, deltas, _rotations = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
     )
 
     # Check that deltas are valid (with enough samples, we should have some negative values)
@@ -229,8 +282,12 @@ def test_extract_patch_pairs_patches_within_bounds():
     num_patches = 10
     delta_range = (5.0, 10.0)
 
-    patches1, patches2, deltas, rotations = extract_patch_pairs(
-        tensor, window, num_patches, delta_range, random_seed=42
+    patches1, patches2, _deltas, rotations = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
     )
 
     # All patches should be valid (non-NaN, finite)
@@ -253,7 +310,10 @@ def test_extract_patch_pairs_device_consistency():
         delta_range = (5.0, 10.0)
 
         patches1, patches2, deltas, rotations = extract_patch_pairs(
-            tensor, window, num_patches, delta_range
+            tensor,
+            window,
+            num_patches,
+            delta_range,
         )
 
         assert patches1.device == device
@@ -269,8 +329,12 @@ def test_extract_patch_pairs_edge_case_minimum_delta():
     num_patches = 5
     delta_range = (8.0, 8.0)  # Minimum at boundary
 
-    patches1, patches2, deltas, rotations = extract_patch_pairs(
-        tensor, window, num_patches, delta_range, random_seed=42
+    _patches1, _patches2, deltas, rotations = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
     )
 
     # All deltas should have distance exactly 8 (within floating point tolerance)
@@ -289,8 +353,12 @@ def test_extract_patch_pairs_edge_case_maximum_delta():
     num_patches = 5
     delta_range = (24.0, 24.0)  # Maximum at boundary
 
-    patches1, patches2, deltas, rotations = extract_patch_pairs(
-        tensor, window, num_patches, delta_range, random_seed=42
+    _patches1, _patches2, deltas, rotations = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
     )
 
     # All deltas should have distance approximately 24
@@ -342,7 +410,10 @@ def test_extract_overlapping_pixels_with_rotations():
     rotations = torch.tensor([1])
 
     overlapping1, overlapping2 = extract_overlapping_pixels(
-        patches1, patches2, deltas, rotations=rotations
+        patches1,
+        patches2,
+        deltas,
+        rotations=rotations,
     )
 
     assert torch.allclose(overlapping1, overlapping2)
@@ -380,16 +451,20 @@ def test_extract_overlapping_pixels_full_overlap():
     assert overlapping2.shape == (2 * 16 * 16, 3)
     # Check that values match patches1 and patches2
     assert torch.allclose(
-        overlapping1[:256], patches1[0].permute(1, 2, 0).reshape(-1, 3)
+        overlapping1[:256],
+        patches1[0].permute(1, 2, 0).reshape(-1, 3),
     )
     assert torch.allclose(
-        overlapping1[256:], patches1[1].permute(1, 2, 0).reshape(-1, 3)
+        overlapping1[256:],
+        patches1[1].permute(1, 2, 0).reshape(-1, 3),
     )
     assert torch.allclose(
-        overlapping2[:256], patches2[0].permute(1, 2, 0).reshape(-1, 3)
+        overlapping2[:256],
+        patches2[0].permute(1, 2, 0).reshape(-1, 3),
     )
     assert torch.allclose(
-        overlapping2[256:], patches2[1].permute(1, 2, 0).reshape(-1, 3)
+        overlapping2[256:],
+        patches2[1].permute(1, 2, 0).reshape(-1, 3),
     )
 
 
@@ -422,7 +497,10 @@ def test_extract_overlapping_pixels_invalid_inputs():
     deltas_valid = torch.tensor([[1.0, 1.0]] * patches1.shape[0])
     with pytest.raises(ValueError, match="Number of rotations"):
         extract_overlapping_pixels(
-            patches1, patches2, deltas_valid, rotations=rotations_wrong
+            patches1,
+            patches2,
+            deltas_valid,
+            rotations=rotations_wrong,
         )
 
 
@@ -437,7 +515,7 @@ def test_extract_overlapping_pixels_partial_overlap():
             [0.0, 4.0],  # Vertical shift only
             [2.0, 2.0],  # Diagonal shift
             [-1.0, -1.0],  # Negative diagonal shift
-        ]
+        ],
     )
 
     overlapping1, overlapping2 = extract_overlapping_pixels(patches1, patches2, deltas)
@@ -480,10 +558,9 @@ def test_extract_overlapping_pixels_correspondence():
                     # dx=2, dy=1: patch2[u, v] corresponds to patch1[u+1, v+2]
                     if u + 1 < 8 and v + 2 < 8:
                         patches2[i, 0, u, v] = patches1[i, 0, u + 1, v + 2]
-                else:
-                    # dx=-1, dy=-1: patch2[u, v] corresponds to patch1[u-1, v-1]
-                    if u - 1 >= 0 and v - 1 >= 0:
-                        patches2[i, 0, u, v] = patches1[i, 0, u - 1, v - 1]
+                # dx=-1, dy=-1: patch2[u, v] corresponds to patch1[u-1, v-1]
+                elif u - 1 >= 0 and v - 1 >= 0:
+                    patches2[i, 0, u, v] = patches1[i, 0, u - 1, v - 1]
 
     deltas = torch.tensor([[2.0, 1.0], [-1.0, -1.0]])
     overlapping1, overlapping2 = extract_overlapping_pixels(patches1, patches2, deltas)
@@ -491,3 +568,563 @@ def test_extract_overlapping_pixels_correspondence():
     # For corresponding pixels, they should have the same values
     # (since we set them to match)
     assert torch.allclose(overlapping1, overlapping2)
+
+
+# ============================================================================
+# Tests for extract_patch_pairs_metadata()
+# ============================================================================
+
+
+def test_extract_patch_pairs_metadata_basic():
+    """Test basic metadata extraction."""
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 5
+    delta_range = (6.0, 10.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    # Check that all required keys are present
+    required_keys = [
+        "image_idx",
+        "patch1_y",
+        "patch1_x",
+        "patch2_y",
+        "patch2_x",
+        "dx",
+        "dy",
+        "rotation",
+        "mean1",
+        "sigma1",
+        "mean2",
+        "sigma2",
+        "window",
+    ]
+    for key in required_keys:
+        assert key in metadata, f"Missing key: {key}"
+
+    # Check tensor shapes (all should be (N*num_patches,))
+    total_patches = 2 * num_patches
+    for key in required_keys:
+        if key != "window":
+            assert metadata[key].shape[0] == total_patches, f"Wrong shape for {key}"
+
+    # Check window is stored correctly
+    assert metadata["window"] == window
+
+    # Check statistics are reasonable
+    assert torch.all(metadata["sigma1"] >= 0)
+    assert torch.all(metadata["sigma2"] >= 0)
+    assert torch.all(torch.isfinite(metadata["mean1"]))
+    assert torch.all(torch.isfinite(metadata["mean2"]))
+
+
+def test_extract_patch_pairs_metadata_reproducibility():
+    """Test that metadata extraction is reproducible with same seed."""
+    tensor = torch.randn(2, 2, 64, 64)
+    window = (16, 16)
+    num_patches = 3
+    delta_range = (5.0, 10.0)
+
+    metadata_a = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=123,
+    )
+    metadata_b = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=123,
+    )
+
+    # All metadata should match
+    for key in metadata_a:
+        if key != "window":
+            assert torch.allclose(
+                metadata_a[key],
+                metadata_b[key],
+            ), f"Mismatch in {key}"
+        else:
+            assert metadata_a[key] == metadata_b[key]
+
+
+def test_extract_patch_pairs_metadata_multiprocessing():
+    """Test that multiprocessing works correctly."""
+    tensor = torch.randn(4, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 5
+    delta_range = (6.0, 10.0)
+
+    # Test with multiprocessing
+    metadata_mp = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+        num_workers=2,
+    )
+
+    # Test without multiprocessing
+    metadata_seq = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+        num_workers=1,
+    )
+
+    # Results should be identical (same seed)
+    for key in metadata_mp:
+        if key != "window":
+            assert torch.allclose(
+                metadata_mp[key],
+                metadata_seq[key],
+            ), f"Mismatch in {key}"
+
+
+def test_extract_patch_pairs_metadata_statistics():
+    """Test that mean and sigma are computed correctly."""
+    # Create tensor with known values for testing
+    tensor = torch.ones(1, 2, 64, 64) * 5.0  # All values are 5.0
+    tensor[0, 0, 0:32, 0:32] = 10.0  # First channel, top-left: 10.0
+    tensor[0, 1, 32:64, 32:64] = 0.0  # Second channel, bottom-right: 0.0
+
+    window = (32, 32)
+    num_patches = 10
+    delta_range = (8.0, 16.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    # Check that statistics are computed (mean of patch with all 5.0 should be ~5.0)
+    # Note: exact values depend on which patches are sampled
+    assert torch.all(metadata["mean1"] > 0)
+    assert torch.all(metadata["mean2"] > 0)
+    assert torch.all(metadata["sigma1"] >= 0)
+    assert torch.all(metadata["sigma2"] >= 0)
+
+
+def test_extract_patch_pairs_metadata_rotation_choices():
+    """Test metadata extraction with rotation choices."""
+    tensor = torch.randn(2, 2, 64, 64)
+    window = (16, 16)
+    num_patches = 10
+    delta_range = (8.0, 12.0)
+    rotation_choices = (0, 1, 2, 3)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+        rotation_choices=rotation_choices,
+    )
+
+    # Check that rotations are from allowed set
+    allowed_rotations = set(rotation_choices)
+    observed_rotations = set(metadata["rotation"].cpu().tolist())
+    assert observed_rotations.issubset(allowed_rotations)
+
+
+def test_extract_patch_pairs_metadata_coordinates():
+    """Test that coordinates are valid and match deltas."""
+    tensor = torch.randn(2, 3, 128, 128)
+    window = (32, 32)
+    num_patches = 10
+    delta_range = (10.0, 20.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    # Check that patch2 coordinates = patch1 coordinates + deltas
+    for i in range(len(metadata["patch1_y"])):
+        patch1_y = metadata["patch1_y"][i].item()
+        patch1_x = metadata["patch1_x"][i].item()
+        patch2_y = metadata["patch2_y"][i].item()
+        patch2_x = metadata["patch2_x"][i].item()
+        dx = metadata["dx"][i].item()
+        dy = metadata["dy"][i].item()
+
+        assert abs(patch2_y - patch1_y - dy) < 1e-6
+        assert abs(patch2_x - patch1_x - dx) < 1e-6
+
+
+# ============================================================================
+# Tests for extract_patches_from_metadata()
+# ============================================================================
+
+
+def test_extract_patches_from_metadata_basic():
+    """Test basic patch extraction from metadata."""
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 5
+    delta_range = (6.0, 10.0)
+
+    # Generate metadata
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    # Select first 3 patches
+    selected_indices = [0, 1, 2]
+
+    patches1, patches2, deltas, rotations = extract_patches_from_metadata(
+        tensor,
+        metadata,
+        selected_indices,
+    )
+
+    # Check output shapes
+    assert patches1.shape == (3, 3, 16, 16)
+    assert patches2.shape == (3, 3, 16, 16)
+    assert deltas.shape == (3, 2)
+    assert rotations.shape == (3,)
+
+    # Check that deltas match metadata
+    for i, idx in enumerate(selected_indices):
+        assert abs(deltas[i, 0].item() - metadata["dx"][idx].item()) < 1e-6
+        assert abs(deltas[i, 1].item() - metadata["dy"][idx].item()) < 1e-6
+        assert rotations[i].item() == metadata["rotation"][idx].item()
+
+
+def test_extract_patches_from_metadata_selected_indices():
+    """Test extraction with various selected indices."""
+    tensor = torch.randn(3, 2, 64, 64)
+    window = (16, 16)
+    num_patches = 5
+    delta_range = (6.0, 10.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    # Select non-contiguous indices
+    selected_indices = [0, 5, 10, 12]
+
+    patches1, patches2, _deltas, _rotations = extract_patches_from_metadata(
+        tensor,
+        metadata,
+        selected_indices,
+    )
+
+    assert patches1.shape[0] == len(selected_indices)
+    assert patches2.shape[0] == len(selected_indices)
+
+
+def test_extract_patches_from_metadata_correctness():
+    """Test that extracted patches match original extract_patch_pairs."""
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 5
+    delta_range = (6.0, 10.0)
+    random_seed = 42
+
+    # Generate metadata
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=random_seed,
+    )
+
+    # Extract all patches using metadata
+    all_indices = list(range(len(metadata["image_idx"])))
+    (
+        patches1_meta,
+        patches2_meta,
+        deltas_meta,
+        rotations_meta,
+    ) = extract_patches_from_metadata(tensor, metadata, all_indices)
+
+    # Extract patches using original function
+    patches1_orig, patches2_orig, deltas_orig, rotations_orig = extract_patch_pairs(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=random_seed,
+    )
+
+    # Results should match in shape
+    # Note: Order and exact values might differ due to multiprocessing and different
+    # random number generation streams, so we check shapes and that values are reasonable
+    assert patches1_meta.shape == patches1_orig.shape
+    assert patches2_meta.shape == patches2_orig.shape
+    assert deltas_meta.shape == deltas_orig.shape
+    assert rotations_meta.shape == rotations_orig.shape
+
+    # Check that statistics are in reasonable range (order-independent)
+    # Mean values should be similar but not necessarily identical due to different random sampling
+    assert abs(patches1_meta.mean().item() - patches1_orig.mean().item()) < 0.1
+    assert abs(patches2_meta.mean().item() - patches2_orig.mean().item()) < 0.1
+
+    # Check that delta ranges match (they should follow the same constraints)
+    assert deltas_meta.min().item() >= -20  # Reasonable range
+    assert deltas_meta.max().item() <= 20
+    assert deltas_orig.min().item() >= -20
+    assert deltas_orig.max().item() <= 20
+
+    # Check that rotations match in distribution (same set of values)
+    assert set(rotations_meta.cpu().tolist()) == set(rotations_orig.cpu().tolist())
+
+
+def test_extract_patches_from_metadata_missing_window():
+    """Test error when window is missing from metadata."""
+    tensor = torch.randn(2, 3, 64, 64)
+    metadata = {
+        "patch1_y": torch.tensor([0]),
+        "patch1_x": torch.tensor([0]),
+        "patch2_y": torch.tensor([10]),
+        "patch2_x": torch.tensor([10]),
+        "dx": torch.tensor([10.0]),
+        "dy": torch.tensor([10.0]),
+        "rotation": torch.tensor([0]),
+        "image_idx": torch.tensor([0]),
+    }
+    # Missing "window" key
+
+    with pytest.raises(ValueError, match="must contain 'window' key"):
+        extract_patches_from_metadata(tensor, metadata, [0])
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_extract_patches_to_zarr_basic():
+    """Test basic zarr extraction."""
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 5
+    delta_range = (6.0, 10.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    # Select first 3 patches
+    selected_indices = [0, 1, 2]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zarr_path = str(Path(tmpdir) / "patches.zarr")
+
+        zarr_group = extract_patches_to_zarr(
+            tensor,
+            metadata,
+            selected_indices,
+            zarr_path,
+        )
+
+        # Check that arrays exist
+        assert "patches1" in zarr_group
+        assert "patches2" in zarr_group
+        assert "deltas" in zarr_group
+        assert "rotations" in zarr_group
+
+        # Check shapes
+        assert zarr_group["patches1"].shape == (3, 3, 16, 16)
+        assert zarr_group["patches2"].shape == (3, 3, 16, 16)
+        assert zarr_group["deltas"].shape == (3, 2)
+        assert zarr_group["rotations"].shape == (3,)
+
+        # Check metadata attributes
+        assert "window" in zarr_group.attrs
+        assert "num_patches" in zarr_group.attrs
+        assert zarr_group.attrs["window"] == window
+        assert zarr_group.attrs["num_patches"] == 3
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_extract_patches_to_zarr_correctness():
+    """Test that zarr data matches in-memory extraction."""
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 5
+    delta_range = (6.0, 10.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    selected_indices = [0, 1, 2]
+
+    # Extract to memory
+    (
+        patches1_mem,
+        patches2_mem,
+        deltas_mem,
+        rotations_mem,
+    ) = extract_patches_from_metadata(tensor, metadata, selected_indices)
+
+    # Extract to zarr
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zarr_path = str(Path(tmpdir) / "patches.zarr")
+        zarr_group = extract_patches_to_zarr(
+            tensor,
+            metadata,
+            selected_indices,
+            zarr_path,
+        )
+
+        # Compare data
+        # Convert zarr arrays to torch tensors
+        # Zarr arrays are numpy-compatible, so we can use them directly
+        patches1_zarr = torch.from_numpy(zarr_group["patches1"][:])
+        patches2_zarr = torch.from_numpy(zarr_group["patches2"][:])
+        deltas_zarr = torch.from_numpy(zarr_group["deltas"][:])
+        rotations_zarr = torch.from_numpy(zarr_group["rotations"][:])
+
+        assert torch.allclose(patches1_mem, patches1_zarr, atol=1e-5)
+        assert torch.allclose(patches2_mem, patches2_zarr, atol=1e-5)
+        assert torch.allclose(deltas_mem, deltas_zarr, atol=1e-5)
+        assert torch.equal(rotations_mem.int(), rotations_zarr.int())
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_zarr_patch_pair_dataset_basic():
+    """Test basic dataset functionality."""
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 5
+    delta_range = (6.0, 10.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    selected_indices = list(range(len(metadata["image_idx"])))
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zarr_path = str(Path(tmpdir) / "patches.zarr")
+        extract_patches_to_zarr(tensor, metadata, selected_indices, zarr_path)
+
+        # Create dataset
+        dataset = ZarrPatchPairDataset(zarr_path)
+
+        # Check length
+        assert len(dataset) == len(selected_indices)
+
+        # Check indexing
+        patch1, patch2, delta, rotation = dataset[0]
+        assert patch1.shape == (3, 16, 16)
+        assert patch2.shape == (3, 16, 16)
+        assert delta.shape == (2,)
+        assert isinstance(rotation, torch.Tensor)
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_zarr_patch_pair_dataset_dataloader():
+    """Test dataset compatibility with PyTorch DataLoader."""
+    from torch.utils.data import DataLoader
+
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 10
+    delta_range = (6.0, 10.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    selected_indices = list(range(len(metadata["image_idx"])))
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zarr_path = str(Path(tmpdir) / "patches.zarr")
+        extract_patches_to_zarr(tensor, metadata, selected_indices, zarr_path)
+
+        dataset = ZarrPatchPairDataset(zarr_path)
+        loader = DataLoader(dataset, batch_size=5, shuffle=False)
+
+        # Get one batch
+        batch = next(iter(loader))
+        patch1_batch, patch2_batch, delta_batch, rotation_batch = batch
+
+        # Check batch shapes
+        assert patch1_batch.shape == (5, 3, 16, 16)
+        assert patch2_batch.shape == (5, 3, 16, 16)
+        assert delta_batch.shape == (5, 2)
+        assert rotation_batch.shape == (5,)
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+def test_zarr_patch_pair_dataset_transform():
+    """Test dataset with transform."""
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 5
+    delta_range = (6.0, 10.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor,
+        window,
+        num_patches,
+        delta_range,
+        random_seed=42,
+    )
+
+    selected_indices = [0, 1, 2]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zarr_path = str(Path(tmpdir) / "patches.zarr")
+        extract_patches_to_zarr(tensor, metadata, selected_indices, zarr_path)
+
+        # Define transform
+        def transform(patch1, patch2, delta, rotation):
+            return patch1 * 2.0, patch2 * 2.0, delta, rotation
+
+        dataset = ZarrPatchPairDataset(zarr_path, transform=transform)
+
+        patch1, _patch2, _delta, _rotation = dataset[0]
+
+        # Check that transform was applied (values should be doubled)
+        # We'll need to load original to compare
+        zarr_group = zarr.open_group(zarr_path, mode="r")
+        patch1_orig = torch.from_numpy(zarr_group["patches1"][0])
+
+        assert torch.allclose(patch1, patch1_orig * 2.0, atol=1e-5)

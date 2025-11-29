@@ -62,7 +62,7 @@ class ChannelOperation:
             )
             z_indices = [z0 + offset for offset in offsets]
             return (min(z_indices), max(z_indices) + 1)
-        elif self.op_type == ZOperation.MEAN:
+        if self.op_type == ZOperation.MEAN:
             # For MEAN, offsets is a tuple of tuples
             all_offsets = []
             for offset_group in self.offsets:
@@ -72,7 +72,7 @@ class ChannelOperation:
                     all_offsets.append(offset_group)
             z_indices = [z0 + offset for offset in all_offsets]
             return (min(z_indices), max(z_indices) + 1)
-        elif self.op_type == ZOperation.STD:
+        if self.op_type == ZOperation.STD:
             # For STD, offsets is a tuple of tuples (same structure as MEAN)
             all_offsets = []
             for offset_group in self.offsets:
@@ -112,7 +112,8 @@ def parse_channel_spec(
         If spec is empty, contains invalid keys, or has malformed values
     """
     if not spec:
-        raise ValueError("Channel specification cannot be empty")
+        msg = "Channel specification cannot be empty"
+        raise ValueError(msg)
 
     operations = []
 
@@ -128,15 +129,17 @@ def parse_channel_spec(
         if isinstance(key, str):
             key_lower = key.lower()
             if key_lower not in string_to_enum:
+                msg = f"Unknown operation '{key}'. Supported operations: {list(string_to_enum.keys())}"
                 raise ValueError(
-                    f"Unknown operation '{key}'. Supported operations: {list(string_to_enum.keys())}"
+                    msg,
                 )
             op_type = string_to_enum[key_lower]
         elif isinstance(key, ZOperation):
             op_type = key
         else:
+            msg = f"Invalid key type: {type(key)}. Must be str or ZOperation enum"
             raise ValueError(
-                f"Invalid key type: {type(key)}. Must be str or ZOperation enum"
+                msg,
             )
 
         # Process value based on operation type
@@ -145,12 +148,16 @@ def parse_channel_spec(
             if isinstance(value, (list, tuple)):
                 offsets = tuple(int(x) for x in value)
             else:
-                raise ValueError(
+                msg = (
                     f"IDENTITY operation requires list/tuple of ints, got {type(value)}"
+                )
+                raise ValueError(
+                    msg,
                 )
 
             if not offsets:
-                raise ValueError("IDENTITY operation must have at least one offset")
+                msg = "IDENTITY operation must have at least one offset"
+                raise ValueError(msg)
 
             output_channels = len(offsets)
             operations.append(
@@ -159,18 +166,20 @@ def parse_channel_spec(
                     offsets=offsets,
                     output_channels=output_channels,
                     name=key if isinstance(key, str) else None,
-                )
+                ),
             )
 
         elif op_type == ZOperation.MEAN:
             # MEAN: value should be a list/tuple of lists/tuples of ints
             if not isinstance(value, (list, tuple)):
+                msg = f"MEAN operation requires list/tuple of lists, got {type(value)}"
                 raise ValueError(
-                    f"MEAN operation requires list/tuple of lists, got {type(value)}"
+                    msg,
                 )
 
             if not value:
-                raise ValueError("MEAN operation must have at least one offset group")
+                msg = "MEAN operation must have at least one offset group"
+                raise ValueError(msg)
 
             # Normalize to tuple of tuples
             offset_groups = []
@@ -178,11 +187,13 @@ def parse_channel_spec(
                 if isinstance(group, (list, tuple)):
                     group_tuple = tuple(int(x) for x in group)
                     if not group_tuple:
-                        raise ValueError("MEAN operation offset groups cannot be empty")
+                        msg = "MEAN operation offset groups cannot be empty"
+                        raise ValueError(msg)
                     offset_groups.append(group_tuple)
                 else:
+                    msg = f"MEAN operation offset groups must be lists/tuples, got {type(group)}"
                     raise ValueError(
-                        f"MEAN operation offset groups must be lists/tuples, got {type(group)}"
+                        msg,
                     )
 
             output_channels = len(offset_groups)
@@ -192,18 +203,20 @@ def parse_channel_spec(
                     offsets=tuple(offset_groups),
                     output_channels=output_channels,
                     name=key if isinstance(key, str) else None,
-                )
+                ),
             )
 
         elif op_type == ZOperation.STD:
             # STD: value should be a list/tuple of lists/tuples of ints (same as MEAN)
             if not isinstance(value, (list, tuple)):
+                msg = f"STD operation requires list/tuple of lists, got {type(value)}"
                 raise ValueError(
-                    f"STD operation requires list/tuple of lists, got {type(value)}"
+                    msg,
                 )
 
             if not value:
-                raise ValueError("STD operation must have at least one offset group")
+                msg = "STD operation must have at least one offset group"
+                raise ValueError(msg)
 
             # Normalize to tuple of tuples
             offset_groups = []
@@ -211,11 +224,13 @@ def parse_channel_spec(
                 if isinstance(group, (list, tuple)):
                     group_tuple = tuple(int(x) for x in group)
                     if not group_tuple:
-                        raise ValueError("STD operation offset groups cannot be empty")
+                        msg = "STD operation offset groups cannot be empty"
+                        raise ValueError(msg)
                     offset_groups.append(group_tuple)
                 else:
+                    msg = f"STD operation offset groups must be lists/tuples, got {type(group)}"
                     raise ValueError(
-                        f"STD operation offset groups must be lists/tuples, got {type(group)}"
+                        msg,
                     )
 
             operations.append(
@@ -224,16 +239,20 @@ def parse_channel_spec(
                     offsets=tuple(offset_groups),
                     output_channels=len(offset_groups),
                     name=key if isinstance(key, str) else None,
-                )
+                ),
             )
         else:
-            raise ValueError(f"Unknown operation type: {op_type}")
+            msg = f"Unknown operation type: {op_type}"
+            raise ValueError(msg)
 
     return operations
 
 
 def apply_boundary_mode(
-    z_index: int, z_min: int, z_max: int, boundary_mode: str = "clamp"
+    z_index: int,
+    z_min: int,
+    z_max: int,
+    boundary_mode: str = "clamp",
 ) -> int:
     """
     Apply boundary mode to z_index to ensure it's within [z_min, z_max).
@@ -259,24 +278,25 @@ def apply_boundary_mode(
 
     if boundary_mode == "clamp":
         return max(z_min, min(z_index, z_max - 1))
-    elif boundary_mode == "zero":
+    if boundary_mode == "zero":
         # Return -1 to signal zero-padding needed
         return -1
-    elif boundary_mode == "reflect":
+    if boundary_mode == "reflect":
         # Mirror padding
         if z_index < z_min:
             return z_min + (z_min - z_index - 1)
-        else:  # z_index >= z_max
-            return z_max - 1 - (z_index - z_max)
-    elif boundary_mode == "skip":
+        # z_index >= z_max
+        return z_max - 1 - (z_index - z_max)
+    if boundary_mode == "skip":
         # Return -1 to signal skip
         return -1
-    else:
-        raise ValueError(f"Unknown boundary_mode: {boundary_mode}")
+    msg = f"Unknown boundary_mode: {boundary_mode}"
+    raise ValueError(msg)
 
 
 def compute_channel_count(
-    operations: list[ChannelOperation], input_channels: int
+    operations: list[ChannelOperation],
+    input_channels: int,
 ) -> int:
     """
     Compute total output channel count.
@@ -319,12 +339,15 @@ class ExtractionPlan:
 
     patches: list[PatchExtraction]
     color_groups: dict[
-        tuple[int, int], list[int]
+        tuple[int, int],
+        list[int],
     ]  # (color_y, color_x) -> patch indices
     total_patches: int
 
     def get_patches_for_color(
-        self, color_y: int, color_x: int
+        self,
+        color_y: int,
+        color_x: int,
     ) -> list[PatchExtraction]:
         """
         Get all patches for a specific color group.
@@ -532,31 +555,32 @@ class NCZYX25DQuilt:
         except (ImportError, TypeError):
             is_tensor_like = False
 
-        if is_tensor_like:
-            self.data_source = data_source
-            shape = data_source.shape
-        elif isinstance(data_source, torch.Tensor):
+        if is_tensor_like or isinstance(data_source, torch.Tensor):
             self.data_source = data_source
             shape = data_source.shape
         else:
+            msg = f"data_source must be torch.Tensor or TensorLike3D, got {type(data_source)}"
             raise TypeError(
-                f"data_source must be torch.Tensor or TensorLike3D, got {type(data_source)}"
+                msg,
             )
 
         # Validate inputs
         if len(shape) != 5:
+            msg = f"data_source must be 5D (N, C, Z, Y, X), got shape {shape}"
             raise ValueError(
-                f"data_source must be 5D (N, C, Z, Y, X), got shape {shape}"
+                msg,
             )
 
         if accumulation_mode not in ("2d", "3d"):
+            msg = f"accumulation_mode must be '2d' or '3d', got '{accumulation_mode}'"
             raise ValueError(
-                f"accumulation_mode must be '2d' or '3d', got '{accumulation_mode}'"
+                msg,
             )
 
         if boundary_mode not in ("clamp", "zero", "reflect", "skip"):
+            msg = f"boundary_mode must be 'clamp', 'zero', 'reflect', or 'skip', got '{boundary_mode}'"
             raise ValueError(
-                f"boundary_mode must be 'clamp', 'zero', 'reflect', or 'skip', got '{boundary_mode}'"
+                msg,
             )
 
         # Store inputs
@@ -585,14 +609,17 @@ class NCZYX25DQuilt:
             # Validate indices
             for z in self.z_indices:
                 if z < 0 or z >= Z:
-                    raise ValueError(f"z_slices contains invalid index {z} (Z={Z})")
+                    msg = f"z_slices contains invalid index {z} (Z={Z})"
+                    raise ValueError(msg)
         else:
+            msg = f"z_slices must be slice, list, or None, got {type(z_slices)}"
             raise ValueError(
-                f"z_slices must be slice, list, or None, got {type(z_slices)}"
+                msg,
             )
 
         if not self.z_indices:
-            raise ValueError("z_slices results in empty list")
+            msg = "z_slices results in empty list"
+            raise ValueError(msg)
 
         # Compute output channel count
         self.output_channels = compute_channel_count(self.operations, C)
@@ -606,7 +633,10 @@ class NCZYX25DQuilt:
             self.output_shape = (N, self.output_channels, len(self.z_indices), Y, X)
 
     def _apply_operation(
-        self, data: torch.Tensor, operation: ChannelOperation, z0: int
+        self,
+        data: torch.Tensor,
+        operation: ChannelOperation,
+        z0: int,
     ) -> torch.Tensor:
         """
         Apply a single channel operation at z-slice z0.
@@ -639,7 +669,9 @@ class NCZYX25DQuilt:
                     # Zero padding or skip
                     if self.boundary_mode == "zero":
                         channel = torch.zeros(
-                            (C, Y, X), dtype=data.dtype, device=data.device
+                            (C, Y, X),
+                            dtype=data.dtype,
+                            device=data.device,
                         )
                     else:  # skip
                         continue  # Skip this channel
@@ -661,8 +693,10 @@ class NCZYX25DQuilt:
                         if self.boundary_mode == "zero":
                             slices.append(
                                 torch.zeros(
-                                    (C, Y, X), dtype=data.dtype, device=data.device
-                                )
+                                    (C, Y, X),
+                                    dtype=data.dtype,
+                                    device=data.device,
+                                ),
                             )
                         # skip mode: just don't include this slice
                     else:
@@ -687,8 +721,10 @@ class NCZYX25DQuilt:
                         if self.boundary_mode == "zero":
                             slices.append(
                                 torch.zeros(
-                                    (C, Y, X), dtype=data.dtype, device=data.device
-                                )
+                                    (C, Y, X),
+                                    dtype=data.dtype,
+                                    device=data.device,
+                                ),
                             )
                         # skip mode: just don't include this slice
                     else:
@@ -701,8 +737,9 @@ class NCZYX25DQuilt:
                     results.append(std_channel)
 
         if not results:
+            msg = f"Operation {operation} produced no valid channels (all skipped?)"
             raise ValueError(
-                f"Operation {operation} produced no valid channels (all skipped?)"
+                msg,
             )
 
         # Stack results: (num_channels, C, Y, X)
@@ -755,7 +792,11 @@ class NCZYX25DQuilt:
                 z_min_load = min(all_z_indices)
                 z_max_load = max(all_z_indices) + 1
                 data_chunk = self.data_source[
-                    :, :, z_min_load:z_max_load, :, :
+                    :,
+                    :,
+                    z_min_load:z_max_load,
+                    :,
+                    :,
                 ]  # (N, C, Z_chunk, Y, X)
 
                 # Process each image
@@ -779,54 +820,58 @@ class NCZYX25DQuilt:
 
             return output
 
-        else:  # "3d"
-            # Keep Z dimension separate
-            Z_selected = len(self.z_indices)
-            output = torch.zeros(
-                (self.N, self.output_channels, Z_selected, self.Y, self.X),
-                dtype=dtype,
-                device=device,
-            )
+        # "3d"
+        # Keep Z dimension separate
+        Z_selected = len(self.z_indices)
+        output = torch.zeros(
+            (self.N, self.output_channels, Z_selected, self.Y, self.X),
+            dtype=dtype,
+            device=device,
+        )
 
-            for z_idx, z0 in enumerate(self.z_indices):
-                # Get all required z-indices for all operations
-                all_z_indices = set()
+        for z_idx, z0 in enumerate(self.z_indices):
+            # Get all required z-indices for all operations
+            all_z_indices = set()
+            for op in self.operations:
+                z_min, z_max = op.get_required_z_range(z0)
+                all_z_indices.update(range(z_min, z_max))
+
+            # Clamp z indices to valid range
+            all_z_indices = [z for z in all_z_indices if 0 <= z < self.Z]
+            # Ensure we at least include z0 itself if it's valid
+            if 0 <= z0 < self.Z and z0 not in all_z_indices:
+                all_z_indices.append(z0)
+            if not all_z_indices:
+                continue
+
+            z_min_load = min(all_z_indices)
+            z_max_load = max(all_z_indices) + 1
+            data_chunk = self.data_source[
+                :,
+                :,
+                z_min_load:z_max_load,
+                :,
+                :,
+            ]  # (N, C, Z_chunk, Y, X)
+
+            # Process each image
+            for n in range(self.N):
+                # Apply all operations
+                channel_results = []
                 for op in self.operations:
-                    z_min, z_max = op.get_required_z_range(z0)
-                    all_z_indices.update(range(z_min, z_max))
+                    op_result = self._apply_operation(
+                        data_chunk[n],  # (C, Z_chunk, Y, X)
+                        op,
+                        z0 - z_min_load,  # Adjust z0 relative to chunk
+                    )
+                    channel_results.append(op_result)
 
-                # Clamp z indices to valid range
-                all_z_indices = [z for z in all_z_indices if 0 <= z < self.Z]
-                # Ensure we at least include z0 itself if it's valid
-                if 0 <= z0 < self.Z and z0 not in all_z_indices:
-                    all_z_indices.append(z0)
-                if not all_z_indices:
-                    continue
+                # Concatenate all operation results
+                if channel_results:
+                    combined = torch.cat(channel_results, dim=0)  # (C', Y, X)
+                    output[n, :, z_idx, :, :] = combined
 
-                z_min_load = min(all_z_indices)
-                z_max_load = max(all_z_indices) + 1
-                data_chunk = self.data_source[
-                    :, :, z_min_load:z_max_load, :, :
-                ]  # (N, C, Z_chunk, Y, X)
-
-                # Process each image
-                for n in range(self.N):
-                    # Apply all operations
-                    channel_results = []
-                    for op in self.operations:
-                        op_result = self._apply_operation(
-                            data_chunk[n],  # (C, Z_chunk, Y, X)
-                            op,
-                            z0 - z_min_load,  # Adjust z0 relative to chunk
-                        )
-                        channel_results.append(op_result)
-
-                    # Concatenate all operation results
-                    if channel_results:
-                        combined = torch.cat(channel_results, dim=0)  # (C', Y, X)
-                        output[n, :, z_idx, :, :] = combined
-
-            return output
+        return output
 
     def get_channel_metadata(self) -> list[dict]:
         """
@@ -854,11 +899,11 @@ class NCZYX25DQuilt:
                                 "operation_type": op.op_type.name,
                                 "offsets": (offset,),
                                 "z0": None,  # Will be set per z-slice
-                            }
+                            },
                         )
                         channel_idx += 1
 
-                elif op.op_type == ZOperation.MEAN:
+                elif op.op_type in (ZOperation.MEAN, ZOperation.STD):
                     for offset_group in op.offsets:
                         metadata.append(
                             {
@@ -868,21 +913,7 @@ class NCZYX25DQuilt:
                                 "operation_type": op.op_type.name,
                                 "offsets": offset_group,
                                 "z0": None,  # Will be set per z-slice
-                            }
-                        )
-                        channel_idx += 1
-
-                elif op.op_type == ZOperation.STD:
-                    for offset_group in op.offsets:
-                        metadata.append(
-                            {
-                                "channel_index": channel_idx,
-                                "input_channel": input_c,
-                                "operation": op_name,
-                                "operation_type": op.op_type.name,
-                                "offsets": offset_group,
-                                "z0": None,  # Will be set per z-slice
-                            }
+                            },
                         )
                         channel_idx += 1
 
@@ -908,14 +939,14 @@ class NCZYX25DQuilt:
                     # Check if offsets are reasonable
                     if abs(offset) > self.Z:
                         warnings.append(
-                            f"IDENTITY offset {offset} is larger than Z dimension ({self.Z})"
+                            f"IDENTITY offset {offset} is larger than Z dimension ({self.Z})",
                         )
             elif op.op_type == ZOperation.MEAN:
                 for offset_group in op.offsets:
                     for offset in offset_group:
                         if abs(offset) > self.Z:
                             warnings.append(
-                                f"MEAN offset {offset} is larger than Z dimension ({self.Z})"
+                                f"MEAN offset {offset} is larger than Z dimension ({self.Z})",
                             )
 
         # Check z_slices
@@ -949,9 +980,12 @@ class NCZYX25DQuilt:
         The accumulation_mode must be "2d" for this to work.
         """
         if self.accumulation_mode != "2d":
-            raise ValueError(
+            msg = (
                 "to_ncyx_quilt requires accumulation_mode='2d'. "
                 f"Current mode: {self.accumulation_mode}"
+            )
+            raise ValueError(
+                msg,
             )
 
         from qlty.qlty2D import NCYXQuilt
@@ -960,7 +994,7 @@ class NCZYX25DQuilt:
         converted = self.convert()  # (N, C', Y, X)
 
         # Create 2D quilt
-        N, C, Y, X = converted.shape
+        _N, _C, Y, X = converted.shape
         return NCYXQuilt(Y=Y, X=X, **quilt_kwargs)
 
     def extract_patch_pairs(
@@ -1000,9 +1034,12 @@ class NCZYX25DQuilt:
         This requires accumulation_mode="2d" to work with the 2D interface.
         """
         if self.accumulation_mode != "2d":
-            raise ValueError(
+            msg = (
                 "extract_patch_pairs requires accumulation_mode='2d'. "
                 f"Current mode: {self.accumulation_mode}"
+            )
+            raise ValueError(
+                msg,
             )
 
         from qlty.patch_pairs_2d import extract_patch_pairs
@@ -1073,9 +1110,12 @@ class NCZYX25DQuilt:
         >>> # overlapping1[i] and overlapping2[i] correspond to the same spatial location
         """
         if self.accumulation_mode != "2d":
-            raise ValueError(
+            msg = (
                 "extract_overlapping_pixels requires accumulation_mode='2d'. "
                 f"Current mode: {self.accumulation_mode}"
+            )
+            raise ValueError(
+                msg,
             )
 
         from qlty.patch_pairs_2d import extract_overlapping_pixels
@@ -1141,8 +1181,7 @@ class NCZYX25DQuilt:
                 full_steps = (dim_size - win_size) // step_size
                 if dim_size > full_steps * step_size + win_size:
                     return full_steps + 2
-                else:
-                    return full_steps + 1
+                return full_steps + 1
 
             nY = compute_steps(self.Y, window[0], step[0])
             nX = compute_steps(self.X, window[1], step[1])
@@ -1219,7 +1258,9 @@ class NCZYX25DQuilt:
                         patch_idx += 1
 
         return ExtractionPlan(
-            patches=patches, color_groups=color_groups, total_patches=len(patches)
+            patches=patches,
+            color_groups=color_groups,
+            total_patches=len(patches),
         )
 
     def extract_patch_from_plan(self, patch: PatchExtraction) -> torch.Tensor:
@@ -1265,7 +1306,11 @@ class NCZYX25DQuilt:
         else:
             # Full image patch
             data_chunk = self.data_source[
-                patch.n, :, z_min:z_max, :, :
+                patch.n,
+                :,
+                z_min:z_max,
+                :,
+                :,
             ]  # (C, Z_chunk, Y, X)
 
         # Apply channel operations
@@ -1280,12 +1325,12 @@ class NCZYX25DQuilt:
 
         # Concatenate all operation results
         if channel_results:
-            combined = torch.cat(
-                channel_results, dim=0
+            return torch.cat(
+                channel_results,
+                dim=0,
             )  # (C', Y, X) or (C', window[0], window[1])
-            return combined
-        else:
-            raise ValueError(f"No valid channels produced for patch {patch.patch_idx}")
+        msg = f"No valid channels produced for patch {patch.patch_idx}"
+        raise ValueError(msg)
 
     def create_non_overlapping_colored_plan(
         self,

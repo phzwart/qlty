@@ -63,7 +63,9 @@ def test_false_color_generator_init_with_reducer_scaler(sample_image_shape):
     if umap is None:
         pytest.skip("umap not available")
 
-    reducer = umap.UMAP(n_components=3)
+    # Set n_neighbors to avoid warnings with small datasets
+    # Default is 15, but we'll use a smaller value for tests
+    reducer = umap.UMAP(n_components=3, n_neighbors=5)
     scaler = MinMaxScaler()
 
     generator = FalseColorGenerator(sample_image_shape, reducer=reducer, scaler=scaler)
@@ -151,7 +153,7 @@ def test_call_without_training(sample_image, sample_image_shape):
     result = generator(sample_image)
 
     assert result.shape == (64, 64, 3)  # RGB output
-    assert result.dtype == np.float64 or result.dtype == np.float32
+    assert result.dtype in (np.float64, np.float32)
     assert generator.scaler_is_trained
 
 

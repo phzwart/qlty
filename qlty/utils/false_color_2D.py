@@ -48,7 +48,12 @@ class FalseColorGenerator:
     """
 
     def __init__(
-        self, image_shape, window_size=32, step_size=8, reducer=None, scaler=None
+        self,
+        image_shape,
+        window_size=32,
+        step_size=8,
+        reducer=None,
+        scaler=None,
     ):
         self.image_shape = image_shape
         self.qlty_object = NCYXQuilt(
@@ -73,12 +78,13 @@ class FalseColorGenerator:
 
         # for NN interpolation
         YX = einops.rearrange(
-            torch.cat([self.Y, self.X], dim=1), "N C Y X -> (N Y X) C"
+            torch.cat([self.Y, self.X], dim=1),
+            "N C Y X -> (N Y X) C",
         )
         pYX = torch.cat([self.mean_patch_Y, self.mean_patch_X], dim=1).numpy()
         YX = YX.numpy()
         tree = cKDTree(pYX)
-        dist, self.idx = tree.query(YX, k=1)
+        _dist, self.idx = tree.query(YX, k=1)
 
         self.reducer = reducer
         self.scaler = scaler
@@ -110,8 +116,17 @@ class FalseColorGenerator:
         This method fits both the reducer (UMAP) and scaler (MinMaxScaler)
         on the provided patches. Patches are flattened before reduction.
         """
-        print(selected_patches.shape)
         lin_patches = einops.rearrange(selected_patches, "N C Y X -> N (C Y X)")
+
+        # Set n_neighbors based on dataset size to avoid warnings
+        # UMAP default is 15, but if dataset is smaller, we need to adjust
+        n_samples = lin_patches.shape[0]
+        n_neighbors = min(15, max(2, n_samples - 1))  # At least 2, at most n_samples-1
+
+        # Recreate reducer with appropriate n_neighbors if needed
+        if self.reducer.n_neighbors != n_neighbors:
+            self.reducer = umap.UMAP(n_components=3, n_neighbors=n_neighbors)
+
         tmp = self.reducer.fit_transform(lin_patches)
         self.reducer_is_trained = True
         tmp = self.scaler.fit_transform(tmp)
@@ -193,7 +208,10 @@ class FalseColorGenerator:
 
         H, W = self.image_shape[-2], self.image_shape[-1]
         interpolated_RGB = einops.rearrange(
-            interpolated_RGB, "(Y X) C -> Y X C", X=W, Y=H
+            interpolated_RGB,
+            "(Y X) C -> Y X C",
+            X=W,
+            Y=H,
         )
         sel = interpolated_RGB > 1
         interpolated_RGB[sel] = 1

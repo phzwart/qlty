@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import math
-from typing import Optional, Tuple, Union
 
 import einops
 import numpy as np
@@ -17,7 +18,17 @@ from qlty.base import (
 
 @njit(fastmath=True)  # pragma: no cover
 def numba_njit_stitch(
-    ml_tensor, result, norma, weight, window, step, Y, X, nX, times, m
+    ml_tensor,
+    result,
+    norma,
+    weight,
+    window,
+    step,
+    Y,
+    X,
+    nX,
+    times,
+    m,
 ):
     # NOTE:
     # We intentionally avoid `parallel=True` because concurrent updates to
@@ -85,8 +96,8 @@ def _ensure_numpy(array):
 def stitch_serial_numba(
     ml_tensor: torch.Tensor,
     weight: torch.Tensor,
-    window: Tuple[int, int],
-    step: Tuple[int, int],
+    window: tuple[int, int],
+    step: tuple[int, int],
     Y: int,
     X: int,
     nY: int,
@@ -100,7 +111,8 @@ def stitch_serial_numba(
     assert ml_tensor_np.shape[0] % times == 0
 
     result_np = np.zeros(
-        (M_images, ml_tensor_np.shape[1], Y, X), dtype=ml_tensor_np.dtype
+        (M_images, ml_tensor_np.shape[1], Y, X),
+        dtype=ml_tensor_np.dtype,
     )
     norma_np = np.zeros((Y, X), dtype=weight_np.dtype)
 
@@ -128,8 +140,8 @@ def stitch_serial_numba(
 def stitch_parallel_colored(
     ml_tensor: torch.Tensor,
     weight: torch.Tensor,
-    window: Tuple[int, int],
-    step: Tuple[int, int],
+    window: tuple[int, int],
+    step: tuple[int, int],
     Y: int,
     X: int,
     nY: int,
@@ -143,7 +155,8 @@ def stitch_parallel_colored(
     assert ml_tensor_np.shape[0] % times == 0
 
     result_np = np.zeros(
-        (M_images, ml_tensor_np.shape[1], Y, X), dtype=ml_tensor_np.dtype
+        (M_images, ml_tensor_np.shape[1], Y, X),
+        dtype=ml_tensor_np.dtype,
     )
     norma_np = np.zeros((Y, X), dtype=weight_np.dtype)
 
@@ -196,9 +209,9 @@ class NCYXQuilt:
         self,
         Y: int,
         X: int,
-        window: Tuple[int, int],
-        step: Tuple[int, int],
-        border: Optional[Union[int, Tuple[int, int]]],
+        window: tuple[int, int],
+        step: tuple[int, int],
+        border: int | tuple[int, int] | None,
         border_weight: float = 1.0,
     ) -> None:
         """
@@ -225,19 +238,23 @@ class NCYXQuilt:
 
         # Compute chunk times
         self.nY, self.nX = compute_chunk_times(
-            dimension_sizes=(Y, X), window=window, step=step
+            dimension_sizes=(Y, X),
+            window=window,
+            step=step,
         )
 
         # Compute weight matrix
         self.weight = compute_weight_matrix_torch(
-            window=window, border=self.border, border_weight=self.border_weight
+            window=window,
+            border=self.border,
+            border_weight=self.border_weight,
         )
 
     def border_tensor(self) -> torch.Tensor:
         """Compute border tensor indicating valid (non-border) regions."""
         return compute_border_tensor_torch(window=self.window, border=self.border)
 
-    def get_times(self) -> Tuple[int, int]:
+    def get_times(self) -> tuple[int, int]:
         """
         Compute the number of patches along each spatial dimension.
 
@@ -261,15 +278,17 @@ class NCYXQuilt:
         >>> print(f"Total patches for 10 images: {10 * nY * nX}")
         """
         return compute_chunk_times(
-            dimension_sizes=(self.Y, self.X), window=self.window, step=self.step
+            dimension_sizes=(self.Y, self.X),
+            window=self.window,
+            step=self.step,
         )
 
     def unstitch_data_pair(
         self,
         tensor_in: torch.Tensor,
         tensor_out: torch.Tensor,
-        missing_label: Optional[Union[int, float]] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        missing_label: float | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Split input and output tensors into smaller overlapping patches.
 
@@ -355,7 +374,7 @@ class NCYXQuilt:
         >>> patches = quilt.unstitch(data)
         >>> print(patches.shape)  # (M, 3, 32, 32)
         """
-        N, C, Y, X = tensor.shape
+        N, _C, _Y, _X = tensor.shape
         result = []
 
         for n in range(N):
@@ -368,12 +387,13 @@ class NCYXQuilt:
                     stop_x = start_x + self.window[1]
                     patch = tmp[:, start_y:stop_y, start_x:stop_x]
                     result.append(patch)
-        result = einops.rearrange(result, "M C Y X -> M C Y X")
-        return result
+        return einops.rearrange(result, "M C Y X -> M C Y X")
 
     def stitch(
-        self, ml_tensor: torch.Tensor, use_numba: bool = True
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self,
+        ml_tensor: torch.Tensor,
+        use_numba: bool = True,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Reassemble patches back into full-size tensors.
 
@@ -441,7 +461,7 @@ class NCYXQuilt:
         >>> reconstructed, weights = quilt.stitch(processed)
         >>> print(reconstructed.shape)  # (10, C, 128, 128)
         """
-        N, C, Y, X = ml_tensor.shape
+        N, C, _Y, _X = ml_tensor.shape
         # we now need to figure out how to stitch this back into what dimension
         times = self.nY * self.nX
         M_images = N // times

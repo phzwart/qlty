@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from __future__ import annotations
 
 import einops
 import numpy as np
@@ -29,9 +29,9 @@ class LargeNCYXQuilt:
         N: int,
         Y: int,
         X: int,
-        window: Tuple[int, int],
-        step: Tuple[int, int],
-        border: Optional[Union[int, Tuple[int, int]]],
+        window: tuple[int, int],
+        step: tuple[int, int],
+        border: int | tuple[int, int] | None,
         border_weight: float = 0.1,
     ) -> None:
         """
@@ -61,12 +61,16 @@ class LargeNCYXQuilt:
 
         # Compute chunk times
         self.nY, self.nX = compute_chunk_times(
-            dimension_sizes=(Y, X), window=window, step=step
+            dimension_sizes=(Y, X),
+            window=window,
+            step=step,
         )
 
         # Compute weight matrix (as torch tensor for compatibility)
         weight_np = compute_weight_matrix_numpy(
-            window=window, border=self.border, border_weight=self.border_weight
+            window=window,
+            border=self.border,
+            border_weight=self.border_weight,
         )
         self.weight = torch.from_numpy(weight_np)
 
@@ -80,21 +84,23 @@ class LargeNCYXQuilt:
         """Compute border tensor indicating valid (non-border) regions."""
         return compute_border_tensor_numpy(window=self.window, border=self.border)
 
-    def get_times(self) -> Tuple[int, int]:
+    def get_times(self) -> tuple[int, int]:
         """
         Computes the number of chunks along Y and X dimensions, ensuring the last chunk
         is included by adjusting the starting points.
         """
         return compute_chunk_times(
-            dimension_sizes=(self.Y, self.X), window=self.window, step=self.step
+            dimension_sizes=(self.Y, self.X),
+            window=self.window,
+            step=self.step,
         )
 
     def unstitch_and_clean_sparse_data_pair(
         self,
         tensor_in: torch.Tensor,
         tensor_out: torch.Tensor,
-        missing_label: Union[int, float],
-    ) -> Tuple[Union[torch.Tensor, List], Union[torch.Tensor, List]]:
+        missing_label: float,
+    ) -> tuple[torch.Tensor | list, torch.Tensor | list]:
         """
         Split input and output tensors into patches, filtering out patches with no valid data.
 
@@ -170,8 +176,7 @@ class LargeNCYXQuilt:
                 assert unstitched_out.shape[1] == 1
                 unstitched_out = unstitched_out.squeeze(dim=1)
             return unstitched_in, unstitched_out
-        else:
-            return [], []
+        return [], []
 
     def unstitch(self, tensor: torch.Tensor, index: int) -> torch.Tensor:
         """
@@ -203,7 +208,7 @@ class LargeNCYXQuilt:
         >>> patch = quilt.unstitch(data, index=0)
         >>> print(patch.shape)  # (3, 32, 32)
         """
-        N, C, Y, X = tensor.shape
+        N, _C, Y, X = tensor.shape
 
         out_shape = (N, self.nY, self.nX)
         n, yy, xx = np.unravel_index(index, out_shape)
@@ -215,14 +220,13 @@ class LargeNCYXQuilt:
         stop_y = start_y + self.window[0]
         stop_x = start_x + self.window[1]
 
-        patch = tensor[n, :, start_y:stop_y, start_x:stop_x]
-        return patch
+        return tensor[n, :, start_y:stop_y, start_x:stop_x]
 
     def stitch(
         self,
         patch: torch.Tensor,
         index_flat: int,
-        patch_var: Optional[torch.Tensor] = None,
+        patch_var: torch.Tensor | None = None,
     ) -> None:
         C = patch.shape[1]
         if self.mean is None:
@@ -272,7 +276,7 @@ class LargeNCYXQuilt:
         if n == 0:
             self.norma[start_y:stop_y, start_x:stop_x] += self.weight.numpy()
 
-    def unstitch_next(self, tensor: torch.Tensor) -> Tuple[int, torch.Tensor]:
+    def unstitch_next(self, tensor: torch.Tensor) -> tuple[int, torch.Tensor]:
         """
         Get the next patch in sequence (generator-like interface).
 
@@ -314,10 +318,14 @@ class LargeNCYXQuilt:
         return this_ind, tmp
 
     def return_mean(
-        self, std: bool = False, normalize: bool = False, eps: float = 1e-8
-    ) -> Union[
-        npt.NDArray[np.float64], Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
-    ]:
+        self,
+        std: bool = False,
+        normalize: bool = False,
+        eps: float = 1e-8,
+    ) -> (
+        npt.NDArray[np.float64]
+        | tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
+    ):
         """
         Compute and return the final stitched result.
 

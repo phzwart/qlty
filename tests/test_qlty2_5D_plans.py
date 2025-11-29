@@ -19,7 +19,10 @@ def test_create_extraction_plan_simple():
     spec = {"identity": [0]}
 
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="3d", z_slices=[0, 1, 2]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="3d",
+        z_slices=[0, 1, 2],
     )
 
     plan = quilt.create_extraction_plan()
@@ -44,7 +47,10 @@ def test_create_extraction_plan_with_2d_quilting():
     spec = {"identity": [0]}
 
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="2d", z_slices=[0]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="2d",
+        z_slices=[0],
     )
 
     plan = quilt.create_extraction_plan(window=(10, 10), step=(5, 5))
@@ -67,11 +73,17 @@ def test_create_extraction_plan_color_groups():
     spec = {"identity": [0]}
 
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="2d", z_slices=[0]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="2d",
+        z_slices=[0],
     )
 
     plan = quilt.create_extraction_plan(
-        window=(10, 10), step=(5, 5), color_y_mod=2, color_x_mod=2
+        window=(10, 10),
+        step=(5, 5),
+        color_y_mod=2,
+        color_x_mod=2,
     )
 
     # Check that color groups are created
@@ -91,11 +103,17 @@ def test_get_patches_for_color():
     spec = {"identity": [0]}
 
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="2d", z_slices=[0]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="2d",
+        z_slices=[0],
     )
 
     plan = quilt.create_extraction_plan(
-        window=(10, 10), step=(5, 5), color_y_mod=2, color_x_mod=2
+        window=(10, 10),
+        step=(5, 5),
+        color_y_mod=2,
+        color_x_mod=2,
     )
 
     # Get patches for color group (0, 0)
@@ -114,7 +132,10 @@ def test_create_stitching_plan():
     spec = {"identity": [0]}
 
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="3d", z_slices=[0, 1, 2]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="3d",
+        z_slices=[0, 1, 2],
     )
 
     extraction_plan = quilt.create_extraction_plan()
@@ -137,7 +158,10 @@ def test_plan_serialization():
     spec = {"identity": [0]}
 
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="3d", z_slices=[0, 1]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="3d",
+        z_slices=[0, 1],
     )
 
     extraction_plan = quilt.create_extraction_plan()
@@ -166,7 +190,10 @@ def test_stitching_plan_serialization():
     spec = {"identity": [0]}
 
     quilt = NCZYX25DQuilt(
-        data_source=data, channel_spec=spec, accumulation_mode="2d", z_slices=[0]
+        data_source=data,
+        channel_spec=spec,
+        accumulation_mode="2d",
+        z_slices=[0],
     )
 
     extraction_plan = quilt.create_extraction_plan()
@@ -217,27 +244,17 @@ def test_required_z_indices():
 
 if __name__ == "__main__":
     test_create_extraction_plan_simple()
-    print("✓ create_extraction_plan_simple")
 
     test_create_extraction_plan_with_2d_quilting()
-    print("✓ create_extraction_plan_with_2d_quilting")
 
     test_create_extraction_plan_color_groups()
-    print("✓ create_extraction_plan_color_groups")
 
     test_get_patches_for_color()
-    print("✓ get_patches_for_color")
 
     test_create_stitching_plan()
-    print("✓ create_stitching_plan")
 
     test_plan_serialization()
-    print("✓ plan_serialization")
 
     test_stitching_plan_serialization()
-    print("✓ stitching_plan_serialization")
 
     test_required_z_indices()
-    print("✓ required_z_indices")
-
-    print("\nAll plan tests passed!")

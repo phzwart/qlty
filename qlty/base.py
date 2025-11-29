@@ -5,15 +5,16 @@ This module provides base classes and shared utilities to eliminate code duplica
 across 2D/3D and in-memory/disk-cached quilt implementations.
 """
 
-from typing import Optional, Tuple, Union
+from __future__ import annotations
 
 import numpy as np
 import torch
 
 
 def normalize_border(
-    border: Optional[Union[int, Tuple[int, ...]]], ndim: int
-) -> Optional[Tuple[int, ...]]:
+    border: int | tuple[int, ...] | None,
+    ndim: int,
+) -> tuple[int, ...] | None:
     """
     Normalize border parameter to a consistent format.
 
@@ -48,13 +49,17 @@ def normalize_border(
             return None
         # Ensure correct length
         if len(border) != ndim:
-            raise ValueError(
+            msg = (
                 f"border tuple must have {ndim} elements for {ndim}D data, "
                 f"got {len(border)}"
             )
+            raise ValueError(
+                msg,
+            )
         return border
 
-    raise TypeError(f"border must be int, tuple, or None, got {type(border)}")
+    msg = f"border must be int, tuple, or None, got {type(border)}"
+    raise TypeError(msg)
 
 
 def validate_border_weight(border_weight: float) -> float:
@@ -77,12 +82,15 @@ def validate_border_weight(border_weight: float) -> float:
         If border_weight is outside valid range
     """
     if not (0.0 <= border_weight <= 1.0):
-        raise ValueError(f"border_weight must be in [0.0, 1.0], got {border_weight}")
+        msg = f"border_weight must be in [0.0, 1.0], got {border_weight}"
+        raise ValueError(msg)
     return max(border_weight, 1e-8)
 
 
 def compute_weight_matrix_torch(
-    window: Tuple[int, ...], border: Optional[Tuple[int, ...]], border_weight: float
+    window: tuple[int, ...],
+    border: tuple[int, ...] | None,
+    border_weight: float,
 ) -> torch.Tensor:
     """
     Compute weight matrix for stitching (torch version).
@@ -116,7 +124,8 @@ def compute_weight_matrix_torch(
 
 
 def compute_border_tensor_torch(
-    window: Tuple[int, ...], border: Optional[Tuple[int, ...]]
+    window: tuple[int, ...],
+    border: tuple[int, ...] | None,
 ) -> torch.Tensor:
     """
     Compute border tensor (torch version).
@@ -145,12 +154,13 @@ def compute_border_tensor_torch(
                 slices.append(slice(None))
         result[tuple(slices)] = 1.0
         return result
-    else:
-        return torch.ones(window)
+    return torch.ones(window)
 
 
 def compute_weight_matrix_numpy(
-    window: Tuple[int, ...], border: Optional[Tuple[int, ...]], border_weight: float
+    window: tuple[int, ...],
+    border: tuple[int, ...] | None,
+    border_weight: float,
 ) -> np.ndarray:
     """
     Compute weight matrix for stitching (numpy version).
@@ -182,7 +192,8 @@ def compute_weight_matrix_numpy(
 
 
 def compute_border_tensor_numpy(
-    window: Tuple[int, ...], border: Optional[Tuple[int, ...]]
+    window: tuple[int, ...],
+    border: tuple[int, ...] | None,
 ) -> np.ndarray:
     """
     Compute border tensor (numpy version).
@@ -215,8 +226,10 @@ def compute_border_tensor_numpy(
 
 
 def compute_chunk_times(
-    dimension_sizes: Tuple[int, ...], window: Tuple[int, ...], step: Tuple[int, ...]
-) -> Tuple[int, ...]:
+    dimension_sizes: tuple[int, ...],
+    window: tuple[int, ...],
+    step: tuple[int, ...],
+) -> tuple[int, ...]:
     """
     Compute number of chunks along each dimension.
 
@@ -243,8 +256,7 @@ def compute_chunk_times(
         # Check if there is enough space left for the last chunk
         if dimension_size > full_steps * step_size + window_size:
             return full_steps + 2
-        else:
-            return full_steps + 1
+        return full_steps + 1
 
     return tuple(
         compute_steps(dim_size, win_size, step_size)
@@ -261,9 +273,9 @@ class BaseQuilt:
 
     def __init__(
         self,
-        window: Tuple[int, ...],
-        step: Tuple[int, ...],
-        border: Optional[Union[int, Tuple[int, ...]]],
+        window: tuple[int, ...],
+        step: tuple[int, ...],
+        border: int | tuple[int, ...] | None,
         border_weight: float,
         ndim: int,
     ) -> None:
@@ -292,17 +304,24 @@ class BaseQuilt:
 
         # Validate window and step match dimensions
         if len(window) != ndim:
-            raise ValueError(
+            msg = (
                 f"window must have {ndim} elements for {ndim}D data, got {len(window)}"
             )
-        if len(step) != ndim:
             raise ValueError(
-                f"step must have {ndim} elements for {ndim}D data, got {len(step)}"
+                msg,
+            )
+        if len(step) != ndim:
+            msg = f"step must have {ndim} elements for {ndim}D data, got {len(step)}"
+            raise ValueError(
+                msg,
             )
 
         # Validate border matches dimensions if provided
         if self.border is not None and len(self.border) != ndim:
-            raise ValueError(
+            msg = (
                 f"border must have {ndim} elements for {ndim}D data, "
                 f"got {len(self.border)}"
+            )
+            raise ValueError(
+                msg,
             )

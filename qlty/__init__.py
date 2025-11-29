@@ -53,18 +53,18 @@ except ImportError:
 
 # Make all classes and functions available at the top level
 __all__ = [
-    "NCYXQuilt",
-    "NCZYXQuilt",
     "LargeNCYXQuilt",
     "LargeNCZYXQuilt",
+    "NCYXQuilt",
+    "NCZYXQuilt",
+    "build_sequence_pair",
+    "extract_overlapping_pixels",
+    "extract_overlapping_pixels_3d",
+    "extract_patch_pairs",
+    "extract_patch_pairs_3d",
+    "tokenize_patch",
     "weed_sparse_classification_training_pairs_2D",
     "weed_sparse_classification_training_pairs_3D",
-    "extract_patch_pairs",
-    "extract_overlapping_pixels",
-    "extract_patch_pairs_3d",
-    "extract_overlapping_pixels_3d",
-    "tokenize_patch",
-    "build_sequence_pair",
 ]
 
 # Add 2.5D exports if available
@@ -75,13 +75,13 @@ if _HAS_BACKENDS:
     __all__.extend(
         [
             "DataSource3DBackend",
+            "HDF5Backend",
             "InMemoryBackend",
             "MemoryMappedBackend",
-            "ZarrBackend",
-            "HDF5Backend",
             "TensorLike3D",
-            "from_zarr",
+            "ZarrBackend",
             "from_hdf5",
             "from_memmap",
-        ]
+            "from_zarr",
+        ],
     )
