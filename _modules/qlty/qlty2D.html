@@ -77,8 +77,9 @@
            <div itemprop="articleBody">
              
   <h1>Source code for qlty.qlty2D</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">einops</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -96,7 +97,17 @@
 
 <span class="nd">@njit</span><span class="p">(</span><span class="n">fastmath</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">numba_njit_stitch</span><span class="p">(</span>
-    <span class="n">ml_tensor</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">norma</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">nX</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">m</span>
+    <span class="n">ml_tensor</span><span class="p">,</span>
+    <span class="n">result</span><span class="p">,</span>
+    <span class="n">norma</span><span class="p">,</span>
+    <span class="n">weight</span><span class="p">,</span>
+    <span class="n">window</span><span class="p">,</span>
+    <span class="n">step</span><span class="p">,</span>
+    <span class="n">Y</span><span class="p">,</span>
+    <span class="n">X</span><span class="p">,</span>
+    <span class="n">nX</span><span class="p">,</span>
+    <span class="n">times</span><span class="p">,</span>
+    <span class="n">m</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="c1"># NOTE:</span>
     <span class="c1"># We intentionally avoid `parallel=True` because concurrent updates to</span>
@@ -164,8 +175,8 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">stitch_serial_numba</span><span class="p">(</span>
     <span class="n">ml_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-    <span class="n">window</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
-    <span class="n">step</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">step</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
     <span class="n">Y</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">X</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">nY</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -179,7 +190,8 @@
     <span class="k">assert</span> <span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="n">times</span> <span class="o">==</span> <span class="mi">0</span>
 
     <span class="n">result_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">M_images</span><span class="p">,</span> <span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="p">(</span><span class="n">M_images</span><span class="p">,</span> <span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">norma_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">weight_np</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
 
@@ -207,8 +219,8 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">stitch_parallel_colored</span><span class="p">(</span>
     <span class="n">ml_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-    <span class="n">window</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
-    <span class="n">step</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">step</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
     <span class="n">Y</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">X</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">nY</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -222,7 +234,8 @@
     <span class="k">assert</span> <span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="n">times</span> <span class="o">==</span> <span class="mi">0</span>
 
     <span class="n">result_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">M_images</span><span class="p">,</span> <span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="p">(</span><span class="n">M_images</span><span class="p">,</span> <span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">ml_tensor_np</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">norma_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">weight_np</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
 
@@ -277,9 +290,9 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">Y</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">X</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">window</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
-        <span class="n">step</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
-        <span class="n">border</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]],</span>
+        <span class="n">window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">step</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">border</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">border_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -306,12 +319,16 @@
 
         <span class="c1"># Compute chunk times</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">nY</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nX</span> <span class="o">=</span> <span class="n">compute_chunk_times</span><span class="p">(</span>
-            <span class="n">dimension_sizes</span><span class="o">=</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span> <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span>
+            <span class="n">dimension_sizes</span><span class="o">=</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span>
+            <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
+            <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Compute weight matrix</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">weight</span> <span class="o">=</span> <span class="n">compute_weight_matrix_torch</span><span class="p">(</span>
-            <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span> <span class="n">border</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">border</span><span class="p">,</span> <span class="n">border_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">border_weight</span>
+            <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
+            <span class="n">border</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">border</span><span class="p">,</span>
+            <span class="n">border_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">border_weight</span><span class="p">,</span>
         <span class="p">)</span>
 
 <div class="viewcode-block" id="NCYXQuilt.border_tensor">
@@ -323,7 +340,7 @@
 
 <div class="viewcode-block" id="NCYXQuilt.get_times">
 <a class="viewcode-back" href="../../api.html#qlty.qlty2D.NCYXQuilt.get_times">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_times</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_times</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the number of patches along each spatial dimension.</span>
 
@@ -347,7 +364,9 @@
 <span class="sd">        &gt;&gt;&gt; print(f&quot;Total patches for 10 images: {10 * nY * nX}&quot;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">compute_chunk_times</span><span class="p">(</span>
-            <span class="n">dimension_sizes</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">),</span> <span class="n">window</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">step</span>
+            <span class="n">dimension_sizes</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">),</span>
+            <span class="n">window</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span>
+            <span class="n">step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -357,8 +376,8 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tensor_in</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">tensor_out</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">missing_label</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="n">missing_label</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Split input and output tensors into smaller overlapping patches.</span>
 
@@ -447,7 +466,7 @@
 <span class="sd">        &gt;&gt;&gt; patches = quilt.unstitch(data)</span>
 <span class="sd">        &gt;&gt;&gt; print(patches.shape)  # (M, 3, 32, 32)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">N</span><span class="p">,</span> <span class="n">_C</span><span class="p">,</span> <span class="n">_Y</span><span class="p">,</span> <span class="n">_X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
         <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
@@ -460,15 +479,16 @@
                     <span class="n">stop_x</span> <span class="o">=</span> <span class="n">start_x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
                     <span class="n">patch</span> <span class="o">=</span> <span class="n">tmp</span><span class="p">[:,</span> <span class="n">start_y</span><span class="p">:</span><span class="n">stop_y</span><span class="p">,</span> <span class="n">start_x</span><span class="p">:</span><span class="n">stop_x</span><span class="p">]</span>
                     <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">patch</span><span class="p">)</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">einops</span><span class="o">.</span><span class="n">rearrange</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">&quot;M C Y X -&gt; M C Y X&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">result</span></div>
+        <span class="k">return</span> <span class="n">einops</span><span class="o">.</span><span class="n">rearrange</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">&quot;M C Y X -&gt; M C Y X&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="NCYXQuilt.stitch">
 <a class="viewcode-back" href="../../api.html#qlty.qlty2D.NCYXQuilt.stitch">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">stitch</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">ml_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">use_numba</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ml_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">use_numba</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Reassemble patches back into full-size tensors.</span>
 
@@ -536,7 +556,7 @@
 <span class="sd">        &gt;&gt;&gt; reconstructed, weights = quilt.stitch(processed)</span>
 <span class="sd">        &gt;&gt;&gt; print(reconstructed.shape)  # (10, C, 128, 128)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">ml_tensor</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">_Y</span><span class="p">,</span> <span class="n">_X</span> <span class="o">=</span> <span class="n">ml_tensor</span><span class="o">.</span><span class="n">shape</span>
         <span class="c1"># we now need to figure out how to stitch this back into what dimension</span>
         <span class="n">times</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nY</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nX</span>
         <span class="n">M_images</span> <span class="o">=</span> <span class="n">N</span> <span class="o">//</span> <span class="n">times</span>

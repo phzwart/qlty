@@ -84,21 +84,25 @@
 <span class="sd">where the displacement between patch centers follows specified constraints.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
 
 
 <div class="viewcode-block" id="extract_patch_pairs">
 <a class="viewcode-back" href="../../api.html#qlty.patch_pairs_2d.extract_patch_pairs">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">extract_patch_pairs</span><span class="p">(</span>
     <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-    <span class="n">window</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
     <span class="n">num_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">delta_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
-    <span class="n">random_seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">rotation_choices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+    <span class="n">delta_range</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">random_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">rotation_choices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extract pairs of patches from 2D image tensors with controlled displacement.</span>
 
@@ -166,8 +170,9 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Validate input tensor shape</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Input tensor must be 4D (N, C, Y, X), got shape </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Input tensor must be 4D (N, C, Y, X), got shape </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">msg</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
@@ -180,20 +185,27 @@
 
     <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="o">=</span> <span class="n">delta_range</span>
     <span class="k">if</span> <span class="n">low</span> <span class="o">&lt;</span> <span class="n">window_quarter</span> <span class="ow">or</span> <span class="n">high</span> <span class="o">&gt;</span> <span class="n">window_three_quarters</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;delta_range must satisfy: </span><span class="si">{</span><span class="n">window_quarter</span><span class="si">}</span><span class="s2"> &lt;= low &lt;= high &lt;= </span><span class="si">{</span><span class="n">window_three_quarters</span><span class="si">}</span><span class="s2">, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;got (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="k">if</span> <span class="n">low</span> <span class="o">&gt;</span> <span class="n">high</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;delta_range low (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">) must be &lt;= high (</span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;delta_range low (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">) must be &lt;= high (</span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
     <span class="c1"># Check if image is large enough for window and delta range</span>
     <span class="n">min_y</span> <span class="o">=</span> <span class="n">U</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span>
     <span class="n">min_x</span> <span class="o">=</span> <span class="n">V</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">Y</span> <span class="o">&lt;</span> <span class="n">min_y</span> <span class="ow">or</span> <span class="n">X</span> <span class="o">&lt;</span> <span class="n">min_x</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+    <span class="k">if</span> <span class="n">min_y</span> <span class="o">&gt;</span> <span class="n">Y</span> <span class="ow">or</span> <span class="n">min_x</span> <span class="o">&gt;</span> <span class="n">X</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Image dimensions (</span><span class="si">{</span><span class="n">Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">X</span><span class="si">}</span><span class="s2">) are too small for window (</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">) &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;and delta_range (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">). Minimum required: (</span><span class="si">{</span><span class="n">min_y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">min_x</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="c1"># Set random seed if provided</span>
@@ -206,16 +218,24 @@
     <span class="c1"># Pre-allocate output tensors</span>
     <span class="n">total_patches</span> <span class="o">=</span> <span class="n">N</span> <span class="o">*</span> <span class="n">num_patches</span>
     <span class="n">patches1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">patches2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">deltas_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">rotations_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-        <span class="n">total_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">total_patches</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">rotation_choices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -225,7 +245,9 @@
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rotation_choices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">rotation_choices</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
     <span class="n">rotation_choices_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
-        <span class="n">rotation_choices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">rotation_choices</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">allow_rotations</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">choice</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">choice</span> <span class="ow">in</span> <span class="n">rotation_choices</span><span class="p">)</span>
 
@@ -239,7 +261,10 @@
         <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_patches</span><span class="p">):</span>
             <span class="c1"># Sample displacement vector (dx, dy) with Euclidean distance constraint</span>
             <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">_sample_displacement_vector</span><span class="p">(</span>
-                <span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+                <span class="n">low</span><span class="p">,</span>
+                <span class="n">high</span><span class="p">,</span>
+                <span class="n">generator</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
             <span class="p">)</span>
 
             <span class="c1"># Sample first patch location (x, y) ensuring both patches fit</span>
@@ -260,7 +285,10 @@
                 <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="k">while</span> <span class="p">(</span><span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span><span class="p">)</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
                     <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">_sample_displacement_vector</span><span class="p">(</span>
-                        <span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+                        <span class="n">low</span><span class="p">,</span>
+                        <span class="n">high</span><span class="p">,</span>
+                        <span class="n">generator</span><span class="p">,</span>
+                        <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
                     <span class="p">)</span>
                     <span class="n">x_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dx</span><span class="p">)</span>
                     <span class="n">x_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">V</span><span class="p">,</span> <span class="n">X</span> <span class="o">-</span> <span class="n">V</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span>
@@ -269,18 +297,29 @@
                     <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
 
                 <span class="k">if</span> <span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;Could not find valid patch locations for displacement (</span><span class="si">{</span><span class="n">dx</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">dy</span><span class="si">}</span><span class="s2">) &quot;</span>
                         <span class="sa">f</span><span class="s2">&quot;in image of size (</span><span class="si">{</span><span class="n">Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">X</span><span class="si">}</span><span class="s2">) with window (</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">)&quot;</span>
+                    <span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="n">msg</span><span class="p">,</span>
                     <span class="p">)</span>
 
             <span class="c1"># Sample random location for first patch (keep on GPU if possible)</span>
             <span class="k">if</span> <span class="n">generator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
-                    <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+                    <span class="n">x_min</span><span class="p">,</span>
+                    <span class="n">x_max</span><span class="p">,</span>
+                    <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
+                    <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+                    <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
                 <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
-                    <span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+                    <span class="n">y_min</span><span class="p">,</span>
+                    <span class="n">y_max</span><span class="p">,</span>
+                    <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
+                    <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+                    <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
                 <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
@@ -295,7 +334,9 @@
 
             <span class="c1"># Extract second patch at (x + dx, y + dy)</span>
             <span class="n">patch2</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span>
-                <span class="p">:,</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="p">:</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="p">:</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">V</span>
+                <span class="p">:,</span>
+                <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="p">:</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span>
+                <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="p">:</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">V</span><span class="p">,</span>
             <span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
 
             <span class="k">if</span> <span class="n">allow_rotations</span><span class="p">:</span>
@@ -330,9 +371,9 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_sample_displacement_vector</span><span class="p">(</span>
     <span class="n">low</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">high</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-    <span class="n">generator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="n">generator</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Sample a displacement vector (dx, dy) such that low &lt;= sqrt(dx² + dy²) &lt;= high.</span>
 
@@ -363,10 +404,18 @@
 
         <span class="k">if</span> <span class="n">generator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">dx_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
-                <span class="o">-</span><span class="n">max_delta</span><span class="p">,</span> <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+                <span class="o">-</span><span class="n">max_delta</span><span class="p">,</span>
+                <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
+                <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">dy_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
-                <span class="o">-</span><span class="n">max_delta</span><span class="p">,</span> <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+                <span class="o">-</span><span class="n">max_delta</span><span class="p">,</span>
+                <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
+                <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">dx_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="n">max_delta</span><span class="p">,</span> <span class="n">max_delta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
@@ -387,7 +436,9 @@
             <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mf">3.141592653589793</span>
         <span class="p">)</span>
         <span class="n">distance_tensor</span> <span class="o">=</span> <span class="n">low</span> <span class="o">+</span> <span class="p">(</span><span class="n">high</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span>
-            <span class="mi">1</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">angle_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mf">3.141592653589793</span>
@@ -398,21 +449,21 @@
     <span class="c1"># Compute cos and sin on GPU if device is GPU</span>
     <span class="n">cos_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">angle_tensor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">sin_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">angle_tensor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">dx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">cos_val</span><span class="p">)))</span>
-    <span class="n">dy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">sin_val</span><span class="p">)))</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">cos_val</span><span class="p">))</span>
+    <span class="n">dy</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">distance</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">sin_val</span><span class="p">))</span>
 
     <span class="c1"># Ensure distance is still in range (may have been affected by rounding)</span>
     <span class="n">actual_distance</span> <span class="o">=</span> <span class="p">(</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
     <span class="k">if</span> <span class="n">actual_distance</span> <span class="o">&lt;</span> <span class="n">low</span><span class="p">:</span>
         <span class="c1"># Scale up to meet minimum</span>
         <span class="n">scale</span> <span class="o">=</span> <span class="n">low</span> <span class="o">/</span> <span class="n">actual_distance</span>
-        <span class="n">dx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dx</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
-        <span class="n">dy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dy</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">dx</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">dy</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">actual_distance</span> <span class="o">&gt;</span> <span class="n">high</span><span class="p">:</span>
         <span class="c1"># Scale down to meet maximum</span>
         <span class="n">scale</span> <span class="o">=</span> <span class="n">high</span> <span class="o">/</span> <span class="n">actual_distance</span>
-        <span class="n">dx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dx</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
-        <span class="n">dy</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dy</span> <span class="o">*</span> <span class="n">scale</span><span class="p">))</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">dx</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">dy</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span>
 
@@ -423,8 +474,8 @@
     <span class="n">patches1</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">patches2</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">deltas</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-    <span class="n">rotations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+    <span class="n">rotations</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extract overlapping pixels from patch pairs based on displacement vectors.</span>
 
@@ -471,33 +522,42 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Validate input shapes</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Both patches1 and patches2 must be 4D tensors (N*P, C, U, V), &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;got shapes </span><span class="si">{</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">patches1</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;patches1 and patches2 must have the same shape, &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">patches2</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;deltas must be 2D tensor of shape (N*P, 2), got </span><span class="si">{</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;deltas must be 2D tensor of shape (N*P, 2), got </span><span class="si">{</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">msg</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="n">num_pairs</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">patches1</span><span class="o">.</span><span class="n">shape</span>
 
     <span class="k">if</span> <span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">num_pairs</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Number of deltas (</span><span class="si">{</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">) must match number of patch pairs (</span><span class="si">{</span><span class="n">num_pairs</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Number of deltas (</span><span class="si">{</span><span class="n">deltas</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">) must match number of patch pairs (</span><span class="si">{</span><span class="n">num_pairs</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="n">msg</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">rotations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">rotations</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">num_pairs</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Number of rotations (</span><span class="si">{</span><span class="n">rotations</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">) must match number of patch pairs (</span><span class="si">{</span><span class="n">num_pairs</span><span class="si">}</span><span class="s2">)&quot;</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Number of rotations (</span><span class="si">{</span><span class="n">rotations</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">) must match number of patch pairs (</span><span class="si">{</span><span class="n">num_pairs</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="n">msg</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="n">rotations_int</span> <span class="o">=</span> <span class="n">rotations</span><span class="o">.</span><span class="n">int</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
@@ -545,7 +605,9 @@
 
         <span class="c1"># Extract overlapping region from patch1</span>
         <span class="n">overlap_region1</span> <span class="o">=</span> <span class="n">patch1</span><span class="p">[</span>
-            <span class="p">:,</span> <span class="n">u_min</span><span class="p">:</span><span class="n">u_max</span><span class="p">,</span> <span class="n">v_min</span><span class="p">:</span><span class="n">v_max</span>
+            <span class="p">:,</span>
+            <span class="n">u_min</span><span class="p">:</span><span class="n">u_max</span><span class="p">,</span>
+            <span class="n">v_min</span><span class="p">:</span><span class="n">v_max</span><span class="p">,</span>
         <span class="p">]</span>  <span class="c1"># Shape: (C, u_max-u_min, v_max-v_min)</span>
 
         <span class="c1"># Extract corresponding region from patch2</span>
@@ -558,7 +620,9 @@
         <span class="n">v2_max</span> <span class="o">=</span> <span class="n">v_max</span> <span class="o">-</span> <span class="n">dx</span>
 
         <span class="n">overlap_region2</span> <span class="o">=</span> <span class="n">patch2</span><span class="p">[</span>
-            <span class="p">:,</span> <span class="n">u2_min</span><span class="p">:</span><span class="n">u2_max</span><span class="p">,</span> <span class="n">v2_min</span><span class="p">:</span><span class="n">v2_max</span>
+            <span class="p">:,</span>
+            <span class="n">u2_min</span><span class="p">:</span><span class="n">u2_max</span><span class="p">,</span>
+            <span class="n">v2_min</span><span class="p">:</span><span class="n">v2_max</span><span class="p">,</span>
         <span class="p">]</span>  <span class="c1"># Shape: (C, u_max-u_min, v_max-v_min)</span>
 
         <span class="c1"># Reshape to (C, K&#39;) where K&#39; is the number of overlapping pixels for this pair</span>
@@ -580,6 +644,762 @@
     <span class="n">result2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">overlapping_pixels2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Shape: (K, C) where K is total</span>
     <span class="k">return</span> <span class="n">result1</span><span class="p">,</span> <span class="n">result2</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_process_image_for_metadata</span><span class="p">(</span>
+    <span class="n">args</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span>
+        <span class="nb">int</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="nb">int</span><span class="p">,</span>
+        <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Process a single image to generate patch metadata (locations and statistics).</span>
+
+<span class="sd">    This is a helper function for multiprocessing in extract_patch_pairs_metadata.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    args : Tuple</span>
+<span class="sd">        Tuple containing:</span>
+<span class="sd">        - image_idx: int, index of the image in the batch</span>
+<span class="sd">        - image: torch.Tensor, shape (C, Y, X)</span>
+<span class="sd">        - window: Tuple[int, int], patch window size (U, V)</span>
+<span class="sd">        - num_patches: int, number of patches to extract</span>
+<span class="sd">        - delta_range: Tuple[float, float], displacement range</span>
+<span class="sd">        - random_seed: Optional[int], random seed (offset by image_idx)</span>
+<span class="sd">        - rotation_choices: Optional[Sequence[int]], allowed rotations</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict[str, torch.Tensor]</span>
+<span class="sd">        Dictionary containing metadata tensors for this image</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="p">(</span>
+        <span class="n">image_idx</span><span class="p">,</span>
+        <span class="n">image</span><span class="p">,</span>
+        <span class="n">window</span><span class="p">,</span>
+        <span class="n">num_patches</span><span class="p">,</span>
+        <span class="n">delta_range</span><span class="p">,</span>
+        <span class="n">random_seed</span><span class="p">,</span>
+        <span class="n">rotation_choices</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="n">args</span>
+
+    <span class="n">_C</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">U</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">window</span>
+    <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="o">=</span> <span class="n">delta_range</span>
+
+    <span class="c1"># Create generator with offset seed for reproducibility</span>
+    <span class="k">if</span> <span class="n">random_seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">generator</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">random_seed</span> <span class="o">+</span> <span class="n">image_idx</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">generator</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Pre-allocate metadata tensors</span>
+    <span class="n">image_idx_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">num_patches</span><span class="p">,),</span>
+        <span class="n">image_idx</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">patch1_y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">patch1_x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">patch2_y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">patch2_x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">deltas</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_patches</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">rotations</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">mean1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">sigma1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">mean2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">sigma2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">rotation_choices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">rotation_choices</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rotation_choices</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">choice</span><span class="p">)</span> <span class="o">%</span> <span class="mi">4</span> <span class="k">for</span> <span class="n">choice</span> <span class="ow">in</span> <span class="n">rotation_choices</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rotation_choices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">rotation_choices</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
+    <span class="n">rotation_choices_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+        <span class="n">rotation_choices</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">allow_rotations</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">choice</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">choice</span> <span class="ow">in</span> <span class="n">rotation_choices</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_patches</span><span class="p">):</span>
+        <span class="c1"># Sample displacement vector</span>
+        <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">_sample_displacement_vector</span><span class="p">(</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="c1"># Compute valid patch location ranges</span>
+        <span class="n">x_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dx</span><span class="p">)</span>
+        <span class="n">x_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">V</span><span class="p">,</span> <span class="n">X</span> <span class="o">-</span> <span class="n">V</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span>
+        <span class="n">y_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dy</span><span class="p">)</span>
+        <span class="n">y_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Y</span> <span class="o">-</span> <span class="n">U</span><span class="p">,</span> <span class="n">Y</span> <span class="o">-</span> <span class="n">U</span> <span class="o">-</span> <span class="n">dy</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span><span class="p">:</span>
+            <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="p">(</span><span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span><span class="p">)</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
+                <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">_sample_displacement_vector</span><span class="p">(</span>
+                    <span class="n">low</span><span class="p">,</span>
+                    <span class="n">high</span><span class="p">,</span>
+                    <span class="n">generator</span><span class="p">,</span>
+                    <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">x_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dx</span><span class="p">)</span>
+                <span class="n">x_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">V</span><span class="p">,</span> <span class="n">X</span> <span class="o">-</span> <span class="n">V</span> <span class="o">-</span> <span class="n">dx</span><span class="p">)</span>
+                <span class="n">y_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">dy</span><span class="p">)</span>
+                <span class="n">y_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Y</span> <span class="o">-</span> <span class="n">U</span><span class="p">,</span> <span class="n">Y</span> <span class="o">-</span> <span class="n">U</span> <span class="o">-</span> <span class="n">dy</span><span class="p">)</span>
+                <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="k">if</span> <span class="n">x_min</span> <span class="o">&gt;=</span> <span class="n">x_max</span> <span class="ow">or</span> <span class="n">y_min</span> <span class="o">&gt;=</span> <span class="n">y_max</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Could not find valid patch locations for displacement (</span><span class="si">{</span><span class="n">dx</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">dy</span><span class="si">}</span><span class="s2">) &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;in image </span><span class="si">{</span><span class="n">image_idx</span><span class="si">}</span><span class="s2"> of size (</span><span class="si">{</span><span class="n">Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">X</span><span class="si">}</span><span class="s2">) with window (</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="n">msg</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Sample random location for first patch</span>
+        <span class="k">if</span> <span class="n">generator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
+                <span class="n">x_min</span><span class="p">,</span>
+                <span class="n">x_max</span><span class="p">,</span>
+                <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
+                <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
+                <span class="n">y_min</span><span class="p">,</span>
+                <span class="n">y_max</span><span class="p">,</span>
+                <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
+                <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">x_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">y_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+        <span class="c1"># Extract patches to compute statistics</span>
+        <span class="n">patch1</span> <span class="o">=</span> <span class="n">image</span><span class="p">[:,</span> <span class="n">y_int</span> <span class="p">:</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_int</span> <span class="p">:</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">V</span><span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
+        <span class="n">patch2</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span>
+            <span class="p">:,</span>
+            <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="p">:</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span>
+            <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="p">:</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">V</span><span class="p">,</span>
+        <span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
+
+        <span class="c1"># Apply rotation if needed</span>
+        <span class="k">if</span> <span class="n">allow_rotations</span><span class="p">:</span>
+            <span class="n">rotation_idx_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
+                <span class="mi">0</span><span class="p">,</span>
+                <span class="n">rotation_choices_tensor</span><span class="o">.</span><span class="n">numel</span><span class="p">(),</span>
+                <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
+                <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">image</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">rotation_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rotation_idx_tensor</span><span class="p">)</span>
+            <span class="n">rotation</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rotation_choices_tensor</span><span class="p">[</span><span class="n">rotation_idx</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rotation</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="n">rotation</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">patch2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">patch2</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">rotation</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># Compute mean and sigma across all channels and spatial dimensions</span>
+        <span class="c1"># Flatten to (C*U*V,) then compute stats</span>
+        <span class="n">patch1_flat</span> <span class="o">=</span> <span class="n">patch1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>  <span class="c1"># Shape: (C*U*V,)</span>
+        <span class="n">patch2_flat</span> <span class="o">=</span> <span class="n">patch2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>  <span class="c1"># Shape: (C*U*V,)</span>
+
+        <span class="n">mean1</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch1_flat</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">sigma1</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch1_flat</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">mean2</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2_flat</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">sigma2</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2_flat</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+        <span class="c1"># Store metadata</span>
+        <span class="n">patch1_y</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_int</span>
+        <span class="n">patch1_x</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_int</span>
+        <span class="n">patch2_y</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span>
+        <span class="n">patch2_x</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span>
+        <span class="n">deltas</span><span class="p">[</span><span class="n">p</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span>
+        <span class="n">deltas</span><span class="p">[</span><span class="n">p</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dy</span><span class="p">)</span>
+        <span class="n">rotations</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;image_idx&quot;</span><span class="p">:</span> <span class="n">image_idx_tensor</span><span class="p">,</span>
+        <span class="s2">&quot;patch1_y&quot;</span><span class="p">:</span> <span class="n">patch1_y</span><span class="p">,</span>
+        <span class="s2">&quot;patch1_x&quot;</span><span class="p">:</span> <span class="n">patch1_x</span><span class="p">,</span>
+        <span class="s2">&quot;patch2_y&quot;</span><span class="p">:</span> <span class="n">patch2_y</span><span class="p">,</span>
+        <span class="s2">&quot;patch2_x&quot;</span><span class="p">:</span> <span class="n">patch2_x</span><span class="p">,</span>
+        <span class="s2">&quot;dx&quot;</span><span class="p">:</span> <span class="n">deltas</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
+        <span class="s2">&quot;dy&quot;</span><span class="p">:</span> <span class="n">deltas</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="s2">&quot;rotation&quot;</span><span class="p">:</span> <span class="n">rotations</span><span class="p">,</span>
+        <span class="s2">&quot;mean1&quot;</span><span class="p">:</span> <span class="n">mean1</span><span class="p">,</span>
+        <span class="s2">&quot;sigma1&quot;</span><span class="p">:</span> <span class="n">sigma1</span><span class="p">,</span>
+        <span class="s2">&quot;mean2&quot;</span><span class="p">:</span> <span class="n">mean2</span><span class="p">,</span>
+        <span class="s2">&quot;sigma2&quot;</span><span class="p">:</span> <span class="n">sigma2</span><span class="p">,</span>
+        <span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="n">window</span><span class="p">,</span>  <span class="c1"># Store window for later extraction</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_patch_pairs_metadata</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">num_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">delta_range</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">random_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">rotation_choices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract patch pair metadata (locations and statistics) without loading full patches.</span>
+
+<span class="sd">    This function performs a &quot;dry-run&quot; that generates patch locations and computes</span>
+<span class="sd">    mean/sigma statistics for each patch, enabling memory-efficient stratified sampling.</span>
+<span class="sd">    Uses multiprocessing to parallelize across images (z-slices).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tensor : torch.Tensor</span>
+<span class="sd">        Input tensor of shape (N, C, Y, X) where:</span>
+<span class="sd">        - N: Number of images</span>
+<span class="sd">        - C: Number of channels</span>
+<span class="sd">        - Y: Height of images</span>
+<span class="sd">        - X: Width of images</span>
+<span class="sd">    window : Tuple[int, int]</span>
+<span class="sd">        Window shape (U, V) where:</span>
+<span class="sd">        - U: Height of patches</span>
+<span class="sd">        - V: Width of patches</span>
+<span class="sd">    num_patches : int</span>
+<span class="sd">        Number of patch pairs P to extract per image</span>
+<span class="sd">    delta_range : Tuple[float, float]</span>
+<span class="sd">        Range (low, high) for the Euclidean distance of displacement vectors.</span>
+<span class="sd">        The constraint is: low &lt;= sqrt(dx_i² + dy_i²) &lt;= high</span>
+<span class="sd">        Additionally, low and high must satisfy: window//4 &lt;= low &lt;= high &lt;= 3*window//4</span>
+<span class="sd">        where window is the maximum of U and V.</span>
+<span class="sd">    random_seed : Optional[int], optional</span>
+<span class="sd">        Random seed for reproducibility. If None, uses current random state.</span>
+<span class="sd">        Default is None.</span>
+<span class="sd">    rotation_choices : Optional[Sequence[int]], optional</span>
+<span class="sd">        Allowed quarter-turn rotations (0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°) to apply</span>
+<span class="sd">        to the second patch in each pair. If provided, a rotation from this set is</span>
+<span class="sd">        sampled uniformly per pair and tracked in the returned `rotations` tensor.</span>
+<span class="sd">        When None (default), no rotations are applied.</span>
+<span class="sd">    num_workers : Optional[int], optional</span>
+<span class="sd">        Number of worker processes for multiprocessing. If None, uses all available CPUs.</span>
+<span class="sd">        If 1, processes sequentially. Default is None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict[str, torch.Tensor]</span>
+<span class="sd">        Dictionary containing metadata tensors, all of shape (N*P,):</span>
+<span class="sd">        - image_idx: Image index for each patch pair</span>
+<span class="sd">        - patch1_y, patch1_x: Coordinates of first patch</span>
+<span class="sd">        - patch2_y, patch2_x: Coordinates of second patch</span>
+<span class="sd">        - dx, dy: Displacement vectors</span>
+<span class="sd">        - rotation: Rotation applied to patch2</span>
+<span class="sd">        - mean1, sigma1: Mean and std dev of patch1 (across all channels)</span>
+<span class="sd">        - mean2, sigma2: Mean and std dev of patch2 (across all channels)</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If delta_range constraints are violated or image dimensions are too small</span>
+<span class="sd">        for the specified window and delta range.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; tensor = torch.randn(5, 3, 128, 128)  # 5 images, 3 channels, 128x128</span>
+<span class="sd">    &gt;&gt;&gt; window = (32, 32)  # 32x32 patches</span>
+<span class="sd">    &gt;&gt;&gt; num_patches = 10  # 10 patch pairs per image</span>
+<span class="sd">    &gt;&gt;&gt; delta_range = (8.0, 16.0)  # Euclidean distance between 8 and 16 pixels</span>
+<span class="sd">    &gt;&gt;&gt; metadata = extract_patch_pairs_metadata(</span>
+<span class="sd">    ...     tensor, window, num_patches, delta_range, random_seed=42</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; print(metadata[&quot;mean1&quot;].shape)  # (50,)</span>
+<span class="sd">    &gt;&gt;&gt; print(metadata[&quot;image_idx&quot;].shape)  # (50,)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Validate input tensor shape</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Input tensor must be 4D (N, C, Y, X), got shape </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">N</span><span class="p">,</span> <span class="n">_C</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">U</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">window</span>
+
+    <span class="c1"># Validate delta_range constraints (same as extract_patch_pairs)</span>
+    <span class="n">max_window</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+    <span class="n">window_quarter</span> <span class="o">=</span> <span class="n">max_window</span> <span class="o">//</span> <span class="mi">4</span>
+    <span class="n">window_three_quarters</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">max_window</span> <span class="o">//</span> <span class="mi">4</span>
+
+    <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="o">=</span> <span class="n">delta_range</span>
+    <span class="k">if</span> <span class="n">low</span> <span class="o">&lt;</span> <span class="n">window_quarter</span> <span class="ow">or</span> <span class="n">high</span> <span class="o">&gt;</span> <span class="n">window_three_quarters</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;delta_range must satisfy: </span><span class="si">{</span><span class="n">window_quarter</span><span class="si">}</span><span class="s2"> &lt;= low &lt;= high &lt;= </span><span class="si">{</span><span class="n">window_three_quarters</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;got (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">low</span> <span class="o">&gt;</span> <span class="n">high</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;delta_range low (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">) must be &lt;= high (</span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="c1"># Check if image is large enough</span>
+    <span class="n">min_y</span> <span class="o">=</span> <span class="n">U</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span>
+    <span class="n">min_x</span> <span class="o">=</span> <span class="n">V</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">high</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">min_y</span> <span class="o">&gt;</span> <span class="n">Y</span> <span class="ow">or</span> <span class="n">min_x</span> <span class="o">&gt;</span> <span class="n">X</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Image dimensions (</span><span class="si">{</span><span class="n">Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">X</span><span class="si">}</span><span class="s2">) are too small for window (</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">) &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;and delta_range (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s2">). Minimum required: (</span><span class="si">{</span><span class="n">min_y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">min_x</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Determine number of workers</span>
+    <span class="k">if</span> <span class="n">num_workers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">num_workers</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">num_workers</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">num_workers</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="c1"># Prepare arguments for each image</span>
+    <span class="c1"># Note: We need to move tensors to CPU for multiprocessing if they&#39;re on GPU</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+    <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+        <span class="c1"># For GPU tensors, we&#39;ll process sequentially or move to CPU</span>
+        <span class="c1"># Multiprocessing with CUDA tensors is complex, so we&#39;ll process sequentially</span>
+        <span class="n">num_workers</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="c1"># Prepare tasks</span>
+    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span> <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">else</span> <span class="n">tensor</span><span class="p">[</span><span class="n">n</span><span class="p">]</span>
+        <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span> <span class="n">random_seed</span><span class="p">,</span> <span class="n">rotation_choices</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Process images</span>
+    <span class="k">if</span> <span class="n">num_workers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">N</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># Use multiprocessing</span>
+        <span class="k">with</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">processes</span><span class="o">=</span><span class="n">num_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_process_image_for_metadata</span><span class="p">,</span> <span class="n">tasks</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Sequential processing</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">_process_image_for_metadata</span><span class="p">(</span><span class="n">task</span><span class="p">)</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">]</span>
+
+    <span class="c1"># Concatenate results from all images</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;image_idx&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;image_idx&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;patch1_y&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;patch1_y&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;patch1_x&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;patch1_x&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;patch2_y&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;patch2_y&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;patch2_x&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;patch2_x&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;dx&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;dx&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;dy&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;dy&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;rotation&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;rotation&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;mean1&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;mean1&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;sigma1&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;sigma1&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;mean2&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;mean2&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;sigma2&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;sigma2&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Move back to original device if needed</span>
+    <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">metadata</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;window&quot;</span><span class="p">:</span>  <span class="c1"># window is a tuple, not a tensor</span>
+                <span class="n">metadata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="c1"># Store window in metadata (from first result, all should have same window)</span>
+    <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;window&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;window&quot;</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">metadata</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_patches_from_metadata</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+    <span class="n">selected_indices</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract patch pairs from tensor using pre-computed metadata and selected indices.</span>
+
+<span class="sd">    This function extracts only the patches specified by selected_indices, enabling</span>
+<span class="sd">    memory-efficient extraction after stratified sampling.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tensor : torch.Tensor</span>
+<span class="sd">        Input tensor of shape (N, C, Y, X) from which patches were originally sampled</span>
+<span class="sd">    metadata : Dict[str, Union[torch.Tensor, Tuple[int, int]]]</span>
+<span class="sd">        Metadata dictionary returned by extract_patch_pairs_metadata()</span>
+<span class="sd">    selected_indices : Union[torch.Tensor, Sequence[int]]</span>
+<span class="sd">        Indices of patches to extract. Can be a torch.Tensor or list/array of integers.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
+<span class="sd">        A tuple containing:</span>
+<span class="sd">        - patches1: Tensor of shape (len(selected_indices), C, U, V)</span>
+<span class="sd">        - patches2: Tensor of shape (len(selected_indices), C, U, V)</span>
+<span class="sd">        - deltas: Tensor of shape (len(selected_indices), 2)</span>
+<span class="sd">        - rotations: Tensor of shape (len(selected_indices),)</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; metadata = extract_patch_pairs_metadata(tensor, window, num_patches, delta_range)</span>
+<span class="sd">    &gt;&gt;&gt; selected = uniform_manifold_sample(means, sigmas, n_bins=20)</span>
+<span class="sd">    &gt;&gt;&gt; patches1, patches2, deltas, rotations = extract_patches_from_metadata(</span>
+<span class="sd">    ...     tensor, metadata, selected</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert selected_indices to tensor if needed</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">selected_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="n">selected_indices</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">selected_indices</span> <span class="o">=</span> <span class="n">selected_indices</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="n">num_selected</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">)</span>
+    <span class="n">_N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">_Y</span><span class="p">,</span> <span class="n">_X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="c1"># Get window size from metadata</span>
+    <span class="k">if</span> <span class="s2">&quot;window&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">metadata</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;metadata must contain &#39;window&#39; key. Use extract_patch_pairs_metadata() to generate metadata.&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;window&quot;</span><span class="p">]</span>
+    <span class="n">U</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">window</span>
+
+    <span class="c1"># Pre-allocate output tensors</span>
+    <span class="n">patches1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">patches2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">deltas</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_selected</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">rotations</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="c1"># Extract selected patches</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">):</span>
+        <span class="n">idx_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">image_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;image_idx&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">patch1_y</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;patch1_y&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">patch1_x</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;patch1_x&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">patch2_y</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;patch2_y&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">patch2_x</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;patch2_x&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dx&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dy&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">rotation</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;rotation&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+
+        <span class="n">image</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">[</span><span class="n">image_idx</span><span class="p">]</span>  <span class="c1"># Shape: (C, Y, X)</span>
+
+        <span class="c1"># Extract patches</span>
+        <span class="n">patch1</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span>
+            <span class="p">:,</span>
+            <span class="n">patch1_y</span> <span class="p">:</span> <span class="n">patch1_y</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span>
+            <span class="n">patch1_x</span> <span class="p">:</span> <span class="n">patch1_x</span> <span class="o">+</span> <span class="n">V</span><span class="p">,</span>
+        <span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
+        <span class="n">patch2</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span>
+            <span class="p">:,</span>
+            <span class="n">patch2_y</span> <span class="p">:</span> <span class="n">patch2_y</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span>
+            <span class="n">patch2_x</span> <span class="p">:</span> <span class="n">patch2_x</span> <span class="o">+</span> <span class="n">V</span><span class="p">,</span>
+        <span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
+
+        <span class="c1"># Apply rotation if needed</span>
+        <span class="k">if</span> <span class="n">rotation</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">patch2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">patch2</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">rotation</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">patches1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch1</span>
+        <span class="n">patches2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2</span>
+        <span class="n">deltas</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">dx</span>
+        <span class="n">deltas</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">dy</span>
+        <span class="n">rotations</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation</span>
+
+    <span class="k">return</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_patches_to_zarr</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+    <span class="n">selected_indices</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">zarr_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">zarr</span><span class="o">.</span><span class="n">Group</span><span class="p">,</span>
+    <span class="n">zarr_chunks</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">zarr</span><span class="o">.</span><span class="n">Group</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract patch pairs to a Zarr group for on-disk storage.</span>
+
+<span class="sd">    Creates a Zarr group with arrays for patches1, patches2, deltas, and rotations,</span>
+<span class="sd">    enabling memory-efficient storage and dataloader access.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tensor : torch.Tensor</span>
+<span class="sd">        Input tensor of shape (N, C, Y, X) from which patches were originally sampled</span>
+<span class="sd">    metadata : Dict[str, Union[torch.Tensor, Tuple[int, int]]]</span>
+<span class="sd">        Metadata dictionary returned by extract_patch_pairs_metadata()</span>
+<span class="sd">    selected_indices : Union[torch.Tensor, Sequence[int]]</span>
+<span class="sd">        Indices of patches to extract</span>
+<span class="sd">    zarr_path : Union[str, zarr.Group]</span>
+<span class="sd">        Path to zarr file/group or existing zarr group. If string, creates new group.</span>
+<span class="sd">    zarr_chunks : Optional[Tuple[int, ...]], optional</span>
+<span class="sd">        Chunk size for patch arrays. Default: (1, C, U, V) for patches, (1, 2) for deltas</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    zarr.Group</span>
+<span class="sd">        Zarr group containing:</span>
+<span class="sd">        - patches1: Array of shape (num_selected, C, U, V)</span>
+<span class="sd">        - patches2: Array of shape (num_selected, C, U, V)</span>
+<span class="sd">        - deltas: Array of shape (num_selected, 2)</span>
+<span class="sd">        - rotations: Array of shape (num_selected,)</span>
+<span class="sd">        - metadata attributes stored in group.attrs</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; metadata = extract_patch_pairs_metadata(tensor, window, num_patches, delta_range)</span>
+<span class="sd">    &gt;&gt;&gt; selected = uniform_manifold_sample(means, sigmas, n_bins=20)</span>
+<span class="sd">    &gt;&gt;&gt; zarr_group = extract_patches_to_zarr(tensor, metadata, selected, &quot;patches.zarr&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; print(zarr_group[&quot;patches1&quot;].shape)  # (num_selected, C, U, V)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">zarr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;zarr is required. Install with: pip install zarr&quot;</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="c1"># Convert selected_indices to tensor if needed</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">selected_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="n">selected_indices</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">selected_indices</span> <span class="o">=</span> <span class="n">selected_indices</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="n">num_selected</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">)</span>
+    <span class="n">_N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">_Y</span><span class="p">,</span> <span class="n">_X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="c1"># Get window size from metadata</span>
+    <span class="k">if</span> <span class="s2">&quot;window&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">metadata</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;metadata must contain &#39;window&#39; key. Use extract_patch_pairs_metadata() to generate metadata.&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;window&quot;</span><span class="p">]</span>
+    <span class="n">U</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">window</span>
+
+    <span class="c1"># Create or open zarr group</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr_path</span>
+
+    <span class="c1"># Determine chunk size</span>
+    <span class="k">if</span> <span class="n">zarr_chunks</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">patch_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+        <span class="n">delta_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">rotation_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">patch_chunks</span> <span class="o">=</span> <span class="n">zarr_chunks</span>
+        <span class="n">delta_chunks</span> <span class="o">=</span> <span class="n">zarr_chunks</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">zarr_chunks</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">rotation_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="n">zarr_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">zarr_chunks</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)</span>
+
+    <span class="c1"># Convert torch dtype to numpy dtype for zarr</span>
+    <span class="c1"># Create a dummy numpy array from tensor to get numpy dtype</span>
+    <span class="n">dummy_array</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+    <span class="n">np_dtype</span> <span class="o">=</span> <span class="n">dummy_array</span><span class="o">.</span><span class="n">dtype</span>
+
+    <span class="c1"># Create zarr arrays</span>
+    <span class="n">patches1_array</span> <span class="o">=</span> <span class="n">zarr_group</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="s2">&quot;patches1&quot;</span><span class="p">,</span>
+        <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+        <span class="n">chunks</span><span class="o">=</span><span class="n">patch_chunks</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">np_dtype</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">patches2_array</span> <span class="o">=</span> <span class="n">zarr_group</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="s2">&quot;patches2&quot;</span><span class="p">,</span>
+        <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+        <span class="n">chunks</span><span class="o">=</span><span class="n">patch_chunks</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">np_dtype</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">deltas_array</span> <span class="o">=</span> <span class="n">zarr_group</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="s2">&quot;deltas&quot;</span><span class="p">,</span>
+        <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="n">chunks</span><span class="o">=</span><span class="n">delta_chunks</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float32&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">rotations_array</span> <span class="o">=</span> <span class="n">zarr_group</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="s2">&quot;rotations&quot;</span><span class="p">,</span>
+        <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_selected</span><span class="p">,),</span>
+        <span class="n">chunks</span><span class="o">=</span><span class="n">rotation_chunks</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int64&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Extract and write patches</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">):</span>
+        <span class="n">idx_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">image_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;image_idx&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">patch1_y</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;patch1_y&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">patch1_x</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;patch1_x&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">patch2_y</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;patch2_y&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">patch2_x</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;patch2_x&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">dx</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dx&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dy&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">rotation</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;rotation&quot;</span><span class="p">][</span><span class="n">idx_int</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+
+        <span class="n">image</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">[</span><span class="n">image_idx</span><span class="p">]</span>  <span class="c1"># Shape: (C, Y, X)</span>
+
+        <span class="c1"># Extract patches</span>
+        <span class="n">patch1</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span>
+            <span class="p">:,</span>
+            <span class="n">patch1_y</span> <span class="p">:</span> <span class="n">patch1_y</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span>
+            <span class="n">patch1_x</span> <span class="p">:</span> <span class="n">patch1_x</span> <span class="o">+</span> <span class="n">V</span><span class="p">,</span>
+        <span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
+        <span class="n">patch2</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span>
+            <span class="p">:,</span>
+            <span class="n">patch2_y</span> <span class="p">:</span> <span class="n">patch2_y</span> <span class="o">+</span> <span class="n">U</span><span class="p">,</span>
+            <span class="n">patch2_x</span> <span class="p">:</span> <span class="n">patch2_x</span> <span class="o">+</span> <span class="n">V</span><span class="p">,</span>
+        <span class="p">]</span>  <span class="c1"># Shape: (C, U, V)</span>
+
+        <span class="c1"># Apply rotation if needed</span>
+        <span class="k">if</span> <span class="n">rotation</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">patch2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">patch2</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">rotation</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># Convert to numpy and write to zarr</span>
+        <span class="n">patches1_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch1</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">patches2_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">deltas_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">]</span>
+        <span class="n">rotations_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation</span>
+
+    <span class="c1"># Store metadata as group attributes</span>
+    <span class="n">zarr_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="n">window</span><span class="p">,</span>
+            <span class="s2">&quot;num_patches&quot;</span><span class="p">:</span> <span class="n">num_selected</span><span class="p">,</span>
+            <span class="s2">&quot;num_channels&quot;</span><span class="p">:</span> <span class="n">C</span><span class="p">,</span>
+            <span class="s2">&quot;patch_shape&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">zarr_group</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ZarrPatchPairDataset</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    PyTorch-compatible dataset for reading patch pairs from Zarr storage.</span>
+
+<span class="sd">    This class provides a clean interface for dataloader access to patch pairs</span>
+<span class="sd">    stored in Zarr format, enabling memory-efficient training on large datasets.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    zarr_path : Union[str, zarr.Group]</span>
+<span class="sd">        Path to zarr file/group or existing zarr group</span>
+<span class="sd">    transform : Optional[callable], optional</span>
+<span class="sd">        Optional transform to apply to each patch pair. Should accept</span>
+<span class="sd">        (patch1, patch2, delta, rotation) and return transformed version.</span>
+<span class="sd">        Default is None.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; dataset = ZarrPatchPairDataset(&quot;patches.zarr&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; print(len(dataset))  # Number of patch pairs</span>
+<span class="sd">    &gt;&gt;&gt; patch1, patch2, delta, rotation = dataset[0]  # Get first pair</span>
+<span class="sd">    &gt;&gt;&gt; from torch.utils.data import DataLoader</span>
+<span class="sd">    &gt;&gt;&gt; loader = DataLoader(dataset, batch_size=32, shuffle=True)</span>
+<span class="sd">    &gt;&gt;&gt; for batch in loader:</span>
+<span class="sd">    ...     batch_patch1, batch_patch2, batch_delta, batch_rotation = batch</span>
+<span class="sd">    ...     # Process batch</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">zarr_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">zarr</span><span class="o">.</span><span class="n">Group</span><span class="p">,</span>
+        <span class="n">transform</span><span class="p">:</span> <span class="nb">callable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">zarr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;zarr is required. Install with: pip install zarr&quot;</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="c1"># Open zarr group</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr_path</span>
+
+        <span class="c1"># Get arrays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;patches1&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patches2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;patches2&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">deltas</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;deltas&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;rotations&quot;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">transform</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return number of patch pairs in dataset.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">patches1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get a patch pair by index.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        idx : int</span>
+<span class="sd">            Index of patch pair to retrieve</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
+<span class="sd">            Tuple containing:</span>
+<span class="sd">            - patch1: Tensor of shape (C, U, V)</span>
+<span class="sd">            - patch2: Tensor of shape (C, U, V)</span>
+<span class="sd">            - delta: Tensor of shape (2,)</span>
+<span class="sd">            - rotation: Tensor scalar (int64)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Load from zarr (returns numpy arrays)</span>
+        <span class="n">patch1_np</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patches1</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">patch2_np</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patches2</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">delta_np</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">deltas</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">rotation_np</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotations</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+        <span class="c1"># Convert to torch tensors</span>
+        <span class="n">patch1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">patch1_np</span><span class="p">)</span>
+        <span class="n">patch2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">patch2_np</span><span class="p">)</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">delta_np</span><span class="p">)</span>
+        <span class="n">rotation</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">rotation_np</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+        <span class="c1"># Apply transform if provided</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span>
+                <span class="n">patch1</span><span class="p">,</span>
+                <span class="n">patch2</span><span class="p">,</span>
+                <span class="n">delta</span><span class="p">,</span>
+                <span class="n">rotation</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span>
 </pre></div>
 
            </div>
