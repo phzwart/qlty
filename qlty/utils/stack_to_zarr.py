@@ -1469,60 +1469,93 @@ def stack_files_to_ome_zarr(
             if verbose:
                 print("  ✓ Zarr root group created", flush=True)
 
-            # CLEAN REWRITE: Calculate pyramid level shapes upfront
-            # For 2D mode: only downsample Y, X (not Z)
-            # IMPORTANT: Cumulative scale factors are relative to BASE, not previous level
-            # So we divide BASE shape by cumulative factors, not previous shape
+            # Calculate pyramid level shapes progressively, accounting for padding
+            # This MUST match the exact downsampling process: pad -> downsample
+            # We simulate the progressive downsampling to get exact shapes
             pyramid_level_shapes = [base_shape]
             if num_pyramid_levels > 1:
+                # Track current shape as we progressively downsample (simulating the process)
+                current_simulated_shape = list(base_shape)
+                prev_cumulative_scale_factors = None
+                
                 for cumulative_scale_factors in pyramid_scale_factors:
+                    # Calculate incremental scale factors (same as in downsampling)
+                    if prev_cumulative_scale_factors is None:
+                        incremental_scale_factors = cumulative_scale_factors
+                    else:
+                        incremental_scale_factors = tuple(
+                            curr / prev if prev > 0 else curr
+                            for curr, prev in zip(cumulative_scale_factors, prev_cumulative_scale_factors)
+                        )
+                    
+                    # Extract Y, X scale factors for 2D downsampling
                     if has_channels:
+                        # Extract Y, X from scale factors (last two dimensions)
+                        y_scale = incremental_scale_factors[-2]
+                        x_scale = incremental_scale_factors[-1]
+                        # Get current Y, X dimensions (last two)
                         if final_axis_order == "ZCYX":
-                            z_scale, c_scale, y_scale, x_scale = cumulative_scale_factors
-                            # Divide BASE shape by cumulative scale factors
-                            level_shape = (
-                                base_shape[0],  # Z unchanged
-                                base_shape[1],  # C unchanged
-                                base_shape[2] // int(y_scale) if y_scale > 1 else base_shape[2],
-                                base_shape[3] // int(x_scale) if x_scale > 1 else base_shape[3],
-                            )
+                            # Shape: (Z, C, Y, X)
+                            Y_dim = current_simulated_shape[2]
+                            X_dim = current_simulated_shape[3]
                         elif final_axis_order == "CZYX":
-                            c_scale, z_scale, y_scale, x_scale = cumulative_scale_factors
-                            # Divide BASE shape by cumulative scale factors
-                            level_shape = (
-                                base_shape[0],  # C unchanged
-                                base_shape[1],  # Z unchanged
-                                base_shape[2] // int(y_scale) if y_scale > 1 else base_shape[2],
-                                base_shape[3] // int(x_scale) if x_scale > 1 else base_shape[3],
-                            )
+                            # Shape: (C, Z, Y, X)
+                            Y_dim = current_simulated_shape[2]
+                            X_dim = current_simulated_shape[3]
                         else:
-                            # Generic: assume standard order
-                            # Extract Y, X scale factors (last two)
-                            y_scale = cumulative_scale_factors[-2] if len(cumulative_scale_factors) >= 2 else 1
-                            x_scale = cumulative_scale_factors[-1] if len(cumulative_scale_factors) >= 1 else 1
-                            # Divide BASE shape by cumulative scale factors
-                            level_shape = tuple(
-                                base_shape[i] if i < len(base_shape) - 2 else (
-                                    base_shape[i] // int(s) if s > 1 else base_shape[i]
-                                )
-                                for i, s in enumerate(cumulative_scale_factors)
-                            )
-                            # Ensure Y, X are downsampled correctly from base
-                            if len(level_shape) >= 2:
-                                level_shape = level_shape[:-2] + (
-                                    base_shape[-2] // int(y_scale) if y_scale > 1 else base_shape[-2],
-                                    base_shape[-1] // int(x_scale) if x_scale > 1 else base_shape[-1],
-                                )
+                            # Generic: assume Y, X are last two
+                            Y_dim = current_simulated_shape[-2]
+                            X_dim = current_simulated_shape[-1]
                     else:
                         # Single channel: (Z, Y, X)
-                        z_scale, y_scale, x_scale = cumulative_scale_factors
-                        # Divide BASE shape by cumulative scale factors
+                        y_scale, x_scale = incremental_scale_factors[-2:]
+                        Y_dim = current_simulated_shape[1]
+                        X_dim = current_simulated_shape[2]
+                    
+                    # Calculate padding (same logic as actual downsampling)
+                    y_scale_int = int(y_scale)
+                    x_scale_int = int(x_scale)
+                    pad_Y = (y_scale_int - (Y_dim % y_scale_int)) % y_scale_int
+                    pad_X = (x_scale_int - (X_dim % x_scale_int)) % x_scale_int
+                    
+                    # Calculate new dimensions after padding and downsampling
+                    Y_padded = Y_dim + pad_Y
+                    X_padded = X_dim + pad_X
+                    Y_new = Y_padded // y_scale_int
+                    X_new = X_padded // x_scale_int
+                    
+                    # Build new level shape
+                    if has_channels:
+                        if final_axis_order == "ZCYX":
+                            level_shape = (
+                                current_simulated_shape[0],  # Z unchanged
+                                current_simulated_shape[1],  # C unchanged
+                                Y_new,
+                                X_new,
+                            )
+                        elif final_axis_order == "CZYX":
+                            level_shape = (
+                                current_simulated_shape[0],  # C unchanged
+                                current_simulated_shape[1],  # Z unchanged
+                                Y_new,
+                                X_new,
+                            )
+                        else:
+                            # Generic: keep all dims except last two
+                            level_shape = tuple(current_simulated_shape[:-2]) + (Y_new, X_new)
+                    else:
+                        # Single channel: (Z, Y, X)
                         level_shape = (
-                            base_shape[0],  # Z unchanged for 2D mode
-                            base_shape[1] // int(y_scale) if y_scale > 1 else base_shape[1],
-                            base_shape[2] // int(x_scale) if x_scale > 1 else base_shape[2],
+                            current_simulated_shape[0],  # Z unchanged for 2D mode
+                            Y_new,
+                            X_new,
                         )
+                    
                     pyramid_level_shapes.append(level_shape)
+                    
+                    # Update simulated shape for next iteration
+                    current_simulated_shape = list(level_shape)
+                    prev_cumulative_scale_factors = cumulative_scale_factors
 
             # Determine chunk size for all levels
             if zarr_chunks is None:
