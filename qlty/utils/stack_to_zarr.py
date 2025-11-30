@@ -1186,61 +1186,159 @@ def stack_files_to_ome_zarr(
                 current_dask = da.from_zarr(base_zarr_array)
                 current_data = base_array_data
                 current_shape = base_shape
+                # Track previous cumulative scale factors to compute incremental ones
+                prev_scale_factors = None
 
-                for level_idx, scale_factors in enumerate(pyramid_scale_factors, 1):
+                # Helper function to build zoom factors
+                def _build_zoom_factors(
+                    scale_factors, has_channels, final_axis_order, current_shape
+                ):
+                    """Build zoom factors for scipy.ndimage.zoom."""
+                    if has_channels:
+                        if final_axis_order == "ZCYX":
+                            z_scale, c_scale, y_scale, x_scale = scale_factors
+                            return [
+                                1.0 / z_scale,
+                                1.0,
+                                1.0 / y_scale,
+                                1.0 / x_scale,
+                            ]
+                        elif final_axis_order == "CZYX":
+                            c_scale, z_scale, y_scale, x_scale = scale_factors
+                            return [
+                                1.0,
+                                1.0 / z_scale,
+                                1.0 / y_scale,
+                                1.0 / x_scale,
+                            ]
+                        else:
+                            z_scale, c_scale, y_scale, x_scale = scale_factors
+                            return [1.0] * (len(current_shape) - 2) + [
+                                1.0 / y_scale,
+                                1.0 / x_scale,
+                            ]
+                    else:
+                        z_scale, y_scale, x_scale = scale_factors
+                        return [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
+
+                for level_idx, cumulative_scale_factors in enumerate(
+                    pyramid_scale_factors, 1
+                ):
                     print(
                         f"  Creating pyramid level {level_idx + 1}/{num_pyramid_levels}..."
                     )
 
-                    # Determine which dimensions to downsample based on scale factors
+                    # Compute incremental scale factors from cumulative ones
+                    # Cumulative scale factors are relative to base (e.g., 2, 4, 8)
+                    # But we need incremental factors relative to previous level (always 2x)
+                    if prev_scale_factors is None:
+                        # First level: incremental = cumulative
+                        incremental_scale_factors = cumulative_scale_factors
+                    else:
+                        # Subsequent levels: incremental = cumulative / previous_cumulative
+                        incremental_scale_factors = tuple(
+                            curr / prev if prev > 0 else curr
+                            for curr, prev in zip(
+                                cumulative_scale_factors, prev_scale_factors
+                            )
+                        )
+
+                    # Determine which dimensions to downsample based on incremental scale factors
                     # Build coarsen dictionary: {axis_index: scale_factor}
                     coarsen_dict = {}
 
                     if has_channels:
                         if final_axis_order == "ZCYX":
-                            # Shape: (Z, C, Y, X), scale_factors: (z_scale, c_scale, y_scale, x_scale)
-                            z_scale, c_scale, y_scale, x_scale = scale_factors
+                            # Shape: (Z, C, Y, X), incremental_scale_factors: (z_scale, c_scale, y_scale, x_scale)
+                            (
+                                z_scale,
+                                c_scale,
+                                y_scale,
+                                x_scale,
+                            ) = incremental_scale_factors
                             if z_scale > 1:
-                                coarsen_dict[0] = z_scale  # Z axis
+                                coarsen_dict[0] = int(z_scale)  # Z axis
                             # Skip C axis (axis 1) - never downsample channels
                             if y_scale > 1:
-                                coarsen_dict[2] = y_scale  # Y axis
+                                coarsen_dict[2] = int(y_scale)  # Y axis
                             if x_scale > 1:
-                                coarsen_dict[3] = x_scale  # X axis
+                                coarsen_dict[3] = int(x_scale)  # X axis
                         elif final_axis_order == "CZYX":
-                            # Shape: (C, Z, Y, X), scale_factors: (c_scale, z_scale, y_scale, x_scale)
-                            c_scale, z_scale, y_scale, x_scale = scale_factors
+                            # Shape: (C, Z, Y, X), incremental_scale_factors: (c_scale, z_scale, y_scale, x_scale)
+                            (
+                                c_scale,
+                                z_scale,
+                                y_scale,
+                                x_scale,
+                            ) = incremental_scale_factors
                             # Skip C axis (axis 0) - never downsample channels
                             if z_scale > 1:
-                                coarsen_dict[1] = z_scale  # Z axis
+                                coarsen_dict[1] = int(z_scale)  # Z axis
                             if y_scale > 1:
-                                coarsen_dict[2] = y_scale  # Y axis
+                                coarsen_dict[2] = int(y_scale)  # Y axis
                             if x_scale > 1:
-                                coarsen_dict[3] = x_scale  # X axis
+                                coarsen_dict[3] = int(x_scale)  # X axis
                         else:
                             # Generic: assume standard order and downsample based on scale factors
                             # This is a fallback - ideally users should specify correct axis order
-                            for dim_idx, scale in enumerate(scale_factors):
+                            for dim_idx, scale in enumerate(incremental_scale_factors):
                                 if (
                                     scale > 1 and dim_idx != 1
                                 ):  # Don't downsample channels
-                                    coarsen_dict[dim_idx] = scale
+                                    coarsen_dict[dim_idx] = int(scale)
                     else:
-                        # Single channel: (Z, Y, X), scale_factors: (z_scale, y_scale, x_scale)
-                        z_scale, y_scale, x_scale = scale_factors
+                        # Single channel: (Z, Y, X), incremental_scale_factors: (z_scale, y_scale, x_scale)
+                        z_scale, y_scale, x_scale = incremental_scale_factors
                         if z_scale > 1:
-                            coarsen_dict[0] = z_scale  # Z axis
+                            coarsen_dict[0] = int(z_scale)  # Z axis
                         if y_scale > 1:
-                            coarsen_dict[1] = y_scale  # Y axis
+                            coarsen_dict[1] = int(y_scale)  # Y axis
                         if x_scale > 1:
-                            coarsen_dict[2] = x_scale  # X axis
+                            coarsen_dict[2] = int(x_scale)  # X axis
 
                     # Downsample using Dask coarsen (block averaging)
                     if downsample_method == "dask_coarsen":
                         if coarsen_dict:
+                            # Check if dimensions are divisible by scale factors
+                            # Dask coarsen requires exact divisibility
+                            # If not divisible, pad with zeros to make them divisible
+                            # Padding is done at the end (right/bottom) of each dimension
+                            needs_padding = False
+                            padded_shape = list(current_shape)
+                            pad_widths = [(0, 0)] * len(current_shape)
+
+                            for axis, scale in coarsen_dict.items():
+                                if current_shape[axis] % scale != 0:
+                                    needs_padding = True
+                                    # Calculate padding needed to make divisible
+                                    remainder = current_shape[axis] % scale
+                                    padding_needed = scale - remainder
+                                    padded_shape[axis] = (
+                                        current_shape[axis] + padding_needed
+                                    )
+                                    # Pad at the end (right/bottom) - zeros are added to edges
+                                    pad_widths[axis] = (0, padding_needed)
+
+                            if needs_padding:
+                                # Pad the data with zeros
+                                current_data_padded = np.pad(
+                                    current_data,
+                                    pad_widths,
+                                    mode="constant",
+                                    constant_values=0,
+                                )
+                                # Convert padded numpy array to Dask array for coarsening
+                                # Use same chunk size as original dask array
+                                current_dask_padded = da.from_array(
+                                    current_data_padded, chunks=current_dask.chunks
+                                )
+                            else:
+                                current_data_padded = current_data
+                                current_dask_padded = current_dask
+
                             # Use dask coarsen with mean reduction for block averaging
                             downsampled_dask = da.coarsen(
-                                np.mean, current_dask, coarsen_dict
+                                np.mean, current_dask_padded, coarsen_dict
                             )
                             # Compute the result and convert to numpy
                             downsampled = downsampled_dask.compute().astype(dtype)
@@ -1249,7 +1347,7 @@ def stack_files_to_ome_zarr(
                             downsampled = current_data
 
                     elif downsample_method == "scipy_zoom":
-                        # Fallback to scipy zoom
+                        # Use scipy zoom (interpolation-based downsampling)
                         try:
                             from scipy.ndimage import zoom
                         except ImportError as err:
@@ -1257,33 +1355,12 @@ def stack_files_to_ome_zarr(
                                 "scipy is required for scipy_zoom method. Install with: pip install scipy"
                             ) from err
 
-                        # Build zoom factors
-                        if has_channels:
-                            if final_axis_order == "ZCYX":
-                                z_scale, c_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [
-                                    1.0 / z_scale,
-                                    1.0,
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                            elif final_axis_order == "CZYX":
-                                c_scale, z_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [
-                                    1.0,
-                                    1.0 / z_scale,
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                            else:
-                                zoom_factors = [1.0] * (len(current_shape) - 2) + [
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                        else:
-                            z_scale, y_scale, x_scale = scale_factors
-                            zoom_factors = [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
-
+                        zoom_factors = _build_zoom_factors(
+                            incremental_scale_factors,
+                            has_channels,
+                            final_axis_order,
+                            current_shape,
+                        )
                         downsampled = zoom(
                             current_data, zoom_factors, order=1, prefilter=False
                         ).astype(dtype)
@@ -1310,11 +1387,14 @@ def stack_files_to_ome_zarr(
                             "coordinateTransformations": [
                                 {
                                     "type": "scale",
-                                    "scale": list(scale_factors),
+                                    "scale": list(cumulative_scale_factors),
                                 }
                             ],
                         }
                     )
+
+                    # Update previous scale factors for next iteration
+                    prev_scale_factors = cumulative_scale_factors
 
                     # Convert to Dask for next iteration (if there are more levels)
                     if level_idx < len(pyramid_scale_factors):
