@@ -596,7 +596,7 @@ Save patches to Zarr for efficient storage and loading::
     # Save to Zarr
     zarr_path = "my_patches.zarr"
     group = zarr.open_group(zarr_path, mode="w")
-    
+
     extract_patches_to_zarr(
         tensor, metadata, group,
         chunk_size=(100, 3, 64, 64)  # Optimize chunk size for your use case
@@ -659,13 +659,13 @@ Convert image file stacks to OME-Zarr format with multiscale pyramids::
     # Access multiscale data
     import zarr
     group = zarr.open_group(result["image"]["zarr_path"], mode="r")
-    
+
     # Level 0: Full resolution
     full_res = group["0"]  # Shape: (Z, C, Y, X)
-    
+
     # Level 1: 2x downsampled
     level_1 = group["1"]  # Shape: (Z, C, Y//2, X//2)
-    
+
     # Level 2: 4x downsampled
     level_2 = group["2"]  # Shape: (Z, C, Y//4, X//4)
 
