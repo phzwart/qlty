@@ -120,20 +120,20 @@ def test_kernel_optimization_3d_with_overlapping_pixels():
     print(f"Number of iterations: {len(losses)}")
 
     # Assertions - focus on kernel convergence
-    assert (
-        final_kernel_diff < 0.1
-    ), f"Kernels did not converge. Final difference: {final_kernel_diff}"
-    assert (
-        kernel_diffs[-1] < kernel_diffs[0] * 0.5
-    ), f"Kernel difference did not decrease significantly. Initial: {kernel_diffs[0]:.6f}, Final: {final_kernel_diff:.6f}"
+    assert final_kernel_diff < 0.1, (
+        f"Kernels did not converge. Final difference: {final_kernel_diff}"
+    )
+    assert kernel_diffs[-1] < kernel_diffs[0] * 0.5, (
+        f"Kernel difference did not decrease significantly. Initial: {kernel_diffs[0]:.6f}, Final: {final_kernel_diff:.6f}"
+    )
 
     # Verify that trainable conv has gradients
-    assert (
-        trainable_conv.weight.grad is not None
-    ), "Trainable conv weights have no gradients"
-    assert (
-        torch.abs(trainable_conv.weight.grad).sum().item() > 0
-    ), "Trainable conv weight gradients are zero"
+    assert trainable_conv.weight.grad is not None, (
+        "Trainable conv weights have no gradients"
+    )
+    assert torch.abs(trainable_conv.weight.grad).sum().item() > 0, (
+        "Trainable conv weight gradients are zero"
+    )
 
 
 def test_alternating_kernel_optimization_3d():
@@ -177,9 +177,9 @@ def test_alternating_kernel_optimization_3d():
     print(f"  Overlap fraction: {overlap_fraction:.4f} ({overlap_fraction * 100:.2f}%)")
 
     # Verify overlap is less than 100%
-    assert (
-        overlap_fraction < 1.0
-    ), f"Overlap fraction should be less than 100%, got {overlap_fraction * 100:.2f}%"
+    assert overlap_fraction < 1.0, (
+        f"Overlap fraction should be less than 100%, got {overlap_fraction * 100:.2f}%"
+    )
 
     # Create two trainable Conv3D layers
     kernel_size = 3
@@ -278,6 +278,6 @@ def test_alternating_kernel_optimization_3d():
     print(f"Total optimization steps: {len(losses)}")
 
     # Verify that kernels converged toward each other
-    assert (
-        final_kernel_diff < initial_diff * 0.5
-    ), f"Kernels did not converge. Initial diff: {initial_diff:.6f}, Final diff: {final_kernel_diff:.6f}"
+    assert final_kernel_diff < initial_diff * 0.5, (
+        f"Kernels did not converge. Initial diff: {initial_diff:.6f}, Final diff: {final_kernel_diff:.6f}"
+    )

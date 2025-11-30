@@ -257,3 +257,62 @@ def test_base_quilt_validation():
     # To reach line 305, we'd need normalize_border to succeed but return wrong length
     # But that's impossible since normalize_border validates length.
     # Line 305 appears to be defensive code for an unreachable case.
+
+
+def test_compute_weight_matrix_torch_no_border():
+    """Test compute_weight_matrix_torch with border=None."""
+    weight = compute_weight_matrix_torch((10, 10), None, 0.1)
+    assert weight.shape == (10, 10)
+    assert torch.allclose(weight, torch.ones(10, 10))
+
+
+def test_compute_weight_matrix_numpy_no_border():
+    """Test compute_weight_matrix_numpy with border=None."""
+    weight = compute_weight_matrix_numpy((10, 10), None, 0.5)
+    assert weight.shape == (10, 10)
+    assert np.allclose(weight, np.ones((10, 10)) * 0.5)
+
+
+def test_compute_border_tensor_numpy_no_border():
+    """Test compute_border_tensor_numpy with border=None."""
+    border_tensor = compute_border_tensor_numpy((10, 10), None)
+    assert border_tensor.shape == (10, 10)
+    assert np.allclose(border_tensor, np.ones((10, 10)))
+
+
+def test_compute_chunk_times_exact_fit_edge():
+    """Test compute_chunk_times with edge case where last chunk fits exactly."""
+    # Case where dimension_size == full_steps * step_size + window_size
+    times = compute_chunk_times((100, 100), (50, 50), (25, 25))
+    # Should have chunks at 0, 25, 50, 75
+    # 75 + 50 = 125 > 100, so we need to adjust
+    # Actually: 0, 25, 50, 75 - but 75+50=125 > 100, so we need one more
+    assert times[0] >= 3
+
+
+def test_compute_chunk_times_small_dimension():
+    """Test compute_chunk_times with dimension smaller than window."""
+    # Dimension smaller than window should still return at least 1
+    times = compute_chunk_times((30, 30), (50, 50), (25, 25))
+    assert times[0] >= 1
+    assert times[1] >= 1
+
+
+def test_compute_weight_matrix_torch_3d():
+    """Test compute_weight_matrix_torch with 3D window."""
+    weight = compute_weight_matrix_torch((8, 8, 8), (2, 2, 2), 0.1)
+    assert weight.shape == (8, 8, 8)
+    # Center should be 1.0
+    assert torch.allclose(weight[2:6, 2:6, 2:6], torch.ones(4, 4, 4))
+    # Border should be 0.1
+    assert torch.allclose(weight[0:2, :, :], torch.ones(2, 8, 8) * 0.1)
+
+
+def test_compute_border_tensor_torch_3d():
+    """Test compute_border_tensor_torch with 3D window."""
+    border_tensor = compute_border_tensor_torch((8, 8, 8), (2, 2, 2))
+    assert border_tensor.shape == (8, 8, 8)
+    # Center should be 1.0
+    assert torch.allclose(border_tensor[2:6, 2:6, 2:6], torch.ones(4, 4, 4))
+    # Border should be 0.0
+    assert torch.allclose(border_tensor[0:2, :, :], torch.zeros(2, 8, 8))
