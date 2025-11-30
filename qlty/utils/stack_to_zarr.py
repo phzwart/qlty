@@ -1144,7 +1144,9 @@ def stack_files_to_ome_zarr(
                 base_chunks = zarr_chunks
 
             if verbose:
-                print("\n  [Step 1/3] Loading images for base level...", flush=True)
+                print("\n" + "="*70, flush=True)
+                print("  [STEP 1/3] READING IMAGES - BIG LOOP STARTS NOW", flush=True)
+                print("="*70, flush=True)
             # Load images (reuse logic from stack_files_to_zarr)
             # Use same worker count as Dask will use for consistency
             import multiprocessing
@@ -1172,52 +1174,90 @@ def stack_files_to_ome_zarr(
             if use_multiprocessing and len(file_list) > 10:
                 load_func = partial(_load_and_process_image, dtype=dtype)
                 if verbose:
-                    print(f"    Starting multiprocessing pool with {workers} workers...", flush=True)
+                    print(f"\n    Starting multiprocessing pool with {workers} workers...", flush=True)
                     print(f"    Images will be batched across {workers} cores", flush=True)
+                    print(f"    LOADING {len(file_list)} IMAGES - PROGRESS BAR BELOW:", flush=True)
+                    print("-"*70, flush=True)
                 with multiprocessing.Pool(processes=workers) as pool:
                     filepaths = [f for _, f in file_list]
+                    # Always show progress - use tqdm if available, otherwise manual progress
                     if tqdm is not None:
+                        if verbose:
+                            print("", flush=True)  # Blank line before progress bar
                         images = list(
                             tqdm(
                                 pool.imap(load_func, filepaths),
                                 total=len(filepaths),
-                                desc="    Loading",
-                                unit="image",
+                                desc="    READING IMAGES",
+                                unit="img",
+                                ncols=100,
+                                miniters=1,
                             )
                         )
+                        if verbose:
+                            print("", flush=True)  # Blank line after progress bar
                     else:
+                        # Manual progress bar when tqdm not available
                         if verbose:
                             print(f"    Processing images in parallel batches...", flush=True)
-                            # Add periodic progress updates
-                            total = len(filepaths)
-                            completed = 0
-                            images = []
-                            for result in pool.imap(load_func, filepaths):
-                                images.append(result)
-                                completed += 1
-                                if completed % max(1, total // 20) == 0 or completed == total:
-                                    print(f"      Progress: {completed}/{total} images loaded ({100*completed//total}%)", flush=True)
-                        else:
-                            images = pool.map(load_func, filepaths)
+                            print(f"    [{' ' * 50}] 0%", end='', flush=True)
+                        total = len(filepaths)
+                        completed = 0
+                        images = []
+                        for result in pool.imap(load_func, filepaths):
+                            images.append(result)
+                            completed += 1
+                            if verbose:
+                                percent = 100 * completed // total
+                                filled = int(50 * completed / total)
+                                bar = '=' * filled + ' ' * (50 - filled)
+                                print(f"\r    [{bar}] {percent}% ({completed}/{total})", end='', flush=True)
                         if verbose:
-                            print(f"    ✓ Loaded {len(images)} images using {workers} parallel workers", flush=True)
+                            print("", flush=True)  # New line after progress
+                    if verbose:
+                        print(f"\n    ✓ Loaded {len(images)} images using {workers} parallel workers", flush=True)
             else:
-                if verbose and not tqdm:
-                    print(f"    Loading images sequentially...", flush=True)
-                images = [
-                    _load_and_process_image(filepath, dtype=dtype)
-                    for filepath in (
-                        tqdm([f for _, f in file_list], desc="    Loading")
-                        if tqdm
-                        else [f for _, f in file_list]
-                    )
-                ]
-                if verbose and not tqdm:
+                if verbose:
+                    print(f"\n    Loading images sequentially...", flush=True)
+                    print(f"    LOADING {len(file_list)} IMAGES - PROGRESS BAR BELOW:", flush=True)
+                    print("-"*70, flush=True)
+                if tqdm is not None:
+                    if verbose:
+                        print("", flush=True)  # Blank line before progress bar
+                    images = [
+                        _load_and_process_image(filepath, dtype=dtype)
+                        for filepath in tqdm(
+                            [f for _, f in file_list],
+                            desc="    READING IMAGES",
+                            unit="img",
+                            ncols=100,
+                            miniters=1,
+                        )
+                    ]
+                    if verbose:
+                        print("", flush=True)  # Blank line after progress bar
+                else:
+                    # Manual progress bar
+                    filepaths = [f for _, f in file_list]
+                    total = len(filepaths)
+                    images = []
+                    if verbose:
+                        print(f"    [{' ' * 50}] 0%", end='', flush=True)
+                    for idx, filepath in enumerate(filepaths, 1):
+                        images.append(_load_and_process_image(filepath, dtype=dtype))
+                        if verbose:
+                            percent = 100 * idx // total
+                            filled = int(50 * idx / total)
+                            bar = '=' * filled + ' ' * (50 - filled)
+                            print(f"\r    [{bar}] {percent}% ({idx}/{total})", end='', flush=True)
+                    if verbose:
+                        print("", flush=True)  # New line after progress
+                if verbose:
                     print(f"    ✓ Loaded {len(images)} images", flush=True)
 
             # Stack images and apply axis order
             if verbose:
-                print("    Stacking images and applying axis order...", flush=True)
+                print("\n    STACKING IMAGES AND APPLYING AXIS ORDER...", flush=True)
             if has_channels:
                 stack_data = np.zeros((len(file_list), C, Y, X), dtype=dtype)
                 for z_idx, img in enumerate(images):
@@ -1235,7 +1275,7 @@ def stack_files_to_ome_zarr(
 
             # Create base level array (OME-Zarr stores pyramid levels as arrays at root)
             if verbose:
-                print("    Writing base level to zarr (this may take a while for large arrays)...", flush=True)
+                print("\n    WRITING BASE LEVEL TO ZARR (this may take a while for large arrays)...", flush=True)
             base_zarr_array = _create_zarr_array(
                 root,
                 "0",
@@ -1278,7 +1318,10 @@ def stack_files_to_ome_zarr(
                     num_cores = 1
                 
                 if verbose:
-                    print(f"\n  [Step 2/3] Creating {num_pyramid_levels - 1} pyramid level(s)...", flush=True)
+                    print("\n" + "="*70, flush=True)
+                    print(f"  [STEP 2/3] CREATING PYRAMID LEVELS - BIG LOOP STARTS NOW", flush=True)
+                    print("="*70, flush=True)
+                    print(f"    Creating {num_pyramid_levels - 1} pyramid level(s)...", flush=True)
                     print(f"    Dask configuration:", flush=True)
                     print(f"      Scheduler: processes (bypasses GIL)", flush=True)
                     print(f"      Workers: {num_cores} (one per core)", flush=True)
@@ -1484,20 +1527,17 @@ def stack_files_to_ome_zarr(
                                 # This will use all available cores efficiently
                                 # Add progress callback if verbose
                                 if verbose:
+                                    print(f"\n      COMPUTING DOWNSAMPLED ARRAY - PROGRESS BAR BELOW:", flush=True)
+                                    print("-"*70, flush=True)
                                     try:
                                         from dask.diagnostics import ProgressBar
+                                        print("", flush=True)  # Blank line before progress bar
                                         with ProgressBar():
                                             downsampled = downsampled_dask.compute().astype(dtype)
+                                        print("", flush=True)  # Blank line after progress bar
                                     except ImportError:
-                                        # Fallback: use compute with callback
-                                        def progress_callback(dsk, state):
-                                            if verbose and state['status'] == 'running':
-                                                completed = state.get('n_completed', 0)
-                                                total = state.get('n_total', num_tasks)
-                                                if completed % max(1, total // 20) == 0 or completed == total:
-                                                    print(f"      Progress: {completed}/{total} tasks completed", flush=True)
-                                        
-                                        # Use compute with callback
+                                        # Fallback: manual progress updates
+                                        print(f"      Processing {num_tasks} tasks...", flush=True)
                                         downsampled = downsampled_dask.compute().astype(dtype)
                                 else:
                                     downsampled = downsampled_dask.compute().astype(dtype)
