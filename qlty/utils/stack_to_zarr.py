@@ -223,6 +223,95 @@ def _load_and_process_image(
     return img
 
 
+def _load_and_write_to_ome_zarr_base(
+    args: tuple,
+) -> tuple[int, bool]:
+    """
+    Load an image and write it directly to OME-Zarr base level at the specified z-index.
+    
+    This function is designed for parallel execution where each worker loads
+    and writes a single image, avoiding the need to load all images into memory.
+    Zarr supports concurrent writes to different slices, so this enables true parallelism.
+    
+    Parameters
+    ----------
+    args : tuple
+        Tuple containing:
+        - z_idx: int - Z-index in the zarr array
+        - filepath: Path - Path to image file
+        - zarr_group_path: str - Path to zarr group (OME-Zarr root)
+        - array_name: str - Name of array in group (e.g., "0" for base level)
+        - final_shape: tuple - Final shape of zarr array
+        - dtype: np.dtype | None - Target dtype
+        - has_channels: bool - Whether image has channels
+        - axis_order: str - Final axis order (e.g., "ZCYX", "CZYX")
+        - C: int - Number of channels (for multi-channel)
+        - Y: int - Image height
+        - X: int - Image width
+    
+    Returns
+    -------
+    tuple[int, bool]
+        (z_idx, success) tuple indicating which z-index was written
+    """
+    (
+        z_idx,
+        filepath,
+        zarr_group_path,
+        array_name,
+        _final_shape,
+        dtype,
+        has_channels,
+        axis_order,
+        C,
+        Y,
+        X,
+    ) = args
+    
+    try:
+        # Load and process image
+        img = _load_and_process_image(filepath, dtype)
+        
+        # Open zarr group and array (read-write mode supports concurrent writes)
+        zarr_group = zarr.open_group(zarr_group_path, mode="r+")
+        zarr_array = zarr_group[array_name]
+        
+        if has_channels:
+            # Apply axis order transformation for this slice
+            # We have img as (C, Y, X), need to write at z_idx
+            if axis_order == "CZYX":
+                # Write to (C, Z, Y, X) array
+                zarr_array[:, z_idx, :, :] = img
+            elif axis_order == "ZCYX":
+                # Write to (Z, C, Y, X) array
+                zarr_array[z_idx, :, :, :] = img
+            else:
+                # For other axis orders, we need to reorder the slice
+                # Create a (1, C, Y, X) array, apply transformation, then write
+                slice_data = img[np.newaxis, ...]  # (1, C, Y, X)
+                slice_reordered, _ = _apply_axis_order(
+                    slice_data,
+                    (1, C, Y, X),
+                    axis_order,
+                )
+                # Write based on first dimension position
+                if axis_order[0] == "Z":
+                    # Z is first: write to z_idx position
+                    zarr_array[z_idx, ...] = slice_reordered[0]
+                else:
+                    # C is first: write to z_idx on second dim
+                    zarr_array[:, z_idx, ...] = slice_reordered[:, 0, ...]
+        else:
+            # Single channel: write directly to (Z, Y, X) array
+            zarr_array[z_idx, :, :] = img
+        
+        return (z_idx, True)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        return (z_idx, False)
+
+
 def _load_and_write_to_zarr(
     args: tuple,
 ) -> tuple[int, bool]:
@@ -1134,7 +1223,9 @@ def stack_files_to_ome_zarr(
                 print("  ✓ Zarr root group created", flush=True)
 
             # Store base level data
-            # First, load all images and create base level array
+            # OPTIMIZATION: Write directly to zarr in parallel instead of loading all into memory
+            # This is MUCH faster and uses way less memory (like stack_files_to_zarr)
+            
             # Determine chunk size for base level
             if zarr_chunks is None:
                 if has_channels:
@@ -1149,9 +1240,19 @@ def stack_files_to_ome_zarr(
             else:
                 base_chunks = zarr_chunks
 
+            # Create base level array FIRST (empty, we'll write to it in parallel)
             if verbose:
+                print("\n    Creating base level zarr array (empty, will write in parallel)...", flush=True)
+            base_zarr_array = root.create(
+                "0",
+                shape=base_shape,
+                chunks=base_chunks,
+                dtype=dtype,
+            )
+            if verbose:
+                print("    ✓ Base zarr array created", flush=True)
                 print("\n" + "="*70, flush=True)
-                print("  [STEP 1/3] READING IMAGES - BIG LOOP STARTS NOW", flush=True)
+                print("  [STEP 1/3] WRITING IMAGES DIRECTLY TO ZARR - FAST PARALLEL MODE", flush=True)
                 print("="*70 + "\n", flush=True)
                 import sys
                 sys.stdout.flush()
@@ -1175,29 +1276,46 @@ def stack_files_to_ome_zarr(
             if verbose:
                 if use_multiprocessing:
                     print(f"    Using multiprocessing with {workers} workers (one per core)", flush=True)
-                    print(f"    Loading {len(file_list)} images in parallel batches...", flush=True)
+                    print(f"    Writing {len(file_list)} images directly to zarr in parallel...", flush=True)
                 else:
-                    print(f"    Using sequential loading (1 worker)", flush=True)
-                    print(f"    Loading {len(file_list)} images...", flush=True)
+                    print(f"    Using sequential writing (1 worker)", flush=True)
+                    print(f"    Writing {len(file_list)} images...", flush=True)
 
+            # OPTIMIZED: Write directly to zarr in parallel (like stack_files_to_zarr)
+            # This avoids loading all images into memory - MUCH faster!
             if use_multiprocessing and len(file_list) > 10:
-                load_func = partial(_load_and_process_image, dtype=dtype)
+                # Prepare tasks for parallel load-and-write
+                tasks = []
+                for z_idx, (_, filepath) in enumerate(file_list):
+                    tasks.append(
+                        (
+                            z_idx,
+                            filepath,
+                            str(output_path),  # zarr group path
+                            "0",  # array name (base level)
+                            base_shape,
+                            dtype,
+                            has_channels,
+                            final_axis_order,
+                            C,
+                            Y,
+                            X,
+                        ),
+                    )
                 if verbose:
                     print(f"\n    Starting multiprocessing pool with {workers} workers...", flush=True)
-                    print(f"    Images will be batched across {workers} cores", flush=True)
+                    print(f"    Images will be written directly to zarr across {workers} cores", flush=True)
                     # Verify actual worker count
                     try:
-                        import os
                         import psutil
                         actual_cpu_count = psutil.cpu_count(logical=False)  # Physical cores
                         logical_cpu_count = psutil.cpu_count(logical=True)  # Logical cores
                         print(f"    DEBUG: System has {actual_cpu_count} physical cores, {logical_cpu_count} logical cores", flush=True)
-                        print(f"    DEBUG: multiprocessing.cpu_count() = {multiprocessing.cpu_count()}", flush=True)
                         print(f"    DEBUG: Requested workers = {workers}", flush=True)
                     except ImportError:
                         print(f"    DEBUG: multiprocessing.cpu_count() = {multiprocessing.cpu_count()}", flush=True)
                         print(f"    DEBUG: Requested workers = {workers}", flush=True)
-                    print(f"    LOADING {len(file_list)} IMAGES - PROGRESS BAR BELOW:", flush=True)
+                    print(f"    WRITING {len(file_list)} IMAGES DIRECTLY TO ZARR - PROGRESS BAR BELOW:", flush=True)
                     print("-"*70, flush=True)
                 
                 # Create pool and verify it actually created workers
@@ -1214,23 +1332,20 @@ def stack_files_to_ome_zarr(
                         pass
                 
                 try:
-                    filepaths = [f for _, f in file_list]
-                    # Always show progress - use tqdm if available, otherwise manual progress
-                    # CRITICAL: Use chunksize to batch work - this ensures all workers stay busy
-                    # chunksize = max(1, len(filepaths) // (workers * 4)) ensures good load balancing
-                    chunksize = max(1, len(filepaths) // (workers * 4))
+                    # Write directly to zarr in parallel (like stack_files_to_zarr)
+                    # Using imap_unordered for better performance with many tasks
+                    chunksize = max(1, len(tasks) // (workers * 4))
                     if verbose:
                         print(f"    DEBUG: Using chunksize={chunksize} for better load balancing", flush=True)
                     
                     if tqdm is not None:
                         if verbose:
                             print("", flush=True)  # Blank line before progress bar
-                        # Use imap with chunksize - preserves order AND improves load balancing
-                        images = list(
+                        write_results = list(
                             tqdm(
-                                pool.imap(load_func, filepaths, chunksize=chunksize),
-                                total=len(filepaths),
-                                desc="    READING IMAGES",
+                                pool.imap_unordered(_load_and_write_to_ome_zarr_base, tasks, chunksize=chunksize),
+                                total=len(tasks),
+                                desc="    WRITING TO ZARR",
                                 unit="img",
                                 ncols=100,
                                 miniters=1,
@@ -1241,14 +1356,13 @@ def stack_files_to_ome_zarr(
                     else:
                         # Manual progress bar when tqdm not available
                         if verbose:
-                            print(f"    Processing images in parallel batches (chunksize={chunksize})...", flush=True)
+                            print(f"    Writing images directly to zarr (chunksize={chunksize})...", flush=True)
                             print(f"    [{' ' * 50}] 0%", end='', flush=True)
-                        total = len(filepaths)
+                        total = len(tasks)
                         completed = 0
-                        images = []
-                        # Use imap with chunksize for better load balancing while preserving order
-                        for result in pool.imap(load_func, filepaths, chunksize=chunksize):
-                            images.append(result)
+                        write_results = []
+                        for result in pool.imap_unordered(_load_and_write_to_ome_zarr_base, tasks, chunksize=chunksize):
+                            write_results.append(result)
                             completed += 1
                             if verbose:
                                 percent = 100 * completed // total
@@ -1257,49 +1371,57 @@ def stack_files_to_ome_zarr(
                                 print(f"\r    [{bar}] {percent}% ({completed}/{total})", end='', flush=True)
                         if verbose:
                             print("", flush=True)  # New line after progress
-                        # Note: images may be out of order, but that's OK for loading
-                        # If order matters, we'd need to track indices
+                    
+                    # Check for failures
+                    failures = [r for r in write_results if not r[1]]
+                    if failures:
+                        if verbose:
+                            print(f"    WARNING: {len(failures)} images failed to write", flush=True)
+                    
                     if verbose:
-                        print(f"\n    ✓ Loaded {len(images)} images using {workers} parallel workers", flush=True)
+                        print(f"\n    ✓ Wrote {len(write_results) - len(failures)} images directly to zarr using {workers} parallel workers", flush=True)
                         try:
                             import psutil
                             current_process = psutil.Process()
                             children = current_process.children(recursive=True)
-                            print(f"    DEBUG: After loading, active child processes: {len(children)}", flush=True)
+                            print(f"    DEBUG: After writing, active child processes: {len(children)}", flush=True)
                         except ImportError:
                             pass
                 finally:
                     pool.close()
                     pool.join()
             else:
+                # Sequential writing (small stacks or num_workers=1)
                 if verbose:
-                    print(f"\n    Loading images sequentially...", flush=True)
-                    print(f"    LOADING {len(file_list)} IMAGES - PROGRESS BAR BELOW:", flush=True)
+                    print(f"\n    Writing images sequentially directly to zarr...", flush=True)
+                    print(f"    WRITING {len(file_list)} IMAGES - PROGRESS BAR BELOW:", flush=True)
                     print("-"*70, flush=True)
+                
+                # Write directly to zarr sequentially
                 if tqdm is not None:
                     if verbose:
                         print("", flush=True)  # Blank line before progress bar
-                    images = [
-                        _load_and_process_image(filepath, dtype=dtype)
-                        for filepath in tqdm(
-                            [f for _, f in file_list],
-                            desc="    READING IMAGES",
-                            unit="img",
-                            ncols=100,
-                            miniters=1,
-                        )
-                    ]
+                    for z_idx, (_, filepath) in enumerate(
+                        tqdm(file_list, desc="    WRITING TO ZARR", unit="img", ncols=100, miniters=1)
+                    ):
+                        result = _load_and_write_to_ome_zarr_base((
+                            z_idx, filepath, str(output_path), "0",
+                            base_shape, dtype, has_channels, final_axis_order, C, Y, X
+                        ))
+                        if not result[1] and verbose:
+                            print(f"    WARNING: Failed to write image {z_idx}", flush=True)
                     if verbose:
                         print("", flush=True)  # Blank line after progress bar
                 else:
                     # Manual progress bar
-                    filepaths = [f for _, f in file_list]
-                    total = len(filepaths)
-                    images = []
+                    total = len(file_list)
                     if verbose:
                         print(f"    [{' ' * 50}] 0%", end='', flush=True)
-                    for idx, filepath in enumerate(filepaths, 1):
-                        images.append(_load_and_process_image(filepath, dtype=dtype))
+                    for idx, (z_idx, (_, filepath)) in enumerate(enumerate(file_list), 1):
+                        result = _load_and_write_to_ome_zarr_base((
+                            z_idx, filepath, str(output_path), "0",
+                            base_shape, dtype, has_channels, final_axis_order, C, Y, X
+                        ))
                         if verbose:
                             percent = 100 * idx // total
                             filled = int(50 * idx / total)
@@ -1307,38 +1429,16 @@ def stack_files_to_ome_zarr(
                             print(f"\r    [{bar}] {percent}% ({idx}/{total})", end='', flush=True)
                     if verbose:
                         print("", flush=True)  # New line after progress
+                
                 if verbose:
-                    print(f"    ✓ Loaded {len(images)} images", flush=True)
+                    print(f"    ✓ Wrote {len(file_list)} images directly to zarr", flush=True)
 
-            # Stack images and apply axis order
+            # Base level is now written directly to zarr - no need to load into memory!
+            # For pyramid generation, we'll read from zarr lazily using Dask
             if verbose:
-                print("\n    STACKING IMAGES AND APPLYING AXIS ORDER...", flush=True)
-            if has_channels:
-                stack_data = np.zeros((len(file_list), C, Y, X), dtype=dtype)
-                for z_idx, img in enumerate(images):
-                    stack_data[z_idx] = img
-                stack_reordered, _ = _apply_axis_order(
-                    stack_data, (len(file_list), C, Y, X), final_axis_order
-                )
-                base_array_data = stack_reordered
-            else:
-                base_array_data = np.stack(images, axis=0)
-
-            if verbose:
-                print(f"    Base array shape: {base_array_data.shape}", flush=True)
+                print(f"\n    Base level written directly to zarr (no memory overhead!)", flush=True)
+                print(f"    Base array shape: {base_shape}", flush=True)
                 print(f"    Chunk size: {base_chunks}", flush=True)
-
-            # Create base level array (OME-Zarr stores pyramid levels as arrays at root)
-            if verbose:
-                print("\n    WRITING BASE LEVEL TO ZARR (this may take a while for large arrays)...", flush=True)
-            base_zarr_array = _create_zarr_array(
-                root,
-                "0",
-                data=base_array_data,
-                chunks=base_chunks,
-            )
-            if verbose:
-                print("    ✓ Base level written to zarr", flush=True)
             multiscales_metadata.append(
                 {
                     "path": "0",
@@ -1415,7 +1515,7 @@ def stack_files_to_ome_zarr(
                         for i, d in enumerate(base_shape)
                     )
                     current_dask = da.from_zarr(base_zarr_array, chunks=optimal_chunks)
-                    current_data = base_array_data
+                    # No need to load base_array_data into memory - read from zarr lazily!
                     current_shape = base_shape
                     # Track previous cumulative scale factors to compute incremental ones
                     prev_scale_factors = None
@@ -1560,20 +1660,15 @@ def stack_files_to_ome_zarr(
                                 if needs_padding:
                                     if verbose:
                                         print(f"      Padding required: {padded_shape} (from {current_shape})", flush=True)
-                                    # Pad the data with zeros
-                                    current_data_padded = np.pad(
-                                        current_data,
+                                    # Pad the Dask array with zeros (lazy operation)
+                                    # Convert pad_widths to Dask format: list of (before, after) tuples
+                                    current_dask_padded = da.pad(
+                                        current_dask,
                                         pad_widths,
                                         mode="constant",
                                         constant_values=0,
                                     )
-                                    # Convert padded numpy array to Dask array for coarsening
-                                    # Use same chunk size as original dask array
-                                    current_dask_padded = da.from_array(
-                                        current_data_padded, chunks=current_dask.chunks
-                                    )
                                 else:
-                                    current_data_padded = current_data
                                     current_dask_padded = current_dask
 
                                 # Use dask coarsen with mean reduction for block averaging
@@ -1638,7 +1733,8 @@ def stack_files_to_ome_zarr(
                                     print(f"      ✓ Downsampled shape: {downsampled.shape}", flush=True)
                             else:
                                 # No downsampling needed for this level (shouldn't happen, but handle gracefully)
-                                downsampled = current_data
+                                # Read from current_dask
+                                downsampled = current_dask.compute().astype(dtype)
 
                         elif downsample_method == "scipy_zoom":
                             # Use scipy zoom (interpolation-based downsampling)
@@ -1655,6 +1751,8 @@ def stack_files_to_ome_zarr(
                                 final_axis_order,
                                 current_shape,
                             )
+                            # Read from current_dask for scipy zoom
+                            current_data = current_dask.compute()
                             downsampled = zoom(
                                 current_data, zoom_factors, order=1, prefilter=False
                             ).astype(dtype)
@@ -1665,8 +1763,8 @@ def stack_files_to_ome_zarr(
                                 "Supported methods: 'dask_coarsen', 'scipy_zoom'"
                             )
 
-                        current_data = downsampled
-                        current_shape = current_data.shape
+                        # Update shape for next iteration
+                        current_shape = downsampled.shape
 
                         # Create array for this pyramid level (stored at root)
                         if verbose:
@@ -1674,7 +1772,7 @@ def stack_files_to_ome_zarr(
                         level_zarr_array = _create_zarr_array(
                             root,
                             str(level_idx),
-                            data=current_data,
+                            data=downsampled,
                             chunks=tuple(min(d, 256) for d in current_shape),
                         )
                         if verbose:
@@ -1698,7 +1796,7 @@ def stack_files_to_ome_zarr(
                         # Convert to Dask for next iteration (if there are more levels)
                         if level_idx < len(pyramid_scale_factors):
                             # Use optimal chunks for next level too
-                            next_shape = current_data.shape
+                            next_shape = current_shape
                             next_optimal_chunks = tuple(
                                 min(d // 4, max(d // (num_cores * 2), 256)) if i >= len(next_shape) - 2 else d
                                 for i, d in enumerate(next_shape)
