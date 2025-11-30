@@ -1250,9 +1250,12 @@ def stack_files_to_ome_zarr(
                     if has_channels:
                         if final_axis_order == "ZCYX":
                             # Shape: (Z, C, Y, X), incremental_scale_factors: (z_scale, c_scale, y_scale, x_scale)
-                            z_scale, c_scale, y_scale, x_scale = (
-                                incremental_scale_factors
-                            )
+                            (
+                                z_scale,
+                                c_scale,
+                                y_scale,
+                                x_scale,
+                            ) = incremental_scale_factors
                             if z_scale > 1:
                                 coarsen_dict[0] = int(z_scale)  # Z axis
                             # Skip C axis (axis 1) - never downsample channels
@@ -1262,9 +1265,12 @@ def stack_files_to_ome_zarr(
                                 coarsen_dict[3] = int(x_scale)  # X axis
                         elif final_axis_order == "CZYX":
                             # Shape: (C, Z, Y, X), incremental_scale_factors: (c_scale, z_scale, y_scale, x_scale)
-                            c_scale, z_scale, y_scale, x_scale = (
-                                incremental_scale_factors
-                            )
+                            (
+                                c_scale,
+                                z_scale,
+                                y_scale,
+                                x_scale,
+                            ) = incremental_scale_factors
                             # Skip C axis (axis 0) - never downsample channels
                             if z_scale > 1:
                                 coarsen_dict[1] = int(z_scale)  # Z axis
