@@ -1117,15 +1117,21 @@ def stack_files_to_ome_zarr(
 
         if not dry_run:
             if verbose:
-                print(f"  Creating OME-Zarr: {output_path}")
-                print(f"  Base shape: {base_shape}, dtype: {dtype}")
-                print(f"  Pyramid levels: {num_pyramid_levels}")
-                print(f"  Downsample method: {downsample_method}")
-                print(f"  Downsample mode: {downsample_mode}")
+                print(f"  Creating OME-Zarr: {output_path}", flush=True)
+                print(f"  Base shape: {base_shape}, dtype: {dtype}", flush=True)
+                print(f"  Pyramid levels: {num_pyramid_levels}", flush=True)
+                print(f"  Downsample method: {downsample_method}", flush=True)
+                print(f"  Downsample mode: {downsample_mode}", flush=True)
+                print(f"\n  *** STARTING PROCESSING - THIS MAY TAKE A WHILE ***", flush=True)
+                print(f"  *** WATCH FOR PROGRESS BARS BELOW ***\n", flush=True)
 
             # Create OME-Zarr root group
+            if verbose:
+                print("  Creating zarr root group...", flush=True)
             root = zarr.open_group(str(output_path), mode="w")
             multiscales_metadata = []
+            if verbose:
+                print("  ✓ Zarr root group created", flush=True)
 
             # Store base level data
             # First, load all images and create base level array
@@ -1146,7 +1152,10 @@ def stack_files_to_ome_zarr(
             if verbose:
                 print("\n" + "="*70, flush=True)
                 print("  [STEP 1/3] READING IMAGES - BIG LOOP STARTS NOW", flush=True)
-                print("="*70, flush=True)
+                print("="*70 + "\n", flush=True)
+                import sys
+                sys.stdout.flush()
+                sys.stderr.flush()
             # Load images (reuse logic from stack_files_to_zarr)
             # Use same worker count as Dask will use for consistency
             import multiprocessing
