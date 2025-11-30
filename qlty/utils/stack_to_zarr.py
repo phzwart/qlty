@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import multiprocessing
 import re
-import time
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
@@ -223,16 +222,208 @@ def _load_and_process_image(
     return img
 
 
+def _load_and_write_to_all_pyramid_levels(
+    args: tuple,
+) -> tuple[int, bool]:
+    """
+    Load an image, downsample it progressively, and write to ALL pyramid levels in one pass.
+
+    This is MUCH more efficient than writing base level then reading back for downsampling.
+    For 2D downsampling mode, we downsample each slice independently (Y, X only).
+
+    Parameters
+    ----------
+    args : tuple
+        Tuple containing:
+        - z_idx: int - Z-index in the zarr array
+        - filepath: Path - Path to image file
+        - zarr_group_path: str - Path to zarr group (OME-Zarr root)
+        - pyramid_level_shapes: list[tuple] - Shapes for each pyramid level
+        - pyramid_scale_factors: list[tuple] - Cumulative scale factors for each level
+        - dtype: np.dtype - Target dtype
+        - has_channels: bool - Whether image has channels
+        - axis_order: str - Final axis order (e.g., "ZCYX", "CZYX")
+        - C: int - Number of channels (for multi-channel)
+        - Y: int - Image height
+        - X: int - Image width
+
+    Returns
+    -------
+    tuple[int, bool]
+        (z_idx, success) tuple indicating which z-index was written
+    """
+    (
+        z_idx,
+        filepath,
+        zarr_group_path,
+        pyramid_level_shapes,
+        pyramid_scale_factors,
+        dtype,
+        has_channels,
+        axis_order,
+        C,
+        Y,
+        X,
+    ) = args
+
+    try:
+        # Load and process image
+        img = _load_and_process_image(filepath, dtype)
+
+        # Open zarr group (read-write mode supports concurrent writes)
+        zarr_group = zarr.open_group(zarr_group_path, mode="r+")
+
+        # Apply axis order transformation if needed
+        if has_channels:
+            # We have img as (C, Y, X), need to write at z_idx
+            # Create a (1, C, Y, X) array, apply transformation
+            slice_data = img[np.newaxis, ...]  # (1, C, Y, X)
+            slice_reordered, _ = _apply_axis_order(
+                slice_data,
+                (1, C, Y, X),
+                axis_order,
+            )
+            img_reordered = slice_reordered[0]  # Remove Z dimension, now (C, Y, X) or reordered
+        else:
+            img_reordered = img  # (Y, X)
+
+        # Write to base level (level 0)
+        base_array = zarr_group["0"]
+        if has_channels:
+            if axis_order == "CZYX":
+                base_array[:, z_idx, :, :] = img_reordered
+            elif axis_order == "ZCYX":
+                base_array[z_idx, :, :, :] = img_reordered
+            else:
+                # Generic: assume Z is first dimension
+                base_array[z_idx, ...] = img_reordered
+        else:
+            base_array[z_idx, :, :] = img_reordered
+
+        # Now downsample progressively and write to each pyramid level
+        # For 2D mode, we downsample Y and X dimensions only
+        current_img = img_reordered.copy()
+        prev_scale_factors = None
+
+        for level_idx, (_level_shape, cumulative_scale_factors) in enumerate(
+            zip(pyramid_level_shapes[1:], pyramid_scale_factors), start=1
+        ):
+            # Calculate incremental scale factors
+            if prev_scale_factors is None:
+                incremental_scale_factors = cumulative_scale_factors
+            else:
+                incremental_scale_factors = tuple(
+                    curr / prev if prev > 0 else curr
+                    for curr, prev in zip(cumulative_scale_factors, prev_scale_factors)
+                )
+
+            # Extract Y, X scale factors (for 2D downsampling)
+            # For 2D mode, we only downsample spatial dimensions (Y, X)
+            if has_channels:
+                # Extract Y, X from scale factors (last two dimensions)
+                if len(incremental_scale_factors) == 4:
+                    # (Z, C, Y, X) or (C, Z, Y, X) - take last two
+                    y_scale, x_scale = incremental_scale_factors[-2:]
+                else:
+                    y_scale, x_scale = incremental_scale_factors[-2:]
+            else:
+                # Single channel: (Z, Y, X) - take last two
+                y_scale, x_scale = incremental_scale_factors[-2:]
+
+            # Downsample using block averaging with padding if needed
+            y_scale_int = int(y_scale)
+            x_scale_int = int(x_scale)
+
+            if has_channels:
+                # Image is (C, Y, X)
+                C_dim, Y_dim, X_dim = current_img.shape
+
+                # Pad if needed to make divisible
+                pad_Y = (y_scale_int - (Y_dim % y_scale_int)) % y_scale_int
+                pad_X = (x_scale_int - (X_dim % x_scale_int)) % x_scale_int
+
+                if pad_Y > 0 or pad_X > 0:
+                    padded = np.pad(
+                        current_img,
+                        ((0, 0), (0, pad_Y), (0, pad_X)),
+                        mode="constant",
+                        constant_values=0,
+                    )
+                    Y_padded = Y_dim + pad_Y
+                    X_padded = X_dim + pad_X
+                else:
+                    padded = current_img
+                    Y_padded = Y_dim
+                    X_padded = X_dim
+
+                # Block average downsampling
+                downsampled = (
+                    padded.reshape(C_dim, Y_padded // y_scale_int, y_scale_int, X_padded // x_scale_int, x_scale_int)
+                    .mean(axis=(2, 4))
+                    .astype(dtype)
+                )
+            else:
+                # Single channel: (Y, X)
+                Y_dim, X_dim = current_img.shape
+
+                # Pad if needed
+                pad_Y = (y_scale_int - (Y_dim % y_scale_int)) % y_scale_int
+                pad_X = (x_scale_int - (X_dim % x_scale_int)) % x_scale_int
+
+                if pad_Y > 0 or pad_X > 0:
+                    padded = np.pad(
+                        current_img,
+                        ((0, pad_Y), (0, pad_X)),
+                        mode="constant",
+                        constant_values=0,
+                    )
+                    Y_padded = Y_dim + pad_Y
+                    X_padded = X_dim + pad_X
+                else:
+                    padded = current_img
+                    Y_padded = Y_dim
+                    X_padded = X_dim
+
+                # Block average downsampling
+                downsampled = (
+                    padded.reshape(Y_padded // y_scale_int, y_scale_int, X_padded // x_scale_int, x_scale_int)
+                    .mean(axis=(1, 3))
+                    .astype(dtype)
+                )
+
+            # Write downsampled image to this pyramid level
+            level_array = zarr_group[str(level_idx)]
+            if has_channels:
+                if axis_order == "CZYX":
+                    level_array[:, z_idx, :, :] = downsampled
+                elif axis_order == "ZCYX":
+                    level_array[z_idx, :, :, :] = downsampled
+                else:
+                    level_array[z_idx, ...] = downsampled
+            else:
+                level_array[z_idx, :, :] = downsampled
+
+            # Update for next level
+            current_img = downsampled
+            prev_scale_factors = cumulative_scale_factors
+
+        return (z_idx, True)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        return (z_idx, False)
+
+
 def _load_and_write_to_ome_zarr_base(
     args: tuple,
 ) -> tuple[int, bool]:
     """
     Load an image and write it directly to OME-Zarr base level at the specified z-index.
-    
+
     This function is designed for parallel execution where each worker loads
     and writes a single image, avoiding the need to load all images into memory.
     Zarr supports concurrent writes to different slices, so this enables true parallelism.
-    
+
     Parameters
     ----------
     args : tuple
@@ -248,7 +439,7 @@ def _load_and_write_to_ome_zarr_base(
         - C: int - Number of channels (for multi-channel)
         - Y: int - Image height
         - X: int - Image width
-    
+
     Returns
     -------
     tuple[int, bool]
@@ -267,15 +458,15 @@ def _load_and_write_to_ome_zarr_base(
         Y,
         X,
     ) = args
-    
+
     try:
         # Load and process image
         img = _load_and_process_image(filepath, dtype)
-        
+
         # Open zarr group and array (read-write mode supports concurrent writes)
         zarr_group = zarr.open_group(zarr_group_path, mode="r+")
         zarr_array = zarr_group[array_name]
-        
+
         if has_channels:
             # Apply axis order transformation for this slice
             # We have img as (C, Y, X), need to write at z_idx
@@ -304,7 +495,7 @@ def _load_and_write_to_ome_zarr_base(
         else:
             # Single channel: write directly to (Z, Y, X) array
             zarr_array[z_idx, :, :] = img
-        
+
         return (z_idx, True)
     except Exception:
         import traceback
@@ -1083,7 +1274,7 @@ def stack_files_to_ome_zarr(
             dtype = first_image.dtype
         else:
             dtype = np.dtype(dtype)
-        
+
         if verbose:
             print(f"  Image dimensions: {first_image.shape}")
             print(f"  Detected shape: {base_shape}")
@@ -1205,14 +1396,31 @@ def stack_files_to_ome_zarr(
                     pyramid_scale_factors.append((z_scale, y_scale, x_scale))
 
         if not dry_run:
+            # Validate downsample_method
+            # Note: Currently only immediate downsampling (block averaging) is supported
+            # The downsample_method parameter is kept for API compatibility but not used
+            if downsample_method not in ("dask_coarsen", "scipy_zoom"):
+                raise ValueError(
+                    f"Unknown downsample_method: {downsample_method}. "
+                    "Supported methods: 'dask_coarsen', 'scipy_zoom'. "
+                    "Note: Currently all methods use immediate block-averaging downsampling."
+                )
+
+            # Validate downsample_mode - 3D mode not yet implemented
+            if downsample_mode == "3d":
+                raise NotImplementedError(
+                    "3D downsampling mode is not yet implemented. "
+                    "Currently only 2D downsampling (Y, X axes) is supported."
+                )
+
             if verbose:
                 print(f"  Creating OME-Zarr: {output_path}", flush=True)
                 print(f"  Base shape: {base_shape}, dtype: {dtype}", flush=True)
                 print(f"  Pyramid levels: {num_pyramid_levels}", flush=True)
                 print(f"  Downsample method: {downsample_method}", flush=True)
                 print(f"  Downsample mode: {downsample_mode}", flush=True)
-                print(f"\n  *** STARTING PROCESSING - THIS MAY TAKE A WHILE ***", flush=True)
-                print(f"  *** WATCH FOR PROGRESS BARS BELOW ***\n", flush=True)
+                print("\n  *** STARTING PROCESSING - THIS MAY TAKE A WHILE ***", flush=True)
+                print("  *** WATCH FOR PROGRESS BARS BELOW ***\n", flush=True)
 
             # Create OME-Zarr root group
             if verbose:
@@ -1222,11 +1430,60 @@ def stack_files_to_ome_zarr(
             if verbose:
                 print("  ✓ Zarr root group created", flush=True)
 
-            # Store base level data
-            # OPTIMIZATION: Write directly to zarr in parallel instead of loading all into memory
-            # This is MUCH faster and uses way less memory (like stack_files_to_zarr)
-            
-            # Determine chunk size for base level
+            # CLEAN REWRITE: Calculate pyramid level shapes upfront
+            # For 2D mode: only downsample Y, X (not Z)
+            pyramid_level_shapes = [base_shape]
+            if num_pyramid_levels > 1:
+                for cumulative_scale_factors in pyramid_scale_factors:
+                    if has_channels:
+                        if final_axis_order == "ZCYX":
+                            z_scale, c_scale, y_scale, x_scale = cumulative_scale_factors
+                            prev_shape = pyramid_level_shapes[-1]
+                            level_shape = (
+                                prev_shape[0],  # Z unchanged
+                                prev_shape[1],  # C unchanged
+                                prev_shape[2] // int(y_scale) if y_scale > 1 else prev_shape[2],
+                                prev_shape[3] // int(x_scale) if x_scale > 1 else prev_shape[3],
+                            )
+                        elif final_axis_order == "CZYX":
+                            c_scale, z_scale, y_scale, x_scale = cumulative_scale_factors
+                            prev_shape = pyramid_level_shapes[-1]
+                            level_shape = (
+                                prev_shape[0],  # C unchanged
+                                prev_shape[1],  # Z unchanged
+                                prev_shape[2] // int(y_scale) if y_scale > 1 else prev_shape[2],
+                                prev_shape[3] // int(x_scale) if x_scale > 1 else prev_shape[3],
+                            )
+                        else:
+                            # Generic: assume standard order
+                            prev_shape = pyramid_level_shapes[-1]
+                            # Extract Y, X scale factors (last two)
+                            y_scale = cumulative_scale_factors[-2] if len(cumulative_scale_factors) >= 2 else 1
+                            x_scale = cumulative_scale_factors[-1] if len(cumulative_scale_factors) >= 1 else 1
+                            level_shape = tuple(
+                                prev_shape[i] if i < len(prev_shape) - 2 else (
+                                    prev_shape[i] // int(s) if s > 1 else prev_shape[i]
+                                )
+                                for i, s in enumerate(cumulative_scale_factors)
+                            )
+                            # Ensure Y, X are downsampled correctly
+                            if len(level_shape) >= 2:
+                                level_shape = level_shape[:-2] + (
+                                    prev_shape[-2] // int(y_scale) if y_scale > 1 else prev_shape[-2],
+                                    prev_shape[-1] // int(x_scale) if x_scale > 1 else prev_shape[-1],
+                                )
+                    else:
+                        # Single channel: (Z, Y, X)
+                        z_scale, y_scale, x_scale = cumulative_scale_factors
+                        prev_shape = pyramid_level_shapes[-1]
+                        level_shape = (
+                            prev_shape[0],  # Z unchanged for 2D mode
+                            prev_shape[1] // int(y_scale) if y_scale > 1 else prev_shape[1],
+                            prev_shape[2] // int(x_scale) if x_scale > 1 else prev_shape[2],
+                        )
+                    pyramid_level_shapes.append(level_shape)
+
+            # Determine chunk size for all levels
             if zarr_chunks is None:
                 if has_channels:
                     if final_axis_order == "ZCYX":
@@ -1240,25 +1497,40 @@ def stack_files_to_ome_zarr(
             else:
                 base_chunks = zarr_chunks
 
-            # Create base level array FIRST (empty, we'll write to it in parallel)
+            # Create ALL pyramid level arrays upfront (empty, we'll write to them in parallel)
+            # Use zarr 3.0+ API: shape must be a keyword argument
             if verbose:
-                print("\n    Creating base level zarr array (empty, will write in parallel)...", flush=True)
+                print("\n    Creating all pyramid level zarr arrays (empty, will write in parallel)...", flush=True)
             base_zarr_array = root.create(
                 "0",
                 shape=base_shape,
                 chunks=base_chunks,
                 dtype=dtype,
             )
+            pyramid_zarr_arrays = [base_zarr_array]
+
+            # Create pyramid level arrays
+            for level_idx, level_shape in enumerate(pyramid_level_shapes[1:], start=1):
+                level_chunks = tuple(min(d, 256) for d in level_shape)
+                # Zarr 3.0+ API: shape must be a keyword argument
+                level_array = root.create(
+                    str(level_idx),
+                    shape=level_shape,
+                    chunks=level_chunks,
+                    dtype=dtype,
+                )
+                pyramid_zarr_arrays.append(level_array)
+
             if verbose:
-                print("    ✓ Base zarr array created", flush=True)
+                print(f"    ✓ Created {len(pyramid_level_shapes)} pyramid level arrays", flush=True)
                 print("\n" + "="*70, flush=True)
-                print("  [STEP 1/3] WRITING IMAGES DIRECTLY TO ZARR - FAST PARALLEL MODE", flush=True)
+                print("  [STEP 1/1] LOADING + DOWNSAMPLING + WRITING TO ALL PYRAMID LEVELS - ULTRA FAST MODE", flush=True)
                 print("="*70 + "\n", flush=True)
                 import sys
                 sys.stdout.flush()
                 sys.stderr.flush()
-            # Load images (reuse logic from stack_files_to_zarr)
-            # Use same worker count as Dask will use for consistency
+
+            # Setup multiprocessing
             import multiprocessing
             if num_workers is None:
                 num_cores = multiprocessing.cpu_count()
@@ -1272,19 +1544,18 @@ def stack_files_to_ome_zarr(
                 workers = 1
                 num_cores = 1
                 use_multiprocessing = False
-            
+
             if verbose:
                 if use_multiprocessing:
                     print(f"    Using multiprocessing with {workers} workers (one per core)", flush=True)
-                    print(f"    Writing {len(file_list)} images directly to zarr in parallel...", flush=True)
+                    print(f"    Processing {len(file_list)} images: load → downsample → write to all {num_pyramid_levels} levels", flush=True)
                 else:
-                    print(f"    Using sequential writing (1 worker)", flush=True)
-                    print(f"    Writing {len(file_list)} images...", flush=True)
+                    print("    Using sequential processing (1 worker)", flush=True)
+                    print(f"    Processing {len(file_list)} images...", flush=True)
 
-            # OPTIMIZED: Write directly to zarr in parallel (like stack_files_to_zarr)
-            # This avoids loading all images into memory - MUCH faster!
+            # Use immediate downsampling: load image, downsample progressively, write to all levels
             if use_multiprocessing and len(file_list) > 10:
-                # Prepare tasks for parallel load-and-write
+                # Prepare tasks for parallel load-and-write with immediate downsampling
                 tasks = []
                 for z_idx, (_, filepath) in enumerate(file_list):
                     tasks.append(
@@ -1292,8 +1563,8 @@ def stack_files_to_ome_zarr(
                             z_idx,
                             filepath,
                             str(output_path),  # zarr group path
-                            "0",  # array name (base level)
-                            base_shape,
+                            pyramid_level_shapes,  # All pyramid level shapes
+                            pyramid_scale_factors,  # Cumulative scale factors
                             dtype,
                             has_channels,
                             final_axis_order,
@@ -1317,7 +1588,7 @@ def stack_files_to_ome_zarr(
                         print(f"    DEBUG: Requested workers = {workers}", flush=True)
                     print(f"    WRITING {len(file_list)} IMAGES DIRECTLY TO ZARR - PROGRESS BAR BELOW:", flush=True)
                     print("-"*70, flush=True)
-                
+
                 # Create pool and verify it actually created workers
                 pool = multiprocessing.Pool(processes=workers)
                 if verbose:
@@ -1330,22 +1601,22 @@ def stack_files_to_ome_zarr(
                             print(f"    WARNING: Only {len(children)} child processes created, expected {workers}!", flush=True)
                     except ImportError:
                         pass
-                
+
                 try:
                     # Write directly to zarr in parallel (like stack_files_to_zarr)
                     # Using imap_unordered for better performance with many tasks
                     chunksize = max(1, len(tasks) // (workers * 4))
                     if verbose:
                         print(f"    DEBUG: Using chunksize={chunksize} for better load balancing", flush=True)
-                    
+
                     if tqdm is not None:
                         if verbose:
                             print("", flush=True)  # Blank line before progress bar
                         write_results = list(
                             tqdm(
-                                pool.imap_unordered(_load_and_write_to_ome_zarr_base, tasks, chunksize=chunksize),
+                                pool.imap_unordered(_load_and_write_to_all_pyramid_levels, tasks, chunksize=chunksize),
                                 total=len(tasks),
-                                desc="    WRITING TO ZARR",
+                                desc="    LOAD+DOWNSAMPLE+WRITE",
                                 unit="img",
                                 ncols=100,
                                 miniters=1,
@@ -1356,12 +1627,12 @@ def stack_files_to_ome_zarr(
                     else:
                         # Manual progress bar when tqdm not available
                         if verbose:
-                            print(f"    Writing images directly to zarr (chunksize={chunksize})...", flush=True)
+                            print(f"    Processing images with immediate downsampling (chunksize={chunksize})...", flush=True)
                             print(f"    [{' ' * 50}] 0%", end='', flush=True)
                         total = len(tasks)
                         completed = 0
                         write_results = []
-                        for result in pool.imap_unordered(_load_and_write_to_ome_zarr_base, tasks, chunksize=chunksize):
+                        for result in pool.imap_unordered(_load_and_write_to_all_pyramid_levels, tasks, chunksize=chunksize):
                             write_results.append(result)
                             completed += 1
                             if verbose:
@@ -1371,13 +1642,13 @@ def stack_files_to_ome_zarr(
                                 print(f"\r    [{bar}] {percent}% ({completed}/{total})", end='', flush=True)
                         if verbose:
                             print("", flush=True)  # New line after progress
-                    
+
                     # Check for failures
                     failures = [r for r in write_results if not r[1]]
                     if failures:
                         if verbose:
                             print(f"    WARNING: {len(failures)} images failed to write", flush=True)
-                    
+
                     if verbose:
                         print(f"\n    ✓ Wrote {len(write_results) - len(failures)} images directly to zarr using {workers} parallel workers", flush=True)
                         try:
@@ -1393,52 +1664,59 @@ def stack_files_to_ome_zarr(
             else:
                 # Sequential writing (small stacks or num_workers=1)
                 if verbose:
-                    print(f"\n    Writing images sequentially directly to zarr...", flush=True)
-                    print(f"    WRITING {len(file_list)} IMAGES - PROGRESS BAR BELOW:", flush=True)
+                    print("\n    Processing images sequentially with immediate downsampling...", flush=True)
+                    print(f"    PROCESSING {len(file_list)} IMAGES - PROGRESS BAR BELOW:", flush=True)
                     print("-"*70, flush=True)
-                
-                # Write directly to zarr sequentially
+
+                # Write directly to zarr sequentially with immediate downsampling
                 if tqdm is not None:
                     if verbose:
                         print("", flush=True)  # Blank line before progress bar
                     for z_idx, (_, filepath) in enumerate(
-                        tqdm(file_list, desc="    WRITING TO ZARR", unit="img", ncols=100, miniters=1)
+                        tqdm(file_list, desc="    LOAD+DOWNSAMPLE+WRITE", unit="img", ncols=100, miniters=1)
                     ):
-                        result = _load_and_write_to_ome_zarr_base((
-                            z_idx, filepath, str(output_path), "0",
-                            base_shape, dtype, has_channels, final_axis_order, C, Y, X
+                        result = _load_and_write_to_all_pyramid_levels((
+                            z_idx, filepath, str(output_path),
+                            pyramid_level_shapes, pyramid_scale_factors,
+                            dtype, has_channels, final_axis_order, C, Y, X
                         ))
                         if not result[1] and verbose:
                             print(f"    WARNING: Failed to write image {z_idx}", flush=True)
                     if verbose:
                         print("", flush=True)  # Blank line after progress bar
                 else:
-                    # Manual progress bar
-                    total = len(file_list)
+                    # Manual progress bar when tqdm not available
                     if verbose:
+                        print("    Processing images with immediate downsampling...", flush=True)
                         print(f"    [{' ' * 50}] 0%", end='', flush=True)
-                    for idx, (z_idx, (_, filepath)) in enumerate(enumerate(file_list), 1):
-                        result = _load_and_write_to_ome_zarr_base((
-                            z_idx, filepath, str(output_path), "0",
-                            base_shape, dtype, has_channels, final_axis_order, C, Y, X
+                    total = len(file_list)
+                    completed = 0
+                    for _idx, (z_idx, (_, filepath)) in enumerate(enumerate(file_list), 1):
+                        result = _load_and_write_to_all_pyramid_levels((
+                            z_idx, filepath, str(output_path),
+                            pyramid_level_shapes, pyramid_scale_factors,
+                            dtype, has_channels, final_axis_order, C, Y, X
                         ))
+                        completed += 1
                         if verbose:
-                            percent = 100 * idx // total
-                            filled = int(50 * idx / total)
+                            percent = 100 * completed // total
+                            filled = int(50 * completed / total)
                             bar = '=' * filled + ' ' * (50 - filled)
-                            print(f"\r    [{bar}] {percent}% ({idx}/{total})", end='', flush=True)
+                            print(f"\r    [{bar}] {percent}% ({completed}/{total})", end='', flush=True)
                     if verbose:
                         print("", flush=True)  # New line after progress
-                
-                if verbose:
-                    print(f"    ✓ Wrote {len(file_list)} images directly to zarr", flush=True)
 
-            # Base level is now written directly to zarr - no need to load into memory!
-            # For pyramid generation, we'll read from zarr lazily using Dask
+                if verbose:
+                    print(f"    ✓ Processed {len(file_list)} images with immediate downsampling", flush=True)
+
+            # All pyramid levels are now written with immediate downsampling!
+            # Build metadata for all levels
             if verbose:
-                print(f"\n    Base level written directly to zarr (no memory overhead!)", flush=True)
+                print(f"\n    ✓ All {num_pyramid_levels} pyramid levels written with immediate downsampling!", flush=True)
                 print(f"    Base array shape: {base_shape}", flush=True)
                 print(f"    Chunk size: {base_chunks}", flush=True)
+
+            # Add metadata for base level
             multiscales_metadata.append(
                 {
                     "path": "0",
@@ -1451,361 +1729,23 @@ def stack_files_to_ome_zarr(
                 }
             )
 
-            # Create pyramid levels using Dask for parallel processing
-            if num_pyramid_levels > 1:
-                try:
-                    import dask
-                    import dask.array as da
-                except ImportError as err:
-                    raise ImportError(
-                        "dask is required for pyramid creation. Install with: pip install dask"
-                    ) from err
-
-                # Configure Dask for maximum parallelism
-                # Use processes (not threads) to bypass GIL for CPU-bound numpy operations
-                # This is critical for large arrays on multi-core machines
-                # Use same worker count as image loading for consistency
-                if num_workers is None:
-                    num_cores = multiprocessing.cpu_count()
-                elif num_workers > 1:
-                    num_cores = num_workers
-                else:
-                    num_cores = 1
-                
-                if verbose:
-                    print("\n" + "="*70, flush=True)
-                    print(f"  [STEP 2/3] CREATING PYRAMID LEVELS - BIG LOOP STARTS NOW", flush=True)
-                    print("="*70, flush=True)
-                    print(f"    Creating {num_pyramid_levels - 1} pyramid level(s)...", flush=True)
-                    print(f"    Dask configuration:", flush=True)
-                    print(f"      Scheduler: processes (bypasses GIL)", flush=True)
-                    print(f"      Workers: {num_cores} (one per core)", flush=True)
-                    print(f"      Threads per worker: 1", flush=True)
-                
-                # Configure Dask to use all available cores with processes
-                # Set chunk size based on available memory and cores
-                # For 800 slices of 3k x 3k: ~800 * 3000 * 3000 * 2 bytes = ~14GB per level
-                # Use larger chunks to reduce overhead, but not too large to fit in memory
-                # Wrap entire pyramid creation in scheduler context
-                if verbose:
-                    try:
-                        import psutil
-                        actual_cpu_count = psutil.cpu_count(logical=False)
-                        logical_cpu_count = psutil.cpu_count(logical=True)
-                        print(f"    DEBUG: System has {actual_cpu_count} physical cores, {logical_cpu_count} logical cores", flush=True)
-                        print(f"    DEBUG: Dask will use {num_cores} workers", flush=True)
-                    except ImportError:
-                        pass
-                
-                with dask.config.set(
-                    scheduler="processes",  # Use processes, not threads (bypasses GIL)
-                    num_workers=num_cores,  # Use all cores
-                    threads_per_worker=1,   # One thread per worker (processes handle parallelism)
-                ):
-                    if verbose:
-                        # Verify Dask configuration
-                        print(f"    DEBUG: Dask scheduler = {dask.config.get('scheduler')}", flush=True)
-                        print(f"    DEBUG: Dask num_workers = {dask.config.get('num_workers')}", flush=True)
-                        print(f"    DEBUG: Dask threads_per_worker = {dask.config.get('threads_per_worker')}", flush=True)
-                    # Convert base array to Dask array for efficient downsampling
-                    # Use optimal chunk size: balance between parallelism and memory
-                    # For 800x3000x3000: chunks of ~(50, 1000, 1000) gives ~800MB chunks, good parallelism
-                    optimal_chunks = tuple(
-                        min(d // 4, max(d // (num_cores * 2), 256)) if i >= len(base_shape) - 2 else d
-                        for i, d in enumerate(base_shape)
+            # Add metadata for all pyramid levels
+            for level_idx, cumulative_scale_factors in enumerate(pyramid_scale_factors, start=1):
+                    multiscales_metadata.append(
+                        {
+                            "path": str(level_idx),
+                            "coordinateTransformations": [
+                                {
+                                    "type": "scale",
+                                "scale": list(cumulative_scale_factors),
+                                }
+                            ],
+                        }
                     )
-                    current_dask = da.from_zarr(base_zarr_array, chunks=optimal_chunks)
-                    # No need to load base_array_data into memory - read from zarr lazily!
-                    current_shape = base_shape
-                    # Track previous cumulative scale factors to compute incremental ones
-                    prev_scale_factors = None
-
-                    # Helper function to build zoom factors
-                    def _build_zoom_factors(
-                        scale_factors, has_channels, final_axis_order, current_shape
-                    ):
-                        """Build zoom factors for scipy.ndimage.zoom."""
-                        if has_channels:
-                            if final_axis_order == "ZCYX":
-                                z_scale, c_scale, y_scale, x_scale = scale_factors
-                                return [
-                                    1.0 / z_scale,
-                                    1.0,
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                            elif final_axis_order == "CZYX":
-                                c_scale, z_scale, y_scale, x_scale = scale_factors
-                                return [
-                                    1.0,
-                                    1.0 / z_scale,
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                            else:
-                                z_scale, c_scale, y_scale, x_scale = scale_factors
-                                return [1.0] * (len(current_shape) - 2) + [
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                        else:
-                            z_scale, y_scale, x_scale = scale_factors
-                            return [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
-
-                    for level_idx, cumulative_scale_factors in enumerate(
-                        pyramid_scale_factors, 1
-                    ):
-                        if verbose:
-                            level_start_time = time.time()
-                            print(f"\n    Level {level_idx}/{num_pyramid_levels - 1}:", flush=True)
-                            print(f"      Current shape: {current_shape}", flush=True)
-                            print(f"      Cumulative scale factors: {cumulative_scale_factors}", flush=True)
-
-                        # Compute incremental scale factors from cumulative ones
-                        # Cumulative scale factors are relative to base (e.g., 2, 4, 8)
-                        # But we need incremental factors relative to previous level (always 2x)
-                        if prev_scale_factors is None:
-                            # First level: incremental = cumulative
-                            incremental_scale_factors = cumulative_scale_factors
-                        else:
-                            # Subsequent levels: incremental = cumulative / previous_cumulative
-                            incremental_scale_factors = tuple(
-                                curr / prev if prev > 0 else curr
-                                for curr, prev in zip(
-                                    cumulative_scale_factors, prev_scale_factors
-                                )
-                            )
-                        
-                        if verbose:
-                            print(f"      Incremental scale factors: {incremental_scale_factors}", flush=True)
-
-                        # Determine which dimensions to downsample based on incremental scale factors
-                        # Build coarsen dictionary: {axis_index: scale_factor}
-                        coarsen_dict = {}
-
-                        if has_channels:
-                            if final_axis_order == "ZCYX":
-                                # Shape: (Z, C, Y, X), incremental_scale_factors: (z_scale, c_scale, y_scale, x_scale)
-                                (
-                                    z_scale,
-                                    c_scale,
-                                    y_scale,
-                                    x_scale,
-                                ) = incremental_scale_factors
-                                if z_scale > 1:
-                                    coarsen_dict[0] = int(z_scale)  # Z axis
-                                # Skip C axis (axis 1) - never downsample channels
-                                if y_scale > 1:
-                                    coarsen_dict[2] = int(y_scale)  # Y axis
-                                if x_scale > 1:
-                                    coarsen_dict[3] = int(x_scale)  # X axis
-                            elif final_axis_order == "CZYX":
-                                # Shape: (C, Z, Y, X), incremental_scale_factors: (c_scale, z_scale, y_scale, x_scale)
-                                (
-                                    c_scale,
-                                    z_scale,
-                                    y_scale,
-                                    x_scale,
-                                ) = incremental_scale_factors
-                                # Skip C axis (axis 0) - never downsample channels
-                                if z_scale > 1:
-                                    coarsen_dict[1] = int(z_scale)  # Z axis
-                                if y_scale > 1:
-                                    coarsen_dict[2] = int(y_scale)  # Y axis
-                                if x_scale > 1:
-                                    coarsen_dict[3] = int(x_scale)  # X axis
-                            else:
-                                # Generic: assume standard order and downsample based on scale factors
-                                # This is a fallback - ideally users should specify correct axis order
-                                for dim_idx, scale in enumerate(incremental_scale_factors):
-                                    if (
-                                        scale > 1 and dim_idx != 1
-                                    ):  # Don't downsample channels
-                                        coarsen_dict[dim_idx] = int(scale)
-                        else:
-                            # Single channel: (Z, Y, X), incremental_scale_factors: (z_scale, y_scale, x_scale)
-                            z_scale, y_scale, x_scale = incremental_scale_factors
-                            if z_scale > 1:
-                                coarsen_dict[0] = int(z_scale)  # Z axis
-                            if y_scale > 1:
-                                coarsen_dict[1] = int(y_scale)  # Y axis
-                            if x_scale > 1:
-                                coarsen_dict[2] = int(x_scale)  # X axis
-
-                        # Downsample using Dask coarsen (block averaging)
-                        if downsample_method == "dask_coarsen":
-                            if coarsen_dict:
-                                if verbose:
-                                    print(f"      Downsampling axes: {list(coarsen_dict.keys())} with factors {list(coarsen_dict.values())}", flush=True)
-                                # Check if dimensions are divisible by scale factors
-                                # Dask coarsen requires exact divisibility
-                                # If not divisible, pad with zeros to make them divisible
-                                # Padding is done at the end (right/bottom) of each dimension
-                                needs_padding = False
-                                padded_shape = list(current_shape)
-                                pad_widths = [(0, 0)] * len(current_shape)
-
-                                for axis, scale in coarsen_dict.items():
-                                    if current_shape[axis] % scale != 0:
-                                        needs_padding = True
-                                        # Calculate padding needed to make divisible
-                                        remainder = current_shape[axis] % scale
-                                        padding_needed = scale - remainder
-                                        padded_shape[axis] = (
-                                            current_shape[axis] + padding_needed
-                                        )
-                                        # Pad at the end (right/bottom) - zeros are added to edges
-                                        pad_widths[axis] = (0, padding_needed)
-
-                                if needs_padding:
-                                    if verbose:
-                                        print(f"      Padding required: {padded_shape} (from {current_shape})", flush=True)
-                                    # Pad the Dask array with zeros (lazy operation)
-                                    # Convert pad_widths to Dask format: list of (before, after) tuples
-                                    current_dask_padded = da.pad(
-                                        current_dask,
-                                        pad_widths,
-                                        mode="constant",
-                                        constant_values=0,
-                                    )
-                                else:
-                                    current_dask_padded = current_dask
-
-                                # Use dask coarsen with mean reduction for block averaging
-                                if verbose:
-                                    print(f"      Computing downsampled array using Dask (processes scheduler)...", flush=True)
-                                    print(f"      This may take a while for large arrays...", flush=True)
-                                    # Show task graph info
-                                    downsampled_dask = da.coarsen(
-                                        np.mean, current_dask_padded, coarsen_dict
-                                    )
-                                    num_tasks = len(downsampled_dask.dask)
-                                    print(f"      Dask task graph: {num_tasks} tasks", flush=True)
-                                    print(f"      Array chunks: {downsampled_dask.numblocks}", flush=True)
-                                    print(f"      Starting parallel computation with {num_cores} workers...", flush=True)
-                                else:
-                                    downsampled_dask = da.coarsen(
-                                        np.mean, current_dask_padded, coarsen_dict
-                                    )
-                                
-                                # Compute the result using process scheduler (configured above)
-                                # This will use all available cores efficiently
-                                # Add progress callback if verbose
-                                if verbose:
-                                    print(f"\n      COMPUTING DOWNSAMPLED ARRAY - PROGRESS BAR BELOW:", flush=True)
-                                    print("-"*70, flush=True)
-                                    # Monitor CPU usage before computation
-                                    try:
-                                        import psutil
-                                        cpu_before = psutil.cpu_percent(interval=0.1, percpu=True)
-                                        active_cores_before = sum(1 for c in cpu_before if c > 5)
-                                        print(f"      DEBUG: Active CPU cores before compute: {active_cores_before}/{len(cpu_before)}", flush=True)
-                                    except ImportError:
-                                        pass
-                                    
-                                    try:
-                                        from dask.diagnostics import ProgressBar
-                                        print("", flush=True)  # Blank line before progress bar
-                                        with ProgressBar():
-                                            downsampled = downsampled_dask.compute().astype(dtype)
-                                        print("", flush=True)  # Blank line after progress bar
-                                    except ImportError:
-                                        # Fallback: manual progress updates
-                                        print(f"      Processing {num_tasks} tasks...", flush=True)
-                                        downsampled = downsampled_dask.compute().astype(dtype)
-                                    
-                                    # Monitor CPU usage after computation
-                                    try:
-                                        import psutil
-                                        cpu_after = psutil.cpu_percent(interval=0.1, percpu=True)
-                                        active_cores_after = sum(1 for c in cpu_after if c > 5)
-                                        print(f"      DEBUG: Active CPU cores after compute: {active_cores_after}/{len(cpu_after)}", flush=True)
-                                        # Check active processes
-                                        current_process = psutil.Process()
-                                        children = current_process.children(recursive=True)
-                                        print(f"      DEBUG: Active child processes during compute: {len(children)}", flush=True)
-                                    except ImportError:
-                                        pass
-                                else:
-                                    downsampled = downsampled_dask.compute().astype(dtype)
-                                
-                                if verbose:
-                                    print(f"      ✓ Downsampled shape: {downsampled.shape}", flush=True)
-                            else:
-                                # No downsampling needed for this level (shouldn't happen, but handle gracefully)
-                                # Read from current_dask
-                                downsampled = current_dask.compute().astype(dtype)
-
-                        elif downsample_method == "scipy_zoom":
-                            # Use scipy zoom (interpolation-based downsampling)
-                            try:
-                                from scipy.ndimage import zoom
-                            except ImportError as err:
-                                raise ImportError(
-                                    "scipy is required for scipy_zoom method. Install with: pip install scipy"
-                                ) from err
-
-                            zoom_factors = _build_zoom_factors(
-                                incremental_scale_factors,
-                                has_channels,
-                                final_axis_order,
-                                current_shape,
-                            )
-                            # Read from current_dask for scipy zoom
-                            current_data = current_dask.compute()
-                            downsampled = zoom(
-                                current_data, zoom_factors, order=1, prefilter=False
-                            ).astype(dtype)
-
-                        else:
-                            raise ValueError(
-                                f"Unknown downsample_method: {downsample_method}. "
-                                "Supported methods: 'dask_coarsen', 'scipy_zoom'"
-                            )
-
-                        # Update shape for next iteration
-                        current_shape = downsampled.shape
-
-                        # Create array for this pyramid level (stored at root)
-                        if verbose:
-                            print(f"      Writing level {level_idx} to zarr...", flush=True)
-                        level_zarr_array = _create_zarr_array(
-                            root,
-                            str(level_idx),
-                            data=downsampled,
-                            chunks=tuple(min(d, 256) for d in current_shape),
-                        )
-                        if verbose:
-                            level_time = time.time() - level_start_time
-                            print(f"      ✓ Level {level_idx} complete ({level_time:.1f}s)", flush=True)
-                        multiscales_metadata.append(
-                            {
-                                "path": str(level_idx),
-                                "coordinateTransformations": [
-                                    {
-                                        "type": "scale",
-                                        "scale": list(cumulative_scale_factors),
-                                    }
-                                ],
-                            }
-                        )
-
-                        # Update previous scale factors for next iteration
-                        prev_scale_factors = cumulative_scale_factors
-
-                        # Convert to Dask for next iteration (if there are more levels)
-                        if level_idx < len(pyramid_scale_factors):
-                            # Use optimal chunks for next level too
-                            next_shape = current_shape
-                            next_optimal_chunks = tuple(
-                                min(d // 4, max(d // (num_cores * 2), 256)) if i >= len(next_shape) - 2 else d
-                                for i, d in enumerate(next_shape)
-                            )
-                            current_dask = da.from_zarr(level_zarr_array, chunks=next_optimal_chunks)
 
             # Create OME metadata
             if verbose:
-                print(f"\n  [Step 3/3] Writing OME metadata...", flush=True)
+                print("\n  [Step 3/3] Writing OME metadata...", flush=True)
             # Determine axis names based on shape
             if has_channels:
                 if final_axis_order == "ZCYX":
