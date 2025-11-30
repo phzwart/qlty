@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>qlty.utils.stack_to_zarr &mdash; qlty 1.4.0 documentation</title>
+  <title>qlty.utils.stack_to_zarr &mdash; qlty 1.4.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=9172181d"></script>
+      <script src="../../../_static/documentation_options.js?v=350a9c04"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -1270,61 +1270,159 @@
                 <span class="n">current_dask</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">from_zarr</span><span class="p">(</span><span class="n">base_zarr_array</span><span class="p">)</span>
                 <span class="n">current_data</span> <span class="o">=</span> <span class="n">base_array_data</span>
                 <span class="n">current_shape</span> <span class="o">=</span> <span class="n">base_shape</span>
+                <span class="c1"># Track previous cumulative scale factors to compute incremental ones</span>
+                <span class="n">prev_scale_factors</span> <span class="o">=</span> <span class="kc">None</span>
 
-                <span class="k">for</span> <span class="n">level_idx</span><span class="p">,</span> <span class="n">scale_factors</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pyramid_scale_factors</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="c1"># Helper function to build zoom factors</span>
+                <span class="k">def</span><span class="w"> </span><span class="nf">_build_zoom_factors</span><span class="p">(</span>
+                    <span class="n">scale_factors</span><span class="p">,</span> <span class="n">has_channels</span><span class="p">,</span> <span class="n">final_axis_order</span><span class="p">,</span> <span class="n">current_shape</span>
+                <span class="p">):</span>
+<span class="w">                    </span><span class="sd">&quot;&quot;&quot;Build zoom factors for scipy.ndimage.zoom.&quot;&quot;&quot;</span>
+                    <span class="k">if</span> <span class="n">has_channels</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">final_axis_order</span> <span class="o">==</span> <span class="s2">&quot;ZCYX&quot;</span><span class="p">:</span>
+                            <span class="n">z_scale</span><span class="p">,</span> <span class="n">c_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
+                            <span class="k">return</span> <span class="p">[</span>
+                                <span class="mf">1.0</span> <span class="o">/</span> <span class="n">z_scale</span><span class="p">,</span>
+                                <span class="mf">1.0</span><span class="p">,</span>
+                                <span class="mf">1.0</span> <span class="o">/</span> <span class="n">y_scale</span><span class="p">,</span>
+                                <span class="mf">1.0</span> <span class="o">/</span> <span class="n">x_scale</span><span class="p">,</span>
+                            <span class="p">]</span>
+                        <span class="k">elif</span> <span class="n">final_axis_order</span> <span class="o">==</span> <span class="s2">&quot;CZYX&quot;</span><span class="p">:</span>
+                            <span class="n">c_scale</span><span class="p">,</span> <span class="n">z_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
+                            <span class="k">return</span> <span class="p">[</span>
+                                <span class="mf">1.0</span><span class="p">,</span>
+                                <span class="mf">1.0</span> <span class="o">/</span> <span class="n">z_scale</span><span class="p">,</span>
+                                <span class="mf">1.0</span> <span class="o">/</span> <span class="n">y_scale</span><span class="p">,</span>
+                                <span class="mf">1.0</span> <span class="o">/</span> <span class="n">x_scale</span><span class="p">,</span>
+                            <span class="p">]</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">z_scale</span><span class="p">,</span> <span class="n">c_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
+                            <span class="k">return</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">current_shape</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span>
+                                <span class="mf">1.0</span> <span class="o">/</span> <span class="n">y_scale</span><span class="p">,</span>
+                                <span class="mf">1.0</span> <span class="o">/</span> <span class="n">x_scale</span><span class="p">,</span>
+                            <span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">z_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
+                        <span class="k">return</span> <span class="p">[</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">z_scale</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">y_scale</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">x_scale</span><span class="p">]</span>
+
+                <span class="k">for</span> <span class="n">level_idx</span><span class="p">,</span> <span class="n">cumulative_scale_factors</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+                    <span class="n">pyramid_scale_factors</span><span class="p">,</span> <span class="mi">1</span>
+                <span class="p">):</span>
                     <span class="nb">print</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;  Creating pyramid level </span><span class="si">{</span><span class="n">level_idx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">num_pyramid_levels</span><span class="si">}</span><span class="s2">...&quot;</span>
                     <span class="p">)</span>
 
-                    <span class="c1"># Determine which dimensions to downsample based on scale factors</span>
+                    <span class="c1"># Compute incremental scale factors from cumulative ones</span>
+                    <span class="c1"># Cumulative scale factors are relative to base (e.g., 2, 4, 8)</span>
+                    <span class="c1"># But we need incremental factors relative to previous level (always 2x)</span>
+                    <span class="k">if</span> <span class="n">prev_scale_factors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="c1"># First level: incremental = cumulative</span>
+                        <span class="n">incremental_scale_factors</span> <span class="o">=</span> <span class="n">cumulative_scale_factors</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># Subsequent levels: incremental = cumulative / previous_cumulative</span>
+                        <span class="n">incremental_scale_factors</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                            <span class="n">curr</span> <span class="o">/</span> <span class="n">prev</span> <span class="k">if</span> <span class="n">prev</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">curr</span>
+                            <span class="k">for</span> <span class="n">curr</span><span class="p">,</span> <span class="n">prev</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                                <span class="n">cumulative_scale_factors</span><span class="p">,</span> <span class="n">prev_scale_factors</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+
+                    <span class="c1"># Determine which dimensions to downsample based on incremental scale factors</span>
                     <span class="c1"># Build coarsen dictionary: {axis_index: scale_factor}</span>
                     <span class="n">coarsen_dict</span> <span class="o">=</span> <span class="p">{}</span>
 
                     <span class="k">if</span> <span class="n">has_channels</span><span class="p">:</span>
                         <span class="k">if</span> <span class="n">final_axis_order</span> <span class="o">==</span> <span class="s2">&quot;ZCYX&quot;</span><span class="p">:</span>
-                            <span class="c1"># Shape: (Z, C, Y, X), scale_factors: (z_scale, c_scale, y_scale, x_scale)</span>
-                            <span class="n">z_scale</span><span class="p">,</span> <span class="n">c_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
+                            <span class="c1"># Shape: (Z, C, Y, X), incremental_scale_factors: (z_scale, c_scale, y_scale, x_scale)</span>
+                            <span class="p">(</span>
+                                <span class="n">z_scale</span><span class="p">,</span>
+                                <span class="n">c_scale</span><span class="p">,</span>
+                                <span class="n">y_scale</span><span class="p">,</span>
+                                <span class="n">x_scale</span><span class="p">,</span>
+                            <span class="p">)</span> <span class="o">=</span> <span class="n">incremental_scale_factors</span>
                             <span class="k">if</span> <span class="n">z_scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">z_scale</span>  <span class="c1"># Z axis</span>
+                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">z_scale</span><span class="p">)</span>  <span class="c1"># Z axis</span>
                             <span class="c1"># Skip C axis (axis 1) - never downsample channels</span>
                             <span class="k">if</span> <span class="n">y_scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_scale</span>  <span class="c1"># Y axis</span>
+                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">y_scale</span><span class="p">)</span>  <span class="c1"># Y axis</span>
                             <span class="k">if</span> <span class="n">x_scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_scale</span>  <span class="c1"># X axis</span>
+                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">x_scale</span><span class="p">)</span>  <span class="c1"># X axis</span>
                         <span class="k">elif</span> <span class="n">final_axis_order</span> <span class="o">==</span> <span class="s2">&quot;CZYX&quot;</span><span class="p">:</span>
-                            <span class="c1"># Shape: (C, Z, Y, X), scale_factors: (c_scale, z_scale, y_scale, x_scale)</span>
-                            <span class="n">c_scale</span><span class="p">,</span> <span class="n">z_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
+                            <span class="c1"># Shape: (C, Z, Y, X), incremental_scale_factors: (c_scale, z_scale, y_scale, x_scale)</span>
+                            <span class="p">(</span>
+                                <span class="n">c_scale</span><span class="p">,</span>
+                                <span class="n">z_scale</span><span class="p">,</span>
+                                <span class="n">y_scale</span><span class="p">,</span>
+                                <span class="n">x_scale</span><span class="p">,</span>
+                            <span class="p">)</span> <span class="o">=</span> <span class="n">incremental_scale_factors</span>
                             <span class="c1"># Skip C axis (axis 0) - never downsample channels</span>
                             <span class="k">if</span> <span class="n">z_scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">z_scale</span>  <span class="c1"># Z axis</span>
+                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">z_scale</span><span class="p">)</span>  <span class="c1"># Z axis</span>
                             <span class="k">if</span> <span class="n">y_scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_scale</span>  <span class="c1"># Y axis</span>
+                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">y_scale</span><span class="p">)</span>  <span class="c1"># Y axis</span>
                             <span class="k">if</span> <span class="n">x_scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_scale</span>  <span class="c1"># X axis</span>
+                                <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">x_scale</span><span class="p">)</span>  <span class="c1"># X axis</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="c1"># Generic: assume standard order and downsample based on scale factors</span>
                             <span class="c1"># This is a fallback - ideally users should specify correct axis order</span>
-                            <span class="k">for</span> <span class="n">dim_idx</span><span class="p">,</span> <span class="n">scale</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">scale_factors</span><span class="p">):</span>
+                            <span class="k">for</span> <span class="n">dim_idx</span><span class="p">,</span> <span class="n">scale</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">incremental_scale_factors</span><span class="p">):</span>
                                 <span class="k">if</span> <span class="p">(</span>
                                     <span class="n">scale</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">dim_idx</span> <span class="o">!=</span> <span class="mi">1</span>
                                 <span class="p">):</span>  <span class="c1"># Don&#39;t downsample channels</span>
-                                    <span class="n">coarsen_dict</span><span class="p">[</span><span class="n">dim_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">scale</span>
+                                    <span class="n">coarsen_dict</span><span class="p">[</span><span class="n">dim_idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
-                        <span class="c1"># Single channel: (Z, Y, X), scale_factors: (z_scale, y_scale, x_scale)</span>
-                        <span class="n">z_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
+                        <span class="c1"># Single channel: (Z, Y, X), incremental_scale_factors: (z_scale, y_scale, x_scale)</span>
+                        <span class="n">z_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">incremental_scale_factors</span>
                         <span class="k">if</span> <span class="n">z_scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                            <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">z_scale</span>  <span class="c1"># Z axis</span>
+                            <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">z_scale</span><span class="p">)</span>  <span class="c1"># Z axis</span>
                         <span class="k">if</span> <span class="n">y_scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                            <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_scale</span>  <span class="c1"># Y axis</span>
+                            <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">y_scale</span><span class="p">)</span>  <span class="c1"># Y axis</span>
                         <span class="k">if</span> <span class="n">x_scale</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                            <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_scale</span>  <span class="c1"># X axis</span>
+                            <span class="n">coarsen_dict</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">x_scale</span><span class="p">)</span>  <span class="c1"># X axis</span>
 
                     <span class="c1"># Downsample using Dask coarsen (block averaging)</span>
                     <span class="k">if</span> <span class="n">downsample_method</span> <span class="o">==</span> <span class="s2">&quot;dask_coarsen&quot;</span><span class="p">:</span>
                         <span class="k">if</span> <span class="n">coarsen_dict</span><span class="p">:</span>
+                            <span class="c1"># Check if dimensions are divisible by scale factors</span>
+                            <span class="c1"># Dask coarsen requires exact divisibility</span>
+                            <span class="c1"># If not divisible, pad with zeros to make them divisible</span>
+                            <span class="c1"># Padding is done at the end (right/bottom) of each dimension</span>
+                            <span class="n">needs_padding</span> <span class="o">=</span> <span class="kc">False</span>
+                            <span class="n">padded_shape</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">current_shape</span><span class="p">)</span>
+                            <span class="n">pad_widths</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">current_shape</span><span class="p">)</span>
+
+                            <span class="k">for</span> <span class="n">axis</span><span class="p">,</span> <span class="n">scale</span> <span class="ow">in</span> <span class="n">coarsen_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                                <span class="k">if</span> <span class="n">current_shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">%</span> <span class="n">scale</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                                    <span class="n">needs_padding</span> <span class="o">=</span> <span class="kc">True</span>
+                                    <span class="c1"># Calculate padding needed to make divisible</span>
+                                    <span class="n">remainder</span> <span class="o">=</span> <span class="n">current_shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">%</span> <span class="n">scale</span>
+                                    <span class="n">padding_needed</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">-</span> <span class="n">remainder</span>
+                                    <span class="n">padded_shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                                        <span class="n">current_shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">+</span> <span class="n">padding_needed</span>
+                                    <span class="p">)</span>
+                                    <span class="c1"># Pad at the end (right/bottom) - zeros are added to edges</span>
+                                    <span class="n">pad_widths</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">padding_needed</span><span class="p">)</span>
+
+                            <span class="k">if</span> <span class="n">needs_padding</span><span class="p">:</span>
+                                <span class="c1"># Pad the data with zeros</span>
+                                <span class="n">current_data_padded</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span>
+                                    <span class="n">current_data</span><span class="p">,</span>
+                                    <span class="n">pad_widths</span><span class="p">,</span>
+                                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span>
+                                    <span class="n">constant_values</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                                <span class="p">)</span>
+                                <span class="c1"># Convert padded numpy array to Dask array for coarsening</span>
+                                <span class="c1"># Use same chunk size as original dask array</span>
+                                <span class="n">current_dask_padded</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">from_array</span><span class="p">(</span>
+                                    <span class="n">current_data_padded</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">current_dask</span><span class="o">.</span><span class="n">chunks</span>
+                                <span class="p">)</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="n">current_data_padded</span> <span class="o">=</span> <span class="n">current_data</span>
+                                <span class="n">current_dask_padded</span> <span class="o">=</span> <span class="n">current_dask</span>
+
                             <span class="c1"># Use dask coarsen with mean reduction for block averaging</span>
                             <span class="n">downsampled_dask</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span>
-                                <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="n">current_dask</span><span class="p">,</span> <span class="n">coarsen_dict</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="n">current_dask_padded</span><span class="p">,</span> <span class="n">coarsen_dict</span>
                             <span class="p">)</span>
                             <span class="c1"># Compute the result and convert to numpy</span>
                             <span class="n">downsampled</span> <span class="o">=</span> <span class="n">downsampled_dask</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
@@ -1333,7 +1431,7 @@
                             <span class="n">downsampled</span> <span class="o">=</span> <span class="n">current_data</span>
 
                     <span class="k">elif</span> <span class="n">downsample_method</span> <span class="o">==</span> <span class="s2">&quot;scipy_zoom&quot;</span><span class="p">:</span>
-                        <span class="c1"># Fallback to scipy zoom</span>
+                        <span class="c1"># Use scipy zoom (interpolation-based downsampling)</span>
                         <span class="k">try</span><span class="p">:</span>
                             <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.ndimage</span><span class="w"> </span><span class="kn">import</span> <span class="n">zoom</span>
                         <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
@@ -1341,33 +1439,12 @@
                                 <span class="s2">&quot;scipy is required for scipy_zoom method. Install with: pip install scipy&quot;</span>
                             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
 
-                        <span class="c1"># Build zoom factors</span>
-                        <span class="k">if</span> <span class="n">has_channels</span><span class="p">:</span>
-                            <span class="k">if</span> <span class="n">final_axis_order</span> <span class="o">==</span> <span class="s2">&quot;ZCYX&quot;</span><span class="p">:</span>
-                                <span class="n">z_scale</span><span class="p">,</span> <span class="n">c_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
-                                <span class="n">zoom_factors</span> <span class="o">=</span> <span class="p">[</span>
-                                    <span class="mf">1.0</span> <span class="o">/</span> <span class="n">z_scale</span><span class="p">,</span>
-                                    <span class="mf">1.0</span><span class="p">,</span>
-                                    <span class="mf">1.0</span> <span class="o">/</span> <span class="n">y_scale</span><span class="p">,</span>
-                                    <span class="mf">1.0</span> <span class="o">/</span> <span class="n">x_scale</span><span class="p">,</span>
-                                <span class="p">]</span>
-                            <span class="k">elif</span> <span class="n">final_axis_order</span> <span class="o">==</span> <span class="s2">&quot;CZYX&quot;</span><span class="p">:</span>
-                                <span class="n">c_scale</span><span class="p">,</span> <span class="n">z_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
-                                <span class="n">zoom_factors</span> <span class="o">=</span> <span class="p">[</span>
-                                    <span class="mf">1.0</span><span class="p">,</span>
-                                    <span class="mf">1.0</span> <span class="o">/</span> <span class="n">z_scale</span><span class="p">,</span>
-                                    <span class="mf">1.0</span> <span class="o">/</span> <span class="n">y_scale</span><span class="p">,</span>
-                                    <span class="mf">1.0</span> <span class="o">/</span> <span class="n">x_scale</span><span class="p">,</span>
-                                <span class="p">]</span>
-                            <span class="k">else</span><span class="p">:</span>
-                                <span class="n">zoom_factors</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">current_shape</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span>
-                                    <span class="mf">1.0</span> <span class="o">/</span> <span class="n">y_scale</span><span class="p">,</span>
-                                    <span class="mf">1.0</span> <span class="o">/</span> <span class="n">x_scale</span><span class="p">,</span>
-                                <span class="p">]</span>
-                        <span class="k">else</span><span class="p">:</span>
-                            <span class="n">z_scale</span><span class="p">,</span> <span class="n">y_scale</span><span class="p">,</span> <span class="n">x_scale</span> <span class="o">=</span> <span class="n">scale_factors</span>
-                            <span class="n">zoom_factors</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">z_scale</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">y_scale</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">x_scale</span><span class="p">]</span>
-
+                        <span class="n">zoom_factors</span> <span class="o">=</span> <span class="n">_build_zoom_factors</span><span class="p">(</span>
+                            <span class="n">incremental_scale_factors</span><span class="p">,</span>
+                            <span class="n">has_channels</span><span class="p">,</span>
+                            <span class="n">final_axis_order</span><span class="p">,</span>
+                            <span class="n">current_shape</span><span class="p">,</span>
+                        <span class="p">)</span>
                         <span class="n">downsampled</span> <span class="o">=</span> <span class="n">zoom</span><span class="p">(</span>
                             <span class="n">current_data</span><span class="p">,</span> <span class="n">zoom_factors</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">prefilter</span><span class="o">=</span><span class="kc">False</span>
                         <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
@@ -1394,11 +1471,14 @@
                             <span class="s2">&quot;coordinateTransformations&quot;</span><span class="p">:</span> <span class="p">[</span>
                                 <span class="p">{</span>
                                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;scale&quot;</span><span class="p">,</span>
-                                    <span class="s2">&quot;scale&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">scale_factors</span><span class="p">),</span>
+                                    <span class="s2">&quot;scale&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">cumulative_scale_factors</span><span class="p">),</span>
                                 <span class="p">}</span>
                             <span class="p">],</span>
                         <span class="p">}</span>
                     <span class="p">)</span>
+
+                    <span class="c1"># Update previous scale factors for next iteration</span>
+                    <span class="n">prev_scale_factors</span> <span class="o">=</span> <span class="n">cumulative_scale_factors</span>
 
                     <span class="c1"># Convert to Dask for next iteration (if there are more levels)</span>
                     <span class="k">if</span> <span class="n">level_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">pyramid_scale_factors</span><span class="p">):</span>
