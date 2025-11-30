@@ -1176,17 +1176,50 @@ def stack_files_to_ome_zarr(
                 if verbose:
                     print(f"\n    Starting multiprocessing pool with {workers} workers...", flush=True)
                     print(f"    Images will be batched across {workers} cores", flush=True)
+                    # Verify actual worker count
+                    try:
+                        import os
+                        import psutil
+                        actual_cpu_count = psutil.cpu_count(logical=False)  # Physical cores
+                        logical_cpu_count = psutil.cpu_count(logical=True)  # Logical cores
+                        print(f"    DEBUG: System has {actual_cpu_count} physical cores, {logical_cpu_count} logical cores", flush=True)
+                        print(f"    DEBUG: multiprocessing.cpu_count() = {multiprocessing.cpu_count()}", flush=True)
+                        print(f"    DEBUG: Requested workers = {workers}", flush=True)
+                    except ImportError:
+                        print(f"    DEBUG: multiprocessing.cpu_count() = {multiprocessing.cpu_count()}", flush=True)
+                        print(f"    DEBUG: Requested workers = {workers}", flush=True)
                     print(f"    LOADING {len(file_list)} IMAGES - PROGRESS BAR BELOW:", flush=True)
                     print("-"*70, flush=True)
-                with multiprocessing.Pool(processes=workers) as pool:
+                
+                # Create pool and verify it actually created workers
+                pool = multiprocessing.Pool(processes=workers)
+                if verbose:
+                    try:
+                        import psutil
+                        current_process = psutil.Process()
+                        children = current_process.children(recursive=True)
+                        print(f"    DEBUG: Pool created, active child processes: {len(children)}", flush=True)
+                        if len(children) < workers:
+                            print(f"    WARNING: Only {len(children)} child processes created, expected {workers}!", flush=True)
+                    except ImportError:
+                        pass
+                
+                try:
                     filepaths = [f for _, f in file_list]
                     # Always show progress - use tqdm if available, otherwise manual progress
+                    # CRITICAL: Use chunksize to batch work - this ensures all workers stay busy
+                    # chunksize = max(1, len(filepaths) // (workers * 4)) ensures good load balancing
+                    chunksize = max(1, len(filepaths) // (workers * 4))
+                    if verbose:
+                        print(f"    DEBUG: Using chunksize={chunksize} for better load balancing", flush=True)
+                    
                     if tqdm is not None:
                         if verbose:
                             print("", flush=True)  # Blank line before progress bar
+                        # Use imap with chunksize - preserves order AND improves load balancing
                         images = list(
                             tqdm(
-                                pool.imap(load_func, filepaths),
+                                pool.imap(load_func, filepaths, chunksize=chunksize),
                                 total=len(filepaths),
                                 desc="    READING IMAGES",
                                 unit="img",
@@ -1199,12 +1232,13 @@ def stack_files_to_ome_zarr(
                     else:
                         # Manual progress bar when tqdm not available
                         if verbose:
-                            print(f"    Processing images in parallel batches...", flush=True)
+                            print(f"    Processing images in parallel batches (chunksize={chunksize})...", flush=True)
                             print(f"    [{' ' * 50}] 0%", end='', flush=True)
                         total = len(filepaths)
                         completed = 0
                         images = []
-                        for result in pool.imap(load_func, filepaths):
+                        # Use imap with chunksize for better load balancing while preserving order
+                        for result in pool.imap(load_func, filepaths, chunksize=chunksize):
                             images.append(result)
                             completed += 1
                             if verbose:
@@ -1214,8 +1248,20 @@ def stack_files_to_ome_zarr(
                                 print(f"\r    [{bar}] {percent}% ({completed}/{total})", end='', flush=True)
                         if verbose:
                             print("", flush=True)  # New line after progress
+                        # Note: images may be out of order, but that's OK for loading
+                        # If order matters, we'd need to track indices
                     if verbose:
                         print(f"\n    ✓ Loaded {len(images)} images using {workers} parallel workers", flush=True)
+                        try:
+                            import psutil
+                            current_process = psutil.Process()
+                            children = current_process.children(recursive=True)
+                            print(f"    DEBUG: After loading, active child processes: {len(children)}", flush=True)
+                        except ImportError:
+                            pass
+                finally:
+                    pool.close()
+                    pool.join()
             else:
                 if verbose:
                     print(f"\n    Loading images sequentially...", flush=True)
@@ -1332,11 +1378,26 @@ def stack_files_to_ome_zarr(
                 # For 800 slices of 3k x 3k: ~800 * 3000 * 3000 * 2 bytes = ~14GB per level
                 # Use larger chunks to reduce overhead, but not too large to fit in memory
                 # Wrap entire pyramid creation in scheduler context
+                if verbose:
+                    try:
+                        import psutil
+                        actual_cpu_count = psutil.cpu_count(logical=False)
+                        logical_cpu_count = psutil.cpu_count(logical=True)
+                        print(f"    DEBUG: System has {actual_cpu_count} physical cores, {logical_cpu_count} logical cores", flush=True)
+                        print(f"    DEBUG: Dask will use {num_cores} workers", flush=True)
+                    except ImportError:
+                        pass
+                
                 with dask.config.set(
                     scheduler="processes",  # Use processes, not threads (bypasses GIL)
                     num_workers=num_cores,  # Use all cores
                     threads_per_worker=1,   # One thread per worker (processes handle parallelism)
                 ):
+                    if verbose:
+                        # Verify Dask configuration
+                        print(f"    DEBUG: Dask scheduler = {dask.config.get('scheduler')}", flush=True)
+                        print(f"    DEBUG: Dask num_workers = {dask.config.get('num_workers')}", flush=True)
+                        print(f"    DEBUG: Dask threads_per_worker = {dask.config.get('threads_per_worker')}", flush=True)
                     # Convert base array to Dask array for efficient downsampling
                     # Use optimal chunk size: balance between parallelism and memory
                     # For 800x3000x3000: chunks of ~(50, 1000, 1000) gives ~800MB chunks, good parallelism
@@ -1529,6 +1590,15 @@ def stack_files_to_ome_zarr(
                                 if verbose:
                                     print(f"\n      COMPUTING DOWNSAMPLED ARRAY - PROGRESS BAR BELOW:", flush=True)
                                     print("-"*70, flush=True)
+                                    # Monitor CPU usage before computation
+                                    try:
+                                        import psutil
+                                        cpu_before = psutil.cpu_percent(interval=0.1, percpu=True)
+                                        active_cores_before = sum(1 for c in cpu_before if c > 5)
+                                        print(f"      DEBUG: Active CPU cores before compute: {active_cores_before}/{len(cpu_before)}", flush=True)
+                                    except ImportError:
+                                        pass
+                                    
                                     try:
                                         from dask.diagnostics import ProgressBar
                                         print("", flush=True)  # Blank line before progress bar
@@ -1539,6 +1609,19 @@ def stack_files_to_ome_zarr(
                                         # Fallback: manual progress updates
                                         print(f"      Processing {num_tasks} tasks...", flush=True)
                                         downsampled = downsampled_dask.compute().astype(dtype)
+                                    
+                                    # Monitor CPU usage after computation
+                                    try:
+                                        import psutil
+                                        cpu_after = psutil.cpu_percent(interval=0.1, percpu=True)
+                                        active_cores_after = sum(1 for c in cpu_after if c > 5)
+                                        print(f"      DEBUG: Active CPU cores after compute: {active_cores_after}/{len(cpu_after)}", flush=True)
+                                        # Check active processes
+                                        current_process = psutil.Process()
+                                        children = current_process.children(recursive=True)
+                                        print(f"      DEBUG: Active child processes during compute: {len(children)}", flush=True)
+                                    except ImportError:
+                                        pass
                                 else:
                                     downsampled = downsampled_dask.compute().astype(dtype)
                                 
