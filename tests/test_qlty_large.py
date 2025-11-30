@@ -23,7 +23,7 @@ def temp_dir():
 
 
 @pytest.mark.parametrize(
-    "step, border",
+    ("step", "border"),
     [
         ((16, 32), None),
         ((16, 32), (0, 0)),
@@ -40,14 +40,14 @@ def test_LargeNCYXQuilt(temp_dir, step, border):
         img = []
         for jj in range(3):
             tmp = np.sin((jj + 1) * X + ii * np.pi / 3.0) + np.cos(
-                (ii + 1) * Y + np.pi * jj / 3.0
+                (ii + 1) * Y + np.pi * jj / 3.0,
             )
             img.append(tmp)
         img = torch.Tensor(einops.rearrange(img, "C Y X -> C Y X"))
         imgs.append(img)
 
     imgs_in = einops.rearrange(imgs, "N C Y X -> N C Y X")
-    _ = einops.reduce(imgs_in, "N C Y X -> N () Y X", reduction="sum")  # noqa: F841
+    _ = einops.reduce(imgs_in, "N C Y X -> N () Y X", reduction="sum")
 
     filename = os.path.join(temp_dir, "test_2d")
     quilt = qlty2DLarge.LargeNCYXQuilt(
@@ -67,8 +67,10 @@ def test_LargeNCYXQuilt(temp_dir, step, border):
     labels[:, 10:118, 10:118] = 1.0  # Some valid data
     labels = labels.unsqueeze(1)
 
-    ain, aout = quilt.unstitch_and_clean_sparse_data_pair(
-        imgs_in, labels, missing_label
+    ain, _aout = quilt.unstitch_and_clean_sparse_data_pair(
+        imgs_in,
+        labels,
+        missing_label,
     )
 
     # Verify we got some patches
@@ -78,7 +80,7 @@ def test_LargeNCYXQuilt(temp_dir, step, border):
 
     # Test stitching process
     for ii in range(quilt.N_chunks):
-        ind, tmp = quilt.unstitch_next(imgs_in)
+        _ind, tmp = quilt.unstitch_next(imgs_in)
         # Simulate neural network output
         neural_network_result = tmp.unsqueeze(0)
         quilt.stitch(neural_network_result, ii)
@@ -100,7 +102,7 @@ def test_LargeNCYXQuilt(temp_dir, step, border):
 
 
 @pytest.mark.parametrize(
-    "step, border",
+    ("step", "border"),
     [
         ((16, 16, 16), None),
         ((16, 16, 16), (0, 0, 0)),
@@ -146,8 +148,10 @@ def test_LargeNCZYXQuilt(temp_dir, step, border):
     labels[:, 5:59, 5:59, 5:59] = 1.0  # Some valid data
     labels = labels.unsqueeze(1)
 
-    ain, aout = quilt.unstitch_and_clean_sparse_data_pair(
-        imgs_in, labels, missing_label
+    ain, _aout = quilt.unstitch_and_clean_sparse_data_pair(
+        imgs_in,
+        labels,
+        missing_label,
     )
 
     # Verify we got some patches
@@ -157,7 +161,7 @@ def test_LargeNCZYXQuilt(temp_dir, step, border):
 
     # Test stitching process
     for ii in range(quilt.N_chunks):
-        ind, tmp = quilt.unstitch_next(imgs_in)
+        _ind, tmp = quilt.unstitch_next(imgs_in)
         neural_network_result = tmp.unsqueeze(0)
         quilt.stitch(neural_network_result, ii)
 
@@ -195,7 +199,7 @@ def test_LargeNCYXQuilt_empty_patches(temp_dir):
     labels = torch.zeros((2, 100, 100)) - 1  # All missing
     labels = labels.unsqueeze(1)
 
-    ain, aout = quilt.unstitch_and_clean_sparse_data_pair(data, labels, -1)
+    ain, _aout = quilt.unstitch_and_clean_sparse_data_pair(data, labels, -1)
 
     # Should return empty lists when no valid patches
     assert len(ain) == 0 or (isinstance(ain, list) and len(ain) == 0)
@@ -230,7 +234,7 @@ def test_LargeNCYXQuilt_with_std(temp_dir):
 
     # Process all chunks
     for ii in range(quilt.N_chunks):
-        ind, tmp = quilt.unstitch_next(data)
+        _ind, tmp = quilt.unstitch_next(data)
         result = tmp.unsqueeze(0)
         # Provide variance
         var = torch.ones_like(result) * 0.1

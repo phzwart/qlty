@@ -15,7 +15,12 @@ from qlty.cleanup import (
 def test_weed_sparse_2D_3d_border_with_channels():
     """Test 2D weeding with 3D border_tensor and 4D tensor_out (channels)."""
     quilt = qlty2D.NCYXQuilt(
-        Y=64, X=64, window=(32, 32), step=(16, 16), border=(5, 5), border_weight=0.1
+        Y=64,
+        X=64,
+        window=(32, 32),
+        step=(16, 16),
+        border=(5, 5),
+        border_weight=0.1,
     )
 
     # Create a 3D border tensor (N, Y, X) to test the elif len(border_tensor.shape) == 3 case
@@ -25,8 +30,11 @@ def test_weed_sparse_2D_3d_border_with_channels():
     tensor_in = torch.randn(10, 3, 32, 32)
     tensor_out = torch.ones(10, 1, 32, 32) * 2  # With channel dimension
 
-    newin, newout, sel = weed_sparse_classification_training_pairs_2D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+    newin, newout, _sel = weed_sparse_classification_training_pairs_2D(
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     # Should handle 3D border tensor case
@@ -53,7 +61,10 @@ def test_weed_sparse_3D_with_channels():
     tensor_out = torch.ones(10, 1, 16, 16, 16) * 2  # With channel dimension
 
     newin, newout, sel = weed_sparse_classification_training_pairs_3D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     # Should work with channel dimension
@@ -70,8 +81,11 @@ def test_weed_sparse_3D_fallback_case():
     tensor_in = torch.randn(10, 2, 16, 16, 16)
     tensor_out = torch.ones(10, 1, 16, 16, 16) * 2
 
-    newin, newout, sel = weed_sparse_classification_training_pairs_3D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+    newin, newout, _sel = weed_sparse_classification_training_pairs_3D(
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     # Should handle fallback case
@@ -92,8 +106,11 @@ def test_weed_sparse_3D_4d_border_with_channels():
     tensor_in = torch.randn(10, 2, 16, 16, 16)
     tensor_out = torch.ones(10, 1, 16, 16, 16) * 2  # With channel
 
-    newin, newout, sel = weed_sparse_classification_training_pairs_3D(
-        tensor_in, tensor_out, missing_label=-1, border_tensor=border_tensor
+    newin, newout, _sel = weed_sparse_classification_training_pairs_3D(
+        tensor_in,
+        tensor_out,
+        missing_label=-1,
+        border_tensor=border_tensor,
     )
 
     assert newin.shape[0] == 10

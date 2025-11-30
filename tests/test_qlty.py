@@ -11,7 +11,8 @@ from qlty import qlty2D, qlty3D
 
 
 @pytest.mark.parametrize(
-    "step, border", [((16, 32), (None)), ((16, 32), (0, 0)), ((8, 8), (2, 3))]
+    ("step", "border"),
+    [((16, 32), (None)), ((16, 32), (0, 0)), ((8, 8), (2, 3))],
 )
 def test_NCYXQuilt(step, border):
     x = np.linspace(0, np.pi * 2.0, 128)
@@ -22,7 +23,7 @@ def test_NCYXQuilt(step, border):
         img = []
         for jj in range(3):
             tmp = np.sin((jj + 1) * X + ii * np.pi / 3.0) + np.cos(
-                (ii + 1) * Y + np.pi * jj / 3.0
+                (ii + 1) * Y + np.pi * jj / 3.0,
             )
             img.append(tmp)
         img = torch.Tensor(einops.rearrange(img, "C Y X -> C Y X"))
@@ -31,12 +32,17 @@ def test_NCYXQuilt(step, border):
     imgs_in = einops.rearrange(imgs, "N C Y X -> N C Y X")
     imgs_out = einops.reduce(imgs_in, "N C Y X -> N () Y X", reduction="sum")
     quilt = qlty2D.NCYXQuilt(
-        Y=128, X=128, window=(16, 32), step=step, border=border, border_weight=0.07
+        Y=128,
+        X=128,
+        window=(16, 32),
+        step=step,
+        border=border,
+        border_weight=0.07,
     )
     ain, aout = quilt.unstitch_data_pair(imgs_in, imgs_out)
 
-    reconstruct_in, win = quilt.stitch(ain)
-    reconstruct_out, wout = quilt.stitch(aout)
+    reconstruct_in, _win = quilt.stitch(ain)
+    reconstruct_out, _wout = quilt.stitch(aout)
 
     for ii in range(10):
         reco_in = reconstruct_in[ii, ...]
@@ -61,7 +67,7 @@ def test_NCYXQuilt(step, border):
 
 
 @pytest.mark.parametrize(
-    "step, border",
+    ("step", "border"),
     [((16, 16, 16), (None)), ((16, 16, 16), (0, 0, 0)), ((7, 7, 7), (1, 1, 3))],
 )
 def test_NCZYXQuilt(step, border):
@@ -94,8 +100,8 @@ def test_NCZYXQuilt(step, border):
     )
 
     ain, aout = quilt.unstitch_data_pair(imgs_in, imgs_out)
-    reconstruct_in, win = quilt.stitch(ain)
-    reconstruct_out, wout = quilt.stitch(aout)
+    reconstruct_in, _win = quilt.stitch(ain)
+    reconstruct_out, _wout = quilt.stitch(aout)
 
     for ii in range(3):
         reco_in = reconstruct_in[ii, ...]

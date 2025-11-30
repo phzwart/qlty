@@ -202,13 +202,15 @@ def test_unstitch_and_clean_sparse_data_pair_3d_tensor_out(temp_dir):
     tensor_out[:, 0:10, 0:10] = missing_label
 
     ain, aout = quilt.unstitch_and_clean_sparse_data_pair(
-        tensor_in, tensor_out, missing_label
+        tensor_in,
+        tensor_out,
+        missing_label,
     )
 
     # Should handle 3D tensor_out by adding channel dimension
     if len(ain) > 0:
-        assert isinstance(ain, torch.Tensor) or isinstance(ain, list)
-        assert isinstance(aout, torch.Tensor) or isinstance(aout, list)
+        assert isinstance(ain, (torch.Tensor, list))
+        assert isinstance(aout, (torch.Tensor, list))
 
 
 def test_unstitch_and_clean_sparse_data_pair_rearranged(temp_dir):
@@ -236,7 +238,9 @@ def test_unstitch_and_clean_sparse_data_pair_rearranged(temp_dir):
     tensor_out[:, 20:30, 20:30] = missing_label
 
     ain, aout = quilt.unstitch_and_clean_sparse_data_pair(
-        tensor_in, tensor_out, missing_label
+        tensor_in,
+        tensor_out,
+        missing_label,
     )
 
     # Should handle 3D tensor_out and rearrange it

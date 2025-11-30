@@ -8,7 +8,7 @@ torch = pytest.importorskip("torch")
 
 
 @pytest.mark.parametrize(
-    "window,step",
+    ("window", "step"),
     [
         ((16, 32), (8, 8)),  # parity coloring sufficient
         ((16, 32), (4, 8)),  # requires four colors along Y
