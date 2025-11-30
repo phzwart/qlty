@@ -1516,6 +1516,7 @@ def stack_files_to_ome_zarr(
             multiscales_metadata = []
             if verbose:
                 print("  ✓ Zarr root group created", flush=True)
+                print("  Calculating pyramid level shapes...", flush=True)
 
             # Calculate pyramid level shapes progressively, accounting for padding
             # This MUST match the exact downsampling process: pad -> downsample
@@ -1604,6 +1605,11 @@ def stack_files_to_ome_zarr(
                     # Update simulated shape for next iteration
                     current_simulated_shape = list(level_shape)
                     prev_cumulative_scale_factors = cumulative_scale_factors
+            
+            if verbose:
+                print(f"  ✓ Calculated {len(pyramid_level_shapes)} pyramid level shapes", flush=True)
+                for idx, shape in enumerate(pyramid_level_shapes):
+                    print(f"    Level {idx}: {shape}", flush=True)
 
             # Determine chunk size for all levels
             if zarr_chunks is None:
@@ -1623,6 +1629,7 @@ def stack_files_to_ome_zarr(
             # Use zarr 3.0+ API: shape must be a keyword argument
             if verbose:
                 print("\n    Creating all pyramid level zarr arrays (empty, will write in parallel)...", flush=True)
+                print(f"    Creating base level (0) with shape {base_shape}...", flush=True)
             base_zarr_array = root.create(
                 "0",
                 shape=base_shape,
@@ -1630,9 +1637,13 @@ def stack_files_to_ome_zarr(
                 dtype=dtype,
             )
             pyramid_zarr_arrays = [base_zarr_array]
+            if verbose:
+                print(f"    ✓ Created base level (0)", flush=True)
 
             # Create pyramid level arrays
             for level_idx, level_shape in enumerate(pyramid_level_shapes[1:], start=1):
+                if verbose:
+                    print(f"    Creating pyramid level {level_idx} with shape {level_shape}...", flush=True)
                 level_chunks = tuple(min(d, 256) for d in level_shape)
                 # Zarr 3.0+ API: shape must be a keyword argument
                 level_array = root.create(
@@ -1642,6 +1653,8 @@ def stack_files_to_ome_zarr(
                     dtype=dtype,
                 )
                 pyramid_zarr_arrays.append(level_array)
+                if verbose:
+                    print(f"    ✓ Created pyramid level {level_idx}", flush=True)
 
             if verbose:
                 print(f"    ✓ Created {len(pyramid_level_shapes)} pyramid level arrays", flush=True)
