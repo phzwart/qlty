@@ -1187,6 +1187,38 @@ def stack_files_to_ome_zarr(
                 current_data = base_array_data
                 current_shape = base_shape
 
+                # Helper function to build zoom factors
+                def _build_zoom_factors(
+                    scale_factors, has_channels, final_axis_order, current_shape
+                ):
+                    """Build zoom factors for scipy.ndimage.zoom."""
+                    if has_channels:
+                        if final_axis_order == "ZCYX":
+                            z_scale, c_scale, y_scale, x_scale = scale_factors
+                            return [
+                                1.0 / z_scale,
+                                1.0,
+                                1.0 / y_scale,
+                                1.0 / x_scale,
+                            ]
+                        elif final_axis_order == "CZYX":
+                            c_scale, z_scale, y_scale, x_scale = scale_factors
+                            return [
+                                1.0,
+                                1.0 / z_scale,
+                                1.0 / y_scale,
+                                1.0 / x_scale,
+                            ]
+                        else:
+                            z_scale, c_scale, y_scale, x_scale = scale_factors
+                            return [1.0] * (len(current_shape) - 2) + [
+                                1.0 / y_scale,
+                                1.0 / x_scale,
+                            ]
+                    else:
+                        z_scale, y_scale, x_scale = scale_factors
+                        return [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
+
                 for level_idx, scale_factors in enumerate(pyramid_scale_factors, 1):
                     print(
                         f"  Creating pyramid level {level_idx + 1}/{num_pyramid_levels}..."
@@ -1238,9 +1270,46 @@ def stack_files_to_ome_zarr(
                     # Downsample using Dask coarsen (block averaging)
                     if downsample_method == "dask_coarsen":
                         if coarsen_dict:
+                            # Check if dimensions are divisible by scale factors
+                            # Dask coarsen requires exact divisibility
+                            # If not divisible, pad with zeros to make them divisible
+                            # Padding is done at the end (right/bottom) of each dimension
+                            needs_padding = False
+                            padded_shape = list(current_shape)
+                            pad_widths = [(0, 0)] * len(current_shape)
+
+                            for axis, scale in coarsen_dict.items():
+                                if current_shape[axis] % scale != 0:
+                                    needs_padding = True
+                                    # Calculate padding needed to make divisible
+                                    remainder = current_shape[axis] % scale
+                                    padding_needed = scale - remainder
+                                    padded_shape[axis] = (
+                                        current_shape[axis] + padding_needed
+                                    )
+                                    # Pad at the end (right/bottom) - zeros are added to edges
+                                    pad_widths[axis] = (0, padding_needed)
+
+                            if needs_padding:
+                                # Pad the data with zeros
+                                current_data_padded = np.pad(
+                                    current_data,
+                                    pad_widths,
+                                    mode="constant",
+                                    constant_values=0,
+                                )
+                                # Convert padded numpy array to Dask array for coarsening
+                                # Use same chunk size as original dask array
+                                current_dask_padded = da.from_array(
+                                    current_data_padded, chunks=current_dask.chunks
+                                )
+                            else:
+                                current_data_padded = current_data
+                                current_dask_padded = current_dask
+
                             # Use dask coarsen with mean reduction for block averaging
                             downsampled_dask = da.coarsen(
-                                np.mean, current_dask, coarsen_dict
+                                np.mean, current_dask_padded, coarsen_dict
                             )
                             # Compute the result and convert to numpy
                             downsampled = downsampled_dask.compute().astype(dtype)
@@ -1249,7 +1318,7 @@ def stack_files_to_ome_zarr(
                             downsampled = current_data
 
                     elif downsample_method == "scipy_zoom":
-                        # Fallback to scipy zoom
+                        # Use scipy zoom (interpolation-based downsampling)
                         try:
                             from scipy.ndimage import zoom
                         except ImportError as err:
@@ -1257,33 +1326,9 @@ def stack_files_to_ome_zarr(
                                 "scipy is required for scipy_zoom method. Install with: pip install scipy"
                             ) from err
 
-                        # Build zoom factors
-                        if has_channels:
-                            if final_axis_order == "ZCYX":
-                                z_scale, c_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [
-                                    1.0 / z_scale,
-                                    1.0,
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                            elif final_axis_order == "CZYX":
-                                c_scale, z_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [
-                                    1.0,
-                                    1.0 / z_scale,
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                            else:
-                                zoom_factors = [1.0] * (len(current_shape) - 2) + [
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                        else:
-                            z_scale, y_scale, x_scale = scale_factors
-                            zoom_factors = [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
-
+                        zoom_factors = _build_zoom_factors(
+                            scale_factors, has_channels, final_axis_order, current_shape
+                        )
                         downsampled = zoom(
                             current_data, zoom_factors, order=1, prefilter=False
                         ).astype(dtype)
