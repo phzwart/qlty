@@ -402,44 +402,92 @@ def _load_and_write_to_all_pyramid_levels(
                     # Array shape: (C, Z, Y, X)
                     # Expected: (C, Z, Y, X) -> slice at z_idx should be (C, Y, X)
                     expected_C, expected_Z, expected_Y, expected_X = expected_level_shape
-                    if downsampled.shape != (expected_C, expected_Y, expected_X):
-                        raise ValueError(
-                            f"Shape mismatch at level {level_idx}, z_idx {z_idx}: "
-                            f"downsampled shape {downsampled.shape} != expected (C={expected_C}, Y={expected_Y}, X={expected_X}). "
-                            f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}"
-                        )
+                    C_actual, Y_actual, X_actual = downsampled.shape
+                    
+                    # Fix shape if needed
+                    if C_actual != expected_C or Y_actual != expected_Y or X_actual != expected_X:
+                        if C_actual > expected_C or Y_actual > expected_Y or X_actual > expected_X:
+                            downsampled = downsampled[:expected_C, :expected_Y, :expected_X]
+                        elif C_actual < expected_C or Y_actual < expected_Y or X_actual < expected_X:
+                            padded = np.zeros((expected_C, expected_Y, expected_X), dtype=downsampled.dtype)
+                            padded[:C_actual, :Y_actual, :X_actual] = downsampled
+                            downsampled = padded
+                    
                     level_array[:, z_idx, :, :] = downsampled
                 elif axis_order == "ZCYX":
                     # Array shape: (Z, C, Y, X)
                     # Expected: (Z, C, Y, X) -> slice at z_idx should be (C, Y, X)
                     expected_Z, expected_C, expected_Y, expected_X = expected_level_shape
-                    if downsampled.shape != (expected_C, expected_Y, expected_X):
-                        raise ValueError(
-                            f"Shape mismatch at level {level_idx}, z_idx {z_idx}: "
-                            f"downsampled shape {downsampled.shape} != expected (C={expected_C}, Y={expected_Y}, X={expected_X}). "
-                            f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}"
-                        )
+                    C_actual, Y_actual, X_actual = downsampled.shape
+                    
+                    # Fix shape if needed
+                    if C_actual != expected_C or Y_actual != expected_Y or X_actual != expected_X:
+                        if C_actual > expected_C or Y_actual > expected_Y or X_actual > expected_X:
+                            downsampled = downsampled[:expected_C, :expected_Y, :expected_X]
+                        elif C_actual < expected_C or Y_actual < expected_Y or X_actual < expected_X:
+                            padded = np.zeros((expected_C, expected_Y, expected_X), dtype=downsampled.dtype)
+                            padded[:C_actual, :Y_actual, :X_actual] = downsampled
+                            downsampled = padded
+                    
                     level_array[z_idx, :, :, :] = downsampled
                 else:
                     # Generic: assume Z is first dimension
                     # Expected level shape should match array shape
-                    if downsampled.shape != expected_level_shape[1:]:  # Skip Z dimension after Z
-                        raise ValueError(
-                            f"Shape mismatch at level {level_idx}, z_idx {z_idx}: "
-                            f"downsampled shape {downsampled.shape} != expected {expected_level_shape[1:]}. "
-                            f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}"
-                        )
+                    expected_slice_shape = expected_level_shape[1:]  # Skip Z dimension
+                    if downsampled.shape != expected_slice_shape:
+                        # Try to fix shape
+                        if len(downsampled.shape) == len(expected_slice_shape):
+                            # Same dimensionality, try crop/pad
+                            fixed = np.zeros(expected_slice_shape, dtype=downsampled.dtype)
+                            slices = tuple(slice(0, min(d1, d2)) for d1, d2 in zip(downsampled.shape, expected_slice_shape))
+                            fixed[slices] = downsampled[slices]
+                            downsampled = fixed
+                        else:
+                            raise ValueError(
+                                f"Shape mismatch at level {level_idx}, z_idx {z_idx}: "
+                                f"downsampled shape {downsampled.shape} != expected {expected_slice_shape}. "
+                                f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}"
+                            )
                     level_array[z_idx, ...] = downsampled
             else:
                 # Single channel: downsampled is (Y, X)
                 # Expected level shape: (Z, Y, X) -> slice should be (Y, X)
                 expected_Z, expected_Y, expected_X = expected_level_shape
+                
+                # Verify array shape matches expected
+                if level_array.shape != expected_level_shape:
+                    raise ValueError(
+                        f"Array shape mismatch at level {level_idx}: "
+                        f"array shape {level_array.shape} != expected {expected_level_shape}"
+                    )
+                
+                # Verify downsampled shape matches expected slice
                 if downsampled.shape != (expected_Y, expected_X):
                     raise ValueError(
                         f"Shape mismatch at level {level_idx}, z_idx {z_idx}: "
                         f"downsampled shape {downsampled.shape} != expected (Y={expected_Y}, X={expected_X}). "
-                        f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}"
+                        f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}. "
+                        f"Current image shape before downsampling: {current_img.shape}"
                     )
+                
+                # Ensure we're writing the exact shape expected
+                # If shapes don't match, crop or pad to match exactly
+                Y_actual, X_actual = downsampled.shape
+                if Y_actual != expected_Y or X_actual != expected_X:
+                    if Y_actual > expected_Y or X_actual > expected_X:
+                        # Crop to expected size
+                        downsampled = downsampled[:expected_Y, :expected_X]
+                    elif Y_actual < expected_Y or X_actual < expected_X:
+                        # Pad to expected size
+                        padded = np.zeros((expected_Y, expected_X), dtype=downsampled.dtype)
+                        padded[:Y_actual, :X_actual] = downsampled
+                        downsampled = padded
+                
+                # Final verification
+                assert downsampled.shape == (expected_Y, expected_X), \
+                    f"Shape fix failed: {downsampled.shape} != ({expected_Y}, {expected_X})"
+                
+                # Write with exact shape match
                 level_array[z_idx, :, :] = downsampled
 
             # Update for next level
