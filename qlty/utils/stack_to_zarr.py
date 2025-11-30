@@ -1176,54 +1176,77 @@ def stack_files_to_ome_zarr(
             # Create pyramid levels using Dask for parallel processing
             if num_pyramid_levels > 1:
                 try:
+                    import dask
                     import dask.array as da
                 except ImportError as err:
                     raise ImportError(
                         "dask is required for pyramid creation. Install with: pip install dask"
                     ) from err
 
-                # Convert base array to Dask array for efficient downsampling
-                current_dask = da.from_zarr(base_zarr_array)
-                current_data = base_array_data
-                current_shape = base_shape
-                # Track previous cumulative scale factors to compute incremental ones
-                prev_scale_factors = None
-
-                # Helper function to build zoom factors
-                def _build_zoom_factors(
-                    scale_factors, has_channels, final_axis_order, current_shape
+                # Configure Dask for maximum parallelism
+                # Use processes (not threads) to bypass GIL for CPU-bound numpy operations
+                # This is critical for large arrays on multi-core machines
+                import multiprocessing
+                num_cores = multiprocessing.cpu_count()
+                
+                # Configure Dask to use all available cores with processes
+                # Set chunk size based on available memory and cores
+                # For 800 slices of 3k x 3k: ~800 * 3000 * 3000 * 2 bytes = ~14GB per level
+                # Use larger chunks to reduce overhead, but not too large to fit in memory
+                # Wrap entire pyramid creation in scheduler context
+                with dask.config.set(
+                    scheduler="processes",  # Use processes, not threads (bypasses GIL)
+                    num_workers=num_cores,  # Use all cores
+                    threads_per_worker=1,   # One thread per worker (processes handle parallelism)
                 ):
-                    """Build zoom factors for scipy.ndimage.zoom."""
-                    if has_channels:
-                        if final_axis_order == "ZCYX":
-                            z_scale, c_scale, y_scale, x_scale = scale_factors
-                            return [
-                                1.0 / z_scale,
-                                1.0,
-                                1.0 / y_scale,
-                                1.0 / x_scale,
-                            ]
-                        elif final_axis_order == "CZYX":
-                            c_scale, z_scale, y_scale, x_scale = scale_factors
-                            return [
-                                1.0,
-                                1.0 / z_scale,
-                                1.0 / y_scale,
-                                1.0 / x_scale,
-                            ]
+                    # Convert base array to Dask array for efficient downsampling
+                    # Use optimal chunk size: balance between parallelism and memory
+                    # For 800x3000x3000: chunks of ~(50, 1000, 1000) gives ~800MB chunks, good parallelism
+                    optimal_chunks = tuple(
+                        min(d // 4, max(d // (num_cores * 2), 256)) if i >= len(base_shape) - 2 else d
+                        for i, d in enumerate(base_shape)
+                    )
+                    current_dask = da.from_zarr(base_zarr_array, chunks=optimal_chunks)
+                    current_data = base_array_data
+                    current_shape = base_shape
+                    # Track previous cumulative scale factors to compute incremental ones
+                    prev_scale_factors = None
+
+                    # Helper function to build zoom factors
+                    def _build_zoom_factors(
+                        scale_factors, has_channels, final_axis_order, current_shape
+                    ):
+                        """Build zoom factors for scipy.ndimage.zoom."""
+                        if has_channels:
+                            if final_axis_order == "ZCYX":
+                                z_scale, c_scale, y_scale, x_scale = scale_factors
+                                return [
+                                    1.0 / z_scale,
+                                    1.0,
+                                    1.0 / y_scale,
+                                    1.0 / x_scale,
+                                ]
+                            elif final_axis_order == "CZYX":
+                                c_scale, z_scale, y_scale, x_scale = scale_factors
+                                return [
+                                    1.0,
+                                    1.0 / z_scale,
+                                    1.0 / y_scale,
+                                    1.0 / x_scale,
+                                ]
+                            else:
+                                z_scale, c_scale, y_scale, x_scale = scale_factors
+                                return [1.0] * (len(current_shape) - 2) + [
+                                    1.0 / y_scale,
+                                    1.0 / x_scale,
+                                ]
                         else:
-                            z_scale, c_scale, y_scale, x_scale = scale_factors
-                            return [1.0] * (len(current_shape) - 2) + [
-                                1.0 / y_scale,
-                                1.0 / x_scale,
-                            ]
-                    else:
-                        z_scale, y_scale, x_scale = scale_factors
-                        return [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
+                            z_scale, y_scale, x_scale = scale_factors
+                            return [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
 
-                for level_idx, cumulative_scale_factors in enumerate(
-                    pyramid_scale_factors, 1
-                ):
+                    for level_idx, cumulative_scale_factors in enumerate(
+                        pyramid_scale_factors, 1
+                    ):
                     print(
                         f"  Creating pyramid level {level_idx + 1}/{num_pyramid_levels}..."
                     )
@@ -1340,7 +1363,8 @@ def stack_files_to_ome_zarr(
                             downsampled_dask = da.coarsen(
                                 np.mean, current_dask_padded, coarsen_dict
                             )
-                            # Compute the result and convert to numpy
+                            # Compute the result using process scheduler (configured above)
+                            # This will use all available cores efficiently
                             downsampled = downsampled_dask.compute().astype(dtype)
                         else:
                             # No downsampling needed for this level (shouldn't happen, but handle gracefully)
@@ -1398,7 +1422,13 @@ def stack_files_to_ome_zarr(
 
                     # Convert to Dask for next iteration (if there are more levels)
                     if level_idx < len(pyramid_scale_factors):
-                        current_dask = da.from_zarr(level_zarr_array)
+                        # Use optimal chunks for next level too
+                        next_shape = current_data.shape
+                        next_optimal_chunks = tuple(
+                            min(d // 4, max(d // (num_cores * 2), 256)) if i >= len(next_shape) - 2 else d
+                            for i, d in enumerate(next_shape)
+                        )
+                        current_dask = da.from_zarr(level_zarr_array, chunks=next_optimal_chunks)
 
             # Create OME metadata
             # Determine axis names based on shape
