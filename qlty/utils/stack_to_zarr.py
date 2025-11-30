@@ -1146,20 +1146,25 @@ def stack_files_to_ome_zarr(
             if verbose:
                 print("\n  [Step 1/3] Loading images for base level...", flush=True)
             # Load images (reuse logic from stack_files_to_zarr)
-            use_multiprocessing = False
+            # Use same worker count as Dask will use for consistency
+            import multiprocessing
             if num_workers is None:
-                use_multiprocessing = multiprocessing.cpu_count() > 1
-                workers = multiprocessing.cpu_count()
+                num_cores = multiprocessing.cpu_count()
+                use_multiprocessing = num_cores > 1
+                workers = num_cores
             elif num_workers > 1:
                 use_multiprocessing = True
                 workers = num_workers
+                num_cores = num_workers
             else:
                 workers = 1
+                num_cores = 1
+                use_multiprocessing = False
             
             if verbose:
                 if use_multiprocessing:
-                    print(f"    Using multiprocessing with {workers} workers", flush=True)
-                    print(f"    Loading {len(file_list)} images...", flush=True)
+                    print(f"    Using multiprocessing with {workers} workers (one per core)", flush=True)
+                    print(f"    Loading {len(file_list)} images in parallel batches...", flush=True)
                 else:
                     print(f"    Using sequential loading (1 worker)", flush=True)
                     print(f"    Loading {len(file_list)} images...", flush=True)
@@ -1167,7 +1172,8 @@ def stack_files_to_ome_zarr(
             if use_multiprocessing and len(file_list) > 10:
                 load_func = partial(_load_and_process_image, dtype=dtype)
                 if verbose:
-                    print(f"    Starting multiprocessing pool...", flush=True)
+                    print(f"    Starting multiprocessing pool with {workers} workers...", flush=True)
+                    print(f"    Images will be batched across {workers} cores", flush=True)
                 with multiprocessing.Pool(processes=workers) as pool:
                     filepaths = [f for _, f in file_list]
                     if tqdm is not None:
@@ -1181,7 +1187,7 @@ def stack_files_to_ome_zarr(
                         )
                     else:
                         if verbose:
-                            print(f"    Processing images in parallel...", flush=True)
+                            print(f"    Processing images in parallel batches...", flush=True)
                             # Add periodic progress updates
                             total = len(filepaths)
                             completed = 0
@@ -1194,7 +1200,7 @@ def stack_files_to_ome_zarr(
                         else:
                             images = pool.map(load_func, filepaths)
                         if verbose:
-                            print(f"    ✓ Loaded {len(images)} images", flush=True)
+                            print(f"    ✓ Loaded {len(images)} images using {workers} parallel workers", flush=True)
             else:
                 if verbose and not tqdm:
                     print(f"    Loading images sequentially...", flush=True)
@@ -1263,14 +1269,19 @@ def stack_files_to_ome_zarr(
                 # Configure Dask for maximum parallelism
                 # Use processes (not threads) to bypass GIL for CPU-bound numpy operations
                 # This is critical for large arrays on multi-core machines
-                import multiprocessing
-                num_cores = multiprocessing.cpu_count()
+                # Use same worker count as image loading for consistency
+                if num_workers is None:
+                    num_cores = multiprocessing.cpu_count()
+                elif num_workers > 1:
+                    num_cores = num_workers
+                else:
+                    num_cores = 1
                 
                 if verbose:
                     print(f"\n  [Step 2/3] Creating {num_pyramid_levels - 1} pyramid level(s)...", flush=True)
                     print(f"    Dask configuration:", flush=True)
                     print(f"      Scheduler: processes (bypasses GIL)", flush=True)
-                    print(f"      Workers: {num_cores}", flush=True)
+                    print(f"      Workers: {num_cores} (one per core)", flush=True)
                     print(f"      Threads per worker: 1", flush=True)
                 
                 # Configure Dask to use all available cores with processes
