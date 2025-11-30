@@ -849,6 +849,8 @@
     <span class="p">}</span>
 
 
+<div class="viewcode-block" id="extract_patch_pairs_metadata">
+<a class="viewcode-back" href="../../api.html#qlty.patch_pairs_2d.extract_patch_pairs_metadata">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">extract_patch_pairs_metadata</span><span class="p">(</span>
     <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
@@ -1022,9 +1024,12 @@
     <span class="c1"># Store window in metadata (from first result, all should have same window)</span>
     <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;window&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;window&quot;</span><span class="p">]</span>
 
-    <span class="k">return</span> <span class="n">metadata</span>
+    <span class="k">return</span> <span class="n">metadata</span></div>
 
 
+
+<div class="viewcode-block" id="extract_patches_from_metadata">
+<a class="viewcode-back" href="../../api.html#qlty.patch_pairs_2d.extract_patches_from_metadata">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">extract_patches_from_metadata</span><span class="p">(</span>
     <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
@@ -1134,9 +1139,12 @@
         <span class="n">deltas</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">dy</span>
         <span class="n">rotations</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation</span>
 
-    <span class="k">return</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span>
+    <span class="k">return</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span></div>
 
 
+
+<div class="viewcode-block" id="extract_patches_to_zarr">
+<a class="viewcode-back" href="../../api.html#qlty.patch_pairs_2d.extract_patches_to_zarr">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">extract_patches_to_zarr</span><span class="p">(</span>
     <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
@@ -1299,9 +1307,12 @@
         <span class="p">},</span>
     <span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">zarr_group</span>
+    <span class="k">return</span> <span class="n">zarr_group</span></div>
 
 
+
+<div class="viewcode-block" id="ZarrPatchPairDataset">
+<a class="viewcode-back" href="../../api.html#qlty.patch_pairs_2d.ZarrPatchPairDataset">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ZarrPatchPairDataset</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    PyTorch-compatible dataset for reading patch pairs from Zarr storage.</span>
@@ -1399,7 +1410,8 @@
                 <span class="n">rotation</span><span class="p">,</span>
             <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span>
+        <span class="k">return</span> <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span></div>
+
 </pre></div>
 
            </div>

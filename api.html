@@ -101,6 +101,36 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#advanced-patch-pair-functions">Advanced Patch Pair Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#extract-patch-pairs-metadata">extract_patch_pairs_metadata</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.patch_pairs_2d.extract_patch_pairs_metadata"><code class="docutils literal notranslate"><span class="pre">extract_patch_pairs_metadata()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-patches-from-metadata">extract_patches_from_metadata</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.patch_pairs_2d.extract_patches_from_metadata"><code class="docutils literal notranslate"><span class="pre">extract_patches_from_metadata()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-patches-to-zarr">extract_patches_to_zarr</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.patch_pairs_2d.extract_patches_to_zarr"><code class="docutils literal notranslate"><span class="pre">extract_patches_to_zarr()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#zarrpatchpairdataset">ZarrPatchPairDataset</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.patch_pairs_2d.ZarrPatchPairDataset"><code class="docutils literal notranslate"><span class="pre">ZarrPatchPairDataset</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#image-stack-utilities">Image Stack Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#stack-files-to-zarr">stack_files_to_zarr</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.utils.stack_to_zarr.stack_files_to_zarr"><code class="docutils literal notranslate"><span class="pre">stack_files_to_zarr()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#stack-files-to-ome-zarr">stack_files_to_ome_zarr</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#qlty.utils.stack_to_zarr.stack_files_to_ome_zarr"><code class="docutils literal notranslate"><span class="pre">stack_files_to_ome_zarr()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#pre-tokenization-for-patch-processing-2d">Pre-Tokenization for Patch Processing (2D)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#tokenize-patch">tokenize_patch</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#qlty.pretokenizer_2d.sequences.tokenize_patch"><code class="docutils literal notranslate"><span class="pre">tokenize_patch()</span></code></a></li>
@@ -1455,6 +1485,569 @@ and corresponding pixels are at the same index in both tensors.</p>
 </div>
 </section>
 </section>
+<section id="advanced-patch-pair-functions">
+<h2>Advanced Patch Pair Functions<a class="headerlink" href="#advanced-patch-pair-functions" title="Link to this heading"></a></h2>
+<section id="extract-patch-pairs-metadata">
+<h3>extract_patch_pairs_metadata<a class="headerlink" href="#extract-patch-pairs-metadata" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.patch_pairs_2d.extract_patch_pairs_metadata">
+<span class="sig-prename descclassname"><span class="pre">qlty.patch_pairs_2d.</span></span><span class="sig-name descname"><span class="pre">extract_patch_pairs_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_patches</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_choices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/patch_pairs_2d.html#extract_patch_pairs_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.patch_pairs_2d.extract_patch_pairs_metadata" title="Link to this definition"></a></dt>
+<dd><p>Extract patch pair metadata (locations and statistics) without loading full patches.</p>
+<p>This function performs a “dry-run” that generates patch locations and computes
+mean/sigma statistics for each patch, enabling memory-efficient stratified sampling.
+Uses multiprocessing to parallelize across images (z-slices).</p>
+<section id="id67">
+<h4>Parameters<a class="headerlink" href="#id67" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Y, X) where:
+- N: Number of images
+- C: Number of channels
+- Y: Height of images
+- X: Width of images</p>
+</dd>
+<dt>window<span class="classifier">Tuple[int, int]</span></dt><dd><p>Window shape (U, V) where:
+- U: Height of patches
+- V: Width of patches</p>
+</dd>
+<dt>num_patches<span class="classifier">int</span></dt><dd><p>Number of patch pairs P to extract per image</p>
+</dd>
+<dt>delta_range<span class="classifier">Tuple[float, float]</span></dt><dd><p>Range (low, high) for the Euclidean distance of displacement vectors.
+The constraint is: low &lt;= sqrt(dx_i² + dy_i²) &lt;= high
+Additionally, low and high must satisfy: window//4 &lt;= low &lt;= high &lt;= 3*window//4
+where window is the maximum of U and V.</p>
+</dd>
+<dt>random_seed<span class="classifier">Optional[int], optional</span></dt><dd><p>Random seed for reproducibility. If None, uses current random state.
+Default is None.</p>
+</dd>
+<dt>rotation_choices<span class="classifier">Optional[Sequence[int]], optional</span></dt><dd><p>Allowed quarter-turn rotations (0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°) to apply
+to the second patch in each pair. If provided, a rotation from this set is
+sampled uniformly per pair and tracked in the returned <cite>rotations</cite> tensor.
+When None (default), no rotations are applied.</p>
+</dd>
+<dt>num_workers<span class="classifier">Optional[int], optional</span></dt><dd><p>Number of worker processes for multiprocessing. If None, uses all available CPUs.
+If 1, processes sequentially. Default is None.</p>
+</dd>
+</dl>
+</section>
+<section id="id68">
+<h4>Returns<a class="headerlink" href="#id68" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Dict[str, torch.Tensor]</dt><dd><p>Dictionary containing metadata tensors, all of shape (N*P,):
+- image_idx: Image index for each patch pair
+- patch1_y, patch1_x: Coordinates of first patch
+- patch2_y, patch2_x: Coordinates of second patch
+- dx, dy: Displacement vectors
+- rotation: Rotation applied to patch2
+- mean1, sigma1: Mean and std dev of patch1 (across all channels)
+- mean2, sigma2: Mean and std dev of patch2 (across all channels)</p>
+</dd>
+</dl>
+</section>
+<section id="id69">
+<h4>Raises<a class="headerlink" href="#id69" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>ValueError</dt><dd><p>If delta_range constraints are violated or image dimensions are too small
+for the specified window and delta range.</p>
+</dd>
+</dl>
+</section>
+<section id="id70">
+<h4>Examples<a class="headerlink" href="#id70" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>  <span class="c1"># 5 images, 3 channels, 128x128</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>  <span class="c1"># 32x32 patches</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">num_patches</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># 10 patch pairs per image</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">)</span>  <span class="c1"># Euclidean distance between 8 and 16 pixels</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_patch_pairs_metadata</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;mean1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (50,)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;image_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (50,)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.patch_pairs_2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs_metadata</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>  <span class="c1"># 10 images, 3 channels, 128x128</span>
+<span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="n">num_patches</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">)</span>
+
+<span class="c1"># Extract metadata without loading patches into memory</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_patch_pairs_metadata</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span>
+    <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">4</span>
+<span class="p">)</span>
+
+<span class="c1"># metadata contains:</span>
+<span class="c1"># - patch1_x, patch1_y: Coordinates of first patches</span>
+<span class="c1"># - patch2_x, patch2_y: Coordinates of second patches</span>
+<span class="c1"># - dx, dy: Displacement vectors</span>
+<span class="c1"># - rotation: Rotation applied to second patch</span>
+<span class="c1"># - image_idx: Which image each patch pair came from</span>
+<span class="c1"># - mean1, mean2: Mean values of patches</span>
+<span class="c1"># - sigma1, sigma2: Standard deviations of patches</span>
+<span class="c1"># - window: Window size used</span>
+</pre></div>
+</div>
+</section>
+<section id="extract-patches-from-metadata">
+<h3>extract_patches_from_metadata<a class="headerlink" href="#extract-patches-from-metadata" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.patch_pairs_2d.extract_patches_from_metadata">
+<span class="sig-prename descclassname"><span class="pre">qlty.patch_pairs_2d.</span></span><span class="sig-name descname"><span class="pre">extract_patches_from_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">selected_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/patch_pairs_2d.html#extract_patches_from_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.patch_pairs_2d.extract_patches_from_metadata" title="Link to this definition"></a></dt>
+<dd><p>Extract patch pairs from tensor using pre-computed metadata and selected indices.</p>
+<p>This function extracts only the patches specified by selected_indices, enabling
+memory-efficient extraction after stratified sampling.</p>
+<section id="id71">
+<h4>Parameters<a class="headerlink" href="#id71" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Y, X) from which patches were originally sampled</p>
+</dd>
+<dt>metadata<span class="classifier">Dict[str, Union[torch.Tensor, Tuple[int, int]]]</span></dt><dd><p>Metadata dictionary returned by extract_patch_pairs_metadata()</p>
+</dd>
+<dt>selected_indices<span class="classifier">Union[torch.Tensor, Sequence[int]]</span></dt><dd><p>Indices of patches to extract. Can be a torch.Tensor or list/array of integers.</p>
+</dd>
+</dl>
+</section>
+<section id="id72">
+<h4>Returns<a class="headerlink" href="#id72" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</dt><dd><p>A tuple containing:
+- patches1: Tensor of shape (len(selected_indices), C, U, V)
+- patches2: Tensor of shape (len(selected_indices), C, U, V)
+- deltas: Tensor of shape (len(selected_indices), 2)
+- rotations: Tensor of shape (len(selected_indices),)</p>
+</dd>
+</dl>
+</section>
+<section id="id73">
+<h4>Examples<a class="headerlink" href="#id73" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_patch_pairs_metadata</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">selected</span> <span class="o">=</span> <span class="n">uniform_manifold_sample</span><span class="p">(</span><span class="n">means</span><span class="p">,</span> <span class="n">sigmas</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patches_from_metadata</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">tensor</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">selected</span>
+<span class="gp">... </span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.patch_pairs_2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">extract_patch_pairs_metadata</span><span class="p">,</span>
+    <span class="n">extract_patches_from_metadata</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="n">num_patches</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">)</span>
+
+<span class="c1"># First, extract metadata</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_patch_pairs_metadata</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span>
+<span class="p">)</span>
+
+<span class="c1"># Later, extract patches for specific indices</span>
+<span class="n">selected_indices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">]</span>  <span class="c1"># Extract only these patch pairs</span>
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patches_from_metadata</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">selected_indices</span>
+<span class="p">)</span>
+
+<span class="c1"># patches1: (4, 3, 32, 32) - only selected patches</span>
+<span class="c1"># patches2: (4, 3, 32, 32)</span>
+<span class="c1"># deltas: (4, 2)</span>
+<span class="c1"># rotations: (4,)</span>
+</pre></div>
+</div>
+</section>
+<section id="extract-patches-to-zarr">
+<h3>extract_patches_to_zarr<a class="headerlink" href="#extract-patches-to-zarr" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.patch_pairs_2d.extract_patches_to_zarr">
+<span class="sig-prename descclassname"><span class="pre">qlty.patch_pairs_2d.</span></span><span class="sig-name descname"><span class="pre">extract_patches_to_zarr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">selected_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zarr_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zarr_chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Group</span></span></span><a class="reference internal" href="_modules/qlty/patch_pairs_2d.html#extract_patches_to_zarr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.patch_pairs_2d.extract_patches_to_zarr" title="Link to this definition"></a></dt>
+<dd><p>Extract patch pairs to a Zarr group for on-disk storage.</p>
+<p>Creates a Zarr group with arrays for patches1, patches2, deltas, and rotations,
+enabling memory-efficient storage and dataloader access.</p>
+<section id="id74">
+<h4>Parameters<a class="headerlink" href="#id74" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>tensor<span class="classifier">torch.Tensor</span></dt><dd><p>Input tensor of shape (N, C, Y, X) from which patches were originally sampled</p>
+</dd>
+<dt>metadata<span class="classifier">Dict[str, Union[torch.Tensor, Tuple[int, int]]]</span></dt><dd><p>Metadata dictionary returned by extract_patch_pairs_metadata()</p>
+</dd>
+<dt>selected_indices<span class="classifier">Union[torch.Tensor, Sequence[int]]</span></dt><dd><p>Indices of patches to extract</p>
+</dd>
+<dt>zarr_path<span class="classifier">Union[str, zarr.Group]</span></dt><dd><p>Path to zarr file/group or existing zarr group. If string, creates new group.</p>
+</dd>
+<dt>zarr_chunks<span class="classifier">Optional[Tuple[int, …]], optional</span></dt><dd><p>Chunk size for patch arrays. Default: (1, C, U, V) for patches, (1, 2) for deltas</p>
+</dd>
+</dl>
+</section>
+<section id="id75">
+<h4>Returns<a class="headerlink" href="#id75" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>zarr.Group</dt><dd><p>Zarr group containing:
+- patches1: Array of shape (num_selected, C, U, V)
+- patches2: Array of shape (num_selected, C, U, V)
+- deltas: Array of shape (num_selected, 2)
+- rotations: Array of shape (num_selected,)
+- metadata attributes stored in group.attrs</p>
+</dd>
+</dl>
+</section>
+<section id="id76">
+<h4>Examples<a class="headerlink" href="#id76" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_patch_pairs_metadata</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">selected</span> <span class="o">=</span> <span class="n">uniform_manifold_sample</span><span class="p">(</span><span class="n">means</span><span class="p">,</span> <span class="n">sigmas</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zarr_group</span> <span class="o">=</span> <span class="n">extract_patches_to_zarr</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">selected</span><span class="p">,</span> <span class="s2">&quot;patches.zarr&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;patches1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (num_selected, C, U, V)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.patch_pairs_2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">extract_patch_pairs_metadata</span><span class="p">,</span>
+    <span class="n">extract_patches_to_zarr</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+<span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="n">num_patches</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">)</span>
+
+<span class="c1"># Extract metadata</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_patch_pairs_metadata</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span>
+<span class="p">)</span>
+
+<span class="c1"># Save patches to Zarr format</span>
+<span class="n">zarr_path</span> <span class="o">=</span> <span class="s2">&quot;patches.zarr&quot;</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+
+<span class="n">extract_patches_to_zarr</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">group</span><span class="p">,</span>
+    <span class="n">chunk_size</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>  <span class="c1"># Custom chunk size</span>
+<span class="p">)</span>
+
+<span class="c1"># Patches are now stored in Zarr format:</span>
+<span class="c1"># - group[&quot;patches1&quot;]: (N*num_patches, C, U, V)</span>
+<span class="c1"># - group[&quot;patches2&quot;]: (N*num_patches, C, U, V)</span>
+<span class="c1"># - group[&quot;deltas&quot;]: (N*num_patches, 2)</span>
+<span class="c1"># - group[&quot;rotations&quot;]: (N*num_patches,)</span>
+<span class="c1"># - group.attrs[&quot;metadata&quot;]: Original metadata dict</span>
+</pre></div>
+</div>
+</section>
+<section id="zarrpatchpairdataset">
+<h3>ZarrPatchPairDataset<a class="headerlink" href="#zarrpatchpairdataset" title="Link to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="qlty.patch_pairs_2d.ZarrPatchPairDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">qlty.patch_pairs_2d.</span></span><span class="sig-name descname"><span class="pre">ZarrPatchPairDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zarr_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">zarr.Group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">callable</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/qlty/patch_pairs_2d.html#ZarrPatchPairDataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.patch_pairs_2d.ZarrPatchPairDataset" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>PyTorch-compatible dataset for reading patch pairs from Zarr storage.</p>
+<p>This class provides a clean interface for dataloader access to patch pairs
+stored in Zarr format, enabling memory-efficient training on large datasets.</p>
+<section id="id77">
+<h4>Parameters<a class="headerlink" href="#id77" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>zarr_path<span class="classifier">Union[str, zarr.Group]</span></dt><dd><p>Path to zarr file/group or existing zarr group</p>
+</dd>
+<dt>transform<span class="classifier">Optional[callable], optional</span></dt><dd><p>Optional transform to apply to each patch pair. Should accept
+(patch1, patch2, delta, rotation) and return transformed version.
+Default is None.</p>
+</dd>
+</dl>
+</section>
+<section id="id78">
+<h4>Examples<a class="headerlink" href="#id78" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="n">ZarrPatchPairDataset</span><span class="p">(</span><span class="s2">&quot;patches.zarr&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">))</span>  <span class="c1"># Number of patch pairs</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Get first pair</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">batch_patch1</span><span class="p">,</span> <span class="n">batch_patch2</span><span class="p">,</span> <span class="n">batch_delta</span><span class="p">,</span> <span class="n">batch_rotation</span> <span class="o">=</span> <span class="n">batch</span>
+<span class="gp">... </span>    <span class="c1"># Process batch</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.patch_pairs_2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrPatchPairDataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+
+<span class="c1"># Open existing Zarr group with patches</span>
+<span class="n">zarr_path</span> <span class="o">=</span> <span class="s2">&quot;patches.zarr&quot;</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create PyTorch Dataset</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">ZarrPatchPairDataset</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+
+<span class="c1"># Use with DataLoader</span>
+<span class="n">dataloader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="ow">in</span> <span class="n">dataloader</span><span class="p">:</span>
+    <span class="c1"># patches1: (batch_size, C, U, V)</span>
+    <span class="c1"># patches2: (batch_size, C, U, V)</span>
+    <span class="c1"># deltas: (batch_size, 2)</span>
+    <span class="c1"># rotations: (batch_size,)</span>
+    <span class="c1"># Train your model...</span>
+    <span class="k">pass</span>
+
+<span class="c1"># With custom transform</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">normalize_patches</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+    <span class="n">p1</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span> <span class="o">-</span> <span class="n">p1</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="o">/</span> <span class="n">p1</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+    <span class="n">p2</span> <span class="o">=</span> <span class="p">(</span><span class="n">p2</span> <span class="o">-</span> <span class="n">p2</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="o">/</span> <span class="n">p2</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">r</span>
+
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">ZarrPatchPairDataset</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">normalize_patches</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="image-stack-utilities">
+<h2>Image Stack Utilities<a class="headerlink" href="#image-stack-utilities" title="Link to this heading"></a></h2>
+<section id="stack-files-to-zarr">
+<h3>stack_files_to_zarr<a class="headerlink" href="#stack-files-to-zarr" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.utils.stack_to_zarr.stack_files_to_zarr">
+<span class="sig-prename descclassname"><span class="pre">qlty.utils.stack_to_zarr.</span></span><span class="sig-name descname"><span class="pre">stack_files_to_zarr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extension</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pattern</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zarr_chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dtype</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'ZCYX'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_naming</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_by_counter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/utils/stack_to_zarr.html#stack_files_to_zarr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.utils.stack_to_zarr.stack_files_to_zarr" title="Link to this definition"></a></dt>
+<dd><p>Scan directory for image files, group into 3D stacks, and save as zarr.</p>
+<section id="id79">
+<h4>Parameters<a class="headerlink" href="#id79" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>directory<span class="classifier">str | Path</span></dt><dd><p>Directory to scan for image files (top level only, non-recursive)</p>
+</dd>
+<dt>extension<span class="classifier">str</span></dt><dd><p>File extension to match (e.g., ‘.tif’, ‘.png’)</p>
+</dd>
+<dt>pattern<span class="classifier">str | re.Pattern</span></dt><dd><p>Regex pattern with two groups: (basename, counter)
+Example: r”(.+)_(d+).tif$”</p>
+</dd>
+<dt>output_dir<span class="classifier">str | Path | None</span></dt><dd><p>Directory to save zarr files. If None, saves in same directory.</p>
+</dd>
+<dt>zarr_chunks<span class="classifier">tuple[int, …] | None</span></dt><dd><p>Chunk size for zarr arrays. If None, uses reasonable defaults.</p>
+</dd>
+<dt>dtype<span class="classifier">np.dtype | None</span></dt><dd><p>Data type for zarr arrays. If None, infers from first image.</p>
+</dd>
+<dt>axis_order<span class="classifier">str</span></dt><dd><p>Axis order for multi-channel images. Default: “ZCYX”
+Options: “ZCYX”, “CZYX”, “ZYCX”, etc.
+Single channel images always use “ZYX” regardless of this setting.</p>
+</dd>
+<dt>output_naming<span class="classifier">Callable[[str], str] | None</span></dt><dd><p>Function to generate output zarr filename from basename.
+If None, uses default: f”{basename}.zarr”
+Example: lambda b: f”{b}_stack.zarr”</p>
+</dd>
+<dt>sort_by_counter<span class="classifier">bool</span></dt><dd><p>Whether to sort files by counter value (default: True)</p>
+</dd>
+<dt>dry_run<span class="classifier">bool</span></dt><dd><p>If True, only analyze files without creating zarr (default: False)</p>
+</dd>
+<dt>num_workers<span class="classifier">int | None</span></dt><dd><p>Number of worker processes for parallel image loading. If None, uses
+number of CPU cores. If 0 or 1, disables multiprocessing (default: None)</p>
+</dd>
+</dl>
+</section>
+<section id="id80">
+<h4>Returns<a class="headerlink" href="#id80" title="Link to this heading"></a></h4>
+<dl>
+<dt>dict[str, dict]</dt><dd><p>Dictionary mapping stack basename to metadata:
+{</p>
+<blockquote>
+<div><dl class="simple">
+<dt>“stack_name”: {</dt><dd><p>“zarr_path”: str,
+“shape”: tuple[int, …],  # (Z, C, Y, X) or (Z, Y, X)
+“dtype”: np.dtype,
+“file_count”: int,
+“files”: list[str],  # Sorted list of file paths
+“counter_range”: tuple[int, int],  # (min, max)
+“axis_order”: str,  # Actual axis order used</p>
+</dd>
+</dl>
+<p>}</p>
+</div></blockquote>
+<p>}</p>
+</dd>
+</dl>
+</section>
+<section id="id81">
+<h4>Examples<a class="headerlink" href="#id81" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.utils.stack_to_zarr</span><span class="w"> </span><span class="kn">import</span> <span class="n">stack_files_to_zarr</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">stack_files_to_zarr</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;/path/to/images&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">extension</span><span class="o">=</span><span class="s2">&quot;.tif&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;(.+)_(\d+)\.tif$&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;/path/to/zarr_output&quot;</span>
+<span class="gp">... </span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.utils.stack_to_zarr</span><span class="w"> </span><span class="kn">import</span> <span class="n">stack_files_to_zarr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="c1"># Convert image stack to Zarr format</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">stack_files_to_zarr</span><span class="p">(</span>
+    <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;/path/to/images&quot;</span><span class="p">,</span>
+    <span class="n">extension</span><span class="o">=</span><span class="s2">&quot;.tif&quot;</span><span class="p">,</span>
+    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;(.+)_(\d+)\.tif$&quot;</span><span class="p">,</span>  <span class="c1"># Matches: stack_001.tif, stack_002.tif</span>
+    <span class="n">axis_order</span><span class="o">=</span><span class="s2">&quot;CZYX&quot;</span>  <span class="c1"># Channel, Z, Y, X</span>
+<span class="p">)</span>
+
+<span class="c1"># result is a dict with metadata:</span>
+<span class="c1"># {</span>
+<span class="c1">#     &quot;stack&quot;: {</span>
+<span class="c1">#         &quot;zarr_path&quot;: &quot;/path/to/images/stack.zarr&quot;,</span>
+<span class="c1">#         &quot;shape&quot;: (100, 3, 512, 512),  # (Z, C, Y, X)</span>
+<span class="c1">#         &quot;file_count&quot;: 100,</span>
+<span class="c1">#         &quot;axis_order&quot;: &quot;CZYX&quot;</span>
+<span class="c1">#     }</span>
+<span class="c1"># }</span>
+</pre></div>
+</div>
+</section>
+<section id="stack-files-to-ome-zarr">
+<h3>stack_files_to_ome_zarr<a class="headerlink" href="#stack-files-to-ome-zarr" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="qlty.utils.stack_to_zarr.stack_files_to_ome_zarr">
+<span class="sig-prename descclassname"><span class="pre">qlty.utils.stack_to_zarr.</span></span><span class="sig-name descname"><span class="pre">stack_files_to_ome_zarr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extension</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pattern</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zarr_chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dtype</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'ZCYX'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_naming</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_by_counter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pyramid_levels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pyramid_scale_factors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downsample_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'2d'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downsample_axes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downsample_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'dask_coarsen'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/qlty/utils/stack_to_zarr.html#stack_files_to_ome_zarr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qlty.utils.stack_to_zarr.stack_files_to_ome_zarr" title="Link to this definition"></a></dt>
+<dd><p>Scan directory for image files, group into 3D stacks, and save as OME-Zarr with pyramids.</p>
+<p>Creates OME-Zarr format files with multiscale image pyramids (multiple resolution levels).
+OME-Zarr follows the Next-Generation File Format (NGFF) specification for bioimaging data.</p>
+<section id="id82">
+<h4>Parameters<a class="headerlink" href="#id82" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>directory<span class="classifier">str | Path</span></dt><dd><p>Directory to scan for image files (top level only, non-recursive)</p>
+</dd>
+<dt>extension<span class="classifier">str</span></dt><dd><p>File extension to match (e.g., ‘.tif’, ‘.png’)</p>
+</dd>
+<dt>pattern<span class="classifier">str | re.Pattern</span></dt><dd><p>Regex pattern with two groups: (basename, counter)
+Example: r”(.+)_(d+).tif$”</p>
+</dd>
+<dt>output_dir<span class="classifier">str | Path | None</span></dt><dd><p>Directory to save OME-Zarr files. If None, saves in same directory.</p>
+</dd>
+<dt>zarr_chunks<span class="classifier">tuple[int, …] | None</span></dt><dd><p>Chunk size for base resolution zarr arrays. If None, uses reasonable defaults.</p>
+</dd>
+<dt>dtype<span class="classifier">np.dtype | None</span></dt><dd><p>Data type for zarr arrays. If None, infers from first image.</p>
+</dd>
+<dt>axis_order<span class="classifier">str</span></dt><dd><p>Axis order for multi-channel images. Default: “ZCYX”
+Options: “ZCYX”, “CZYX”, “ZYCX”, etc.
+Single channel images always use “ZYX” regardless of this setting.
+Note: OME-Zarr standard uses “TCZYX” but we use “ZCYX” for compatibility.</p>
+</dd>
+<dt>output_naming<span class="classifier">Callable[[str], str] | None</span></dt><dd><p>Function to generate output zarr filename from basename.
+If None, uses default: f”{basename}.ome.zarr”
+Example: lambda b: f”{b}_stack.ome.zarr”</p>
+</dd>
+<dt>sort_by_counter<span class="classifier">bool</span></dt><dd><p>Whether to sort files by counter value (default: True)</p>
+</dd>
+<dt>dry_run<span class="classifier">bool</span></dt><dd><p>If True, only analyze files without creating zarr (default: False)</p>
+</dd>
+<dt>num_workers<span class="classifier">int | None</span></dt><dd><p>Number of worker processes for parallel image loading. If None, uses
+number of CPU cores. If 0 or 1, disables multiprocessing (default: None)</p>
+</dd>
+<dt>pyramid_levels<span class="classifier">int | None</span></dt><dd><p>Number of pyramid levels to create (including base level).
+If None, automatically determines based on image size.
+Example: pyramid_levels=4 creates 4 resolution levels (1x, 2x, 4x, 8x downsampled).</p>
+</dd>
+<dt>pyramid_scale_factors<span class="classifier">list[tuple[int, …]] | None</span></dt><dd><p>Custom scale factors for each pyramid level (excluding base level).
+Each tuple specifies scale factors for each dimension (Z, C, Y, X).
+If None, uses automatic 2x downsampling per level.
+Example: [(1, 1, 2, 2), (1, 1, 4, 4)] creates 2 pyramid levels with 2x and 4x downsampling in Y/X.</p>
+</dd>
+<dt>downsample_mode<span class="classifier">str</span></dt><dd><p>Downsampling mode for pyramid generation. Default: “2d”
+- “2d”: For 2D operations on 3D grid - downsample only Y, X (not Z)
+- “3d”: For pure 3D work - downsample Z, Y, X
+Ignored if downsample_axes is provided.</p>
+</dd>
+<dt>downsample_axes<span class="classifier">tuple[str, …] | None</span></dt><dd><p>Explicit control over which axes to downsample. If None, auto-determined from downsample_mode.
+Options: (“z”, “y”, “x”) or (“y”, “x”) or (“y”,) or (“x”,)
+Takes precedence over downsample_mode.</p>
+</dd>
+<dt>downsample_method<span class="classifier">str</span></dt><dd><p>Downsampling algorithm to use. Default: “dask_coarsen”
+- “dask_coarsen”: Use Dask coarsen (fast, parallel, recommended)
+- “scipy_zoom”: Use scipy.ndimage.zoom (fallback)
+Future methods can be added (e.g., “block_average”)</p>
+</dd>
+</dl>
+</section>
+<section id="id83">
+<h4>Returns<a class="headerlink" href="#id83" title="Link to this heading"></a></h4>
+<dl>
+<dt>dict[str, dict]</dt><dd><p>Dictionary mapping stack basename to metadata:
+{</p>
+<blockquote>
+<div><dl class="simple">
+<dt>“stack_name”: {</dt><dd><p>“zarr_path”: str,
+“shape”: tuple[int, …],  # (Z, C, Y, X) or (Z, Y, X) - base level
+“dtype”: np.dtype,
+“file_count”: int,
+“files”: list[str],  # Sorted list of file paths
+“counter_range”: tuple[int, int],  # (min, max)
+“axis_order”: str,  # Actual axis order used
+“pyramid_levels”: int,  # Number of pyramid levels created</p>
+</dd>
+</dl>
+<p>}</p>
+</div></blockquote>
+<p>}</p>
+</dd>
+</dl>
+</section>
+<section id="id84">
+<h4>Examples<a class="headerlink" href="#id84" title="Link to this heading"></a></h4>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.utils.stack_to_zarr</span><span class="w"> </span><span class="kn">import</span> <span class="n">stack_files_to_ome_zarr</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">stack_files_to_ome_zarr</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;/path/to/images&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">extension</span><span class="o">=</span><span class="s2">&quot;.tif&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;(.+)_(\d+)\.tif$&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;/path/to/ome_zarr_output&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">pyramid_levels</span><span class="o">=</span><span class="mi">4</span>  <span class="c1"># Create 4 resolution levels</span>
+<span class="gp">... </span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.utils.stack_to_zarr</span><span class="w"> </span><span class="kn">import</span> <span class="n">stack_files_to_ome_zarr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="c1"># Convert image stack to OME-Zarr format with multiscale pyramids</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">stack_files_to_ome_zarr</span><span class="p">(</span>
+    <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;/path/to/images&quot;</span><span class="p">,</span>
+    <span class="n">extension</span><span class="o">=</span><span class="s2">&quot;.tif&quot;</span><span class="p">,</span>
+    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;(.+)_(\d+)\.tif$&quot;</span><span class="p">,</span>
+    <span class="n">axis_order</span><span class="o">=</span><span class="s2">&quot;ZCYX&quot;</span><span class="p">,</span>  <span class="c1"># Z, Channel, Y, X</span>
+    <span class="n">pyramid_levels</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>   <span class="c1"># Create 4 resolution levels</span>
+    <span class="n">downsample_mode</span><span class="o">=</span><span class="s2">&quot;2d&quot;</span><span class="p">,</span>  <span class="c1"># Downsample in 2D (per slice)</span>
+    <span class="n">downsample_method</span><span class="o">=</span><span class="s2">&quot;dask&quot;</span>  <span class="c1"># Use dask for downsampling</span>
+<span class="p">)</span>
+
+<span class="c1"># result contains metadata and zarr path</span>
+<span class="c1"># The OME-Zarr file can be opened with:</span>
+<span class="c1"># import zarr</span>
+<span class="c1"># group = zarr.open_group(result[&quot;stack&quot;][&quot;zarr_path&quot;], mode=&quot;r&quot;)</span>
+<span class="c1"># level_0 = group[&quot;0&quot;]  # Full resolution</span>
+<span class="c1"># level_1 = group[&quot;1&quot;]  # 2x downsampled</span>
+<span class="c1"># level_2 = group[&quot;2&quot;]  # 4x downsampled</span>
+<span class="c1"># etc.</span>
+</pre></div>
+</div>
+</section>
+</section>
 <section id="pre-tokenization-for-patch-processing-2d">
 <h2>Pre-Tokenization for Patch Processing (2D)<a class="headerlink" href="#pre-tokenization-for-patch-processing-2d" title="Link to this heading"></a></h2>
 <section id="tokenize-patch">
@@ -1470,8 +2063,8 @@ These subpatches can then be tokenized (converted to embeddings) by downstream
 models. Subpatches are extracted such that they never extend beyond patch boundaries.</p>
 <p>This function uses qlty’s NCYXQuilt framework for patch extraction, ensuring
 consistency with the rest of the qlty codebase.</p>
-<section id="id67">
-<h4>Parameters<a class="headerlink" href="#id67" title="Link to this heading"></a></h4>
+<section id="id85">
+<h4>Parameters<a class="headerlink" href="#id85" title="Link to this heading"></a></h4>
 <dl class="simple">
 <dt>patch<span class="classifier">torch.Tensor</span></dt><dd><p>Input patch of shape (C, H, W) where:
 - C: Number of channels
@@ -1485,8 +2078,8 @@ Must be positive and &lt;= patch_size.</p>
 </dd>
 </dl>
 </section>
-<section id="id68">
-<h4>Returns<a class="headerlink" href="#id68" title="Link to this heading"></a></h4>
+<section id="id86">
+<h4>Returns<a class="headerlink" href="#id86" title="Link to this heading"></a></h4>
 <dl>
 <dt>Tuple[torch.Tensor, torch.Tensor]</dt><dd><p>A tuple containing:
 - tokens: Tensor of shape (T, C * patch_size * patch_size) where T is</p>
@@ -1500,8 +2093,8 @@ Must be positive and &lt;= patch_size.</p>
 </dd>
 </dl>
 </section>
-<section id="id69">
-<h4>Examples<a class="headerlink" href="#id69" title="Link to this heading"></a></h4>
+<section id="id87">
+<h4>Examples<a class="headerlink" href="#id87" title="Link to this heading"></a></h4>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">patch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>  <span class="c1"># 3 channels, 16x16 patch</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tokens</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">tokenize_patch</span><span class="p">(</span><span class="n">patch</span><span class="p">,</span> <span class="n">patch_size</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">tokens</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (25, 48) - 25 tokens with stride=2, each 3*4*4=48 dims</span>
@@ -1539,8 +2132,8 @@ for downstream tokenization and embedding methods.</p>
 <p>Supports both single patches and batches:
 - Single: patch1/patch2 shape (C, H, W), dx/dy/rot_k90 are scalars
 - Batch: patch1/patch2 shape (N, C, H, W), dx/dy/rot_k90 are (N,) tensors</p>
-<section id="id70">
-<h4>Parameters<a class="headerlink" href="#id70" title="Link to this heading"></a></h4>
+<section id="id88">
+<h4>Parameters<a class="headerlink" href="#id88" title="Link to this heading"></a></h4>
 <dl class="simple">
 <dt>patch1<span class="classifier">torch.Tensor</span></dt><dd><p>First patch of shape (C, H, W) or batch of shape (N, C, H, W)</p>
 </dd>
@@ -1560,8 +2153,8 @@ Must be positive and &lt;= patch_size.</p>
 </dd>
 </dl>
 </section>
-<section id="id71">
-<h4>Returns<a class="headerlink" href="#id71" title="Link to this heading"></a></h4>
+<section id="id89">
+<h4>Returns<a class="headerlink" href="#id89" title="Link to this heading"></a></h4>
 <dl>
 <dt>Dict[str, torch.Tensor]</dt><dd><p>Dictionary containing:</p>
 <p>For single patch:

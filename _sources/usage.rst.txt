@@ -520,3 +520,162 @@ The overlap region in patch1 coordinates is:
 - ``w1 in [max(0, dx), min(W, W + dx))``
 
 The Euclidean distance constraint is: ``low <= sqrt(dx² + dy² + dz²) <= high``
+
+Advanced: Metadata Extraction and Zarr Storage
+------------------------------------------------
+
+For large datasets, you can extract patch pair metadata without loading all patches into memory, then selectively extract patches or save them to Zarr format for efficient storage and loading.
+
+Metadata Extraction
+~~~~~~~~~~~~~~~~~~~
+
+Extract metadata (locations, statistics) without loading patches::
+
+    from qlty.patch_pairs_2d import extract_patch_pairs_metadata
+    import torch
+
+    tensor = torch.randn(100, 3, 256, 256)  # Large dataset
+    window = (64, 64)
+    num_patches = 50
+    delta_range = (10.0, 20.0)
+
+    # Extract metadata only (fast, memory-efficient)
+    metadata = extract_patch_pairs_metadata(
+        tensor, window, num_patches, delta_range,
+        random_seed=42,
+        num_workers=4  # Use multiprocessing for speed
+    )
+
+    # metadata contains:
+    # - patch1_x, patch1_y: Patch coordinates
+    # - patch2_x, patch2_y: Displaced patch coordinates
+    # - dx, dy: Displacement vectors
+    # - rotation: Rotation applied
+    # - image_idx: Source image index
+    # - mean1, mean2, sigma1, sigma2: Patch statistics
+    # - window: Window size
+
+Selective Patch Extraction
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Extract patches only for specific indices::
+
+    from qlty.patch_pairs_2d import (
+        extract_patch_pairs_metadata,
+        extract_patches_from_metadata
+    )
+
+    # After extracting metadata...
+    metadata = extract_patch_pairs_metadata(...)
+
+    # Extract patches for specific indices only
+    selected = [0, 10, 20, 30]  # Only these patch pairs
+    patches1, patches2, deltas, rotations = extract_patches_from_metadata(
+        tensor, metadata, selected
+    )
+
+    # Useful for:
+    # - Training on a subset of patches
+    # - Iterative refinement
+    # - Memory-constrained environments
+
+Saving to Zarr Format
+~~~~~~~~~~~~~~~~~~~~~~
+
+Save patches to Zarr for efficient storage and loading::
+
+    from qlty.patch_pairs_2d import (
+        extract_patch_pairs_metadata,
+        extract_patches_to_zarr
+    )
+    import zarr
+
+    # Extract metadata
+    metadata = extract_patch_pairs_metadata(...)
+
+    # Save to Zarr
+    zarr_path = "my_patches.zarr"
+    group = zarr.open_group(zarr_path, mode="w")
+    
+    extract_patches_to_zarr(
+        tensor, metadata, group,
+        chunk_size=(100, 3, 64, 64)  # Optimize chunk size for your use case
+    )
+
+    # Patches are now stored efficiently:
+    # - group["patches1"]: All first patches
+    # - group["patches2"]: All second patches
+    # - group["deltas"]: Displacement vectors
+    # - group["rotations"]: Rotation values
+    # - group.attrs["metadata"]: Full metadata dict
+
+Using with PyTorch DataLoader
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Load patches from Zarr with PyTorch DataLoader::
+
+    from qlty.patch_pairs_2d import ZarrPatchPairDataset
+    from torch.utils.data import DataLoader
+    import zarr
+
+    # Open Zarr group
+    group = zarr.open_group("my_patches.zarr", mode="r")
+
+    # Create dataset
+    dataset = ZarrPatchPairDataset(group)
+
+    # Use with DataLoader
+    dataloader = DataLoader(
+        dataset,
+        batch_size=32,
+        shuffle=True,
+        num_workers=4
+    )
+
+    for patches1, patches2, deltas, rotations in dataloader:
+        # Train your model...
+        loss = model(patches1, patches2, deltas)
+        loss.backward()
+
+OME-Zarr Format for Image Stacks
+---------------------------------
+
+Convert image file stacks to OME-Zarr format with multiscale pyramids::
+
+    from qlty.utils.stack_to_zarr import stack_files_to_ome_zarr
+    from pathlib import Path
+
+    # Convert TIFF stack to OME-Zarr
+    result = stack_files_to_ome_zarr(
+        directory="/path/to/tiff_stack",
+        extension=".tif",
+        pattern=r"image_(\d+)\.tif$",  # Matches: image_001.tif, image_002.tif
+        axis_order="ZCYX",  # Z (depth), Channel, Y, X
+        pyramid_levels=4,   # Create 4 resolution levels
+        downsample_mode="2d",  # Downsample each slice independently
+        downsample_method="dask"  # Use dask for parallel downsampling
+    )
+
+    # Access multiscale data
+    import zarr
+    group = zarr.open_group(result["image"]["zarr_path"], mode="r")
+    
+    # Level 0: Full resolution
+    full_res = group["0"]  # Shape: (Z, C, Y, X)
+    
+    # Level 1: 2x downsampled
+    level_1 = group["1"]  # Shape: (Z, C, Y//2, X//2)
+    
+    # Level 2: 4x downsampled
+    level_2 = group["2"]  # Shape: (Z, C, Y//4, X//4)
+
+    # OME-Zarr files are compatible with:
+    # - napari (image viewer)
+    # - ome-zarr-py (OME-Zarr Python library)
+    # - Any OME-Zarr compatible viewer
+
+Benefits of OME-Zarr:
+- **Multiscale pyramids**: Efficient viewing at different zoom levels
+- **Chunked storage**: Fast random access to specific regions
+- **Standard format**: Compatible with many bioimaging tools
+- **Metadata**: Rich metadata stored in OME format

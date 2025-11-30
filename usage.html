@@ -81,6 +81,14 @@
 <li class="toctree-l3"><a class="reference internal" href="#d-mathematical-details">3D Mathematical Details</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#advanced-metadata-extraction-and-zarr-storage">Advanced: Metadata Extraction and Zarr Storage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#metadata-extraction">Metadata Extraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#selective-patch-extraction">Selective Patch Extraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#saving-to-zarr-format">Saving to Zarr Format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-with-pytorch-dataloader">Using with PyTorch DataLoader</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#ome-zarr-format-for-image-stacks">OME-Zarr Format for Image Stacks</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
@@ -613,6 +621,163 @@ where <code class="docutils literal notranslate"><span class="pre">window</span>
 - <code class="docutils literal notranslate"><span class="pre">w1</span> <span class="pre">in</span> <span class="pre">[max(0,</span> <span class="pre">dx),</span> <span class="pre">min(W,</span> <span class="pre">W</span> <span class="pre">+</span> <span class="pre">dx))</span></code></p>
 <p>The Euclidean distance constraint is: <code class="docutils literal notranslate"><span class="pre">low</span> <span class="pre">&lt;=</span> <span class="pre">sqrt(dx²</span> <span class="pre">+</span> <span class="pre">dy²</span> <span class="pre">+</span> <span class="pre">dz²)</span> <span class="pre">&lt;=</span> <span class="pre">high</span></code></p>
 </section>
+</section>
+<section id="advanced-metadata-extraction-and-zarr-storage">
+<h2>Advanced: Metadata Extraction and Zarr Storage<a class="headerlink" href="#advanced-metadata-extraction-and-zarr-storage" title="Link to this heading"></a></h2>
+<p>For large datasets, you can extract patch pair metadata without loading all patches into memory, then selectively extract patches or save them to Zarr format for efficient storage and loading.</p>
+<section id="metadata-extraction">
+<h3>Metadata Extraction<a class="headerlink" href="#metadata-extraction" title="Link to this heading"></a></h3>
+<p>Extract metadata (locations, statistics) without loading patches:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.patch_pairs_2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_patch_pairs_metadata</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="n">tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>  <span class="c1"># Large dataset</span>
+<span class="n">window</span> <span class="o">=</span> <span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+<span class="n">num_patches</span> <span class="o">=</span> <span class="mi">50</span>
+<span class="n">delta_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">)</span>
+
+<span class="c1"># Extract metadata only (fast, memory-efficient)</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_patch_pairs_metadata</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">,</span> <span class="n">delta_range</span><span class="p">,</span>
+    <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+    <span class="n">num_workers</span><span class="o">=</span><span class="mi">4</span>  <span class="c1"># Use multiprocessing for speed</span>
+<span class="p">)</span>
+
+<span class="c1"># metadata contains:</span>
+<span class="c1"># - patch1_x, patch1_y: Patch coordinates</span>
+<span class="c1"># - patch2_x, patch2_y: Displaced patch coordinates</span>
+<span class="c1"># - dx, dy: Displacement vectors</span>
+<span class="c1"># - rotation: Rotation applied</span>
+<span class="c1"># - image_idx: Source image index</span>
+<span class="c1"># - mean1, mean2, sigma1, sigma2: Patch statistics</span>
+<span class="c1"># - window: Window size</span>
+</pre></div>
+</div>
+</section>
+<section id="selective-patch-extraction">
+<h3>Selective Patch Extraction<a class="headerlink" href="#selective-patch-extraction" title="Link to this heading"></a></h3>
+<p>Extract patches only for specific indices:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.patch_pairs_2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">extract_patch_pairs_metadata</span><span class="p">,</span>
+    <span class="n">extract_patches_from_metadata</span>
+<span class="p">)</span>
+
+<span class="c1"># After extracting metadata...</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_patch_pairs_metadata</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+
+<span class="c1"># Extract patches for specific indices only</span>
+<span class="n">selected</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">]</span>  <span class="c1"># Only these patch pairs</span>
+<span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="o">=</span> <span class="n">extract_patches_from_metadata</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">selected</span>
+<span class="p">)</span>
+
+<span class="c1"># Useful for:</span>
+<span class="c1"># - Training on a subset of patches</span>
+<span class="c1"># - Iterative refinement</span>
+<span class="c1"># - Memory-constrained environments</span>
+</pre></div>
+</div>
+</section>
+<section id="saving-to-zarr-format">
+<h3>Saving to Zarr Format<a class="headerlink" href="#saving-to-zarr-format" title="Link to this heading"></a></h3>
+<p>Save patches to Zarr for efficient storage and loading:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.patch_pairs_2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">extract_patch_pairs_metadata</span><span class="p">,</span>
+    <span class="n">extract_patches_to_zarr</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+
+<span class="c1"># Extract metadata</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_patch_pairs_metadata</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+
+<span class="c1"># Save to Zarr</span>
+<span class="n">zarr_path</span> <span class="o">=</span> <span class="s2">&quot;my_patches.zarr&quot;</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+
+<span class="n">extract_patches_to_zarr</span><span class="p">(</span>
+    <span class="n">tensor</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">group</span><span class="p">,</span>
+    <span class="n">chunk_size</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>  <span class="c1"># Optimize chunk size for your use case</span>
+<span class="p">)</span>
+
+<span class="c1"># Patches are now stored efficiently:</span>
+<span class="c1"># - group[&quot;patches1&quot;]: All first patches</span>
+<span class="c1"># - group[&quot;patches2&quot;]: All second patches</span>
+<span class="c1"># - group[&quot;deltas&quot;]: Displacement vectors</span>
+<span class="c1"># - group[&quot;rotations&quot;]: Rotation values</span>
+<span class="c1"># - group.attrs[&quot;metadata&quot;]: Full metadata dict</span>
+</pre></div>
+</div>
+</section>
+<section id="using-with-pytorch-dataloader">
+<h3>Using with PyTorch DataLoader<a class="headerlink" href="#using-with-pytorch-dataloader" title="Link to this heading"></a></h3>
+<p>Load patches from Zarr with PyTorch DataLoader:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.patch_pairs_2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrPatchPairDataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+
+<span class="c1"># Open Zarr group</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="s2">&quot;my_patches.zarr&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create dataset</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">ZarrPatchPairDataset</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+
+<span class="c1"># Use with DataLoader</span>
+<span class="n">dataloader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+    <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">num_workers</span><span class="o">=</span><span class="mi">4</span>
+<span class="p">)</span>
+
+<span class="k">for</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span> <span class="ow">in</span> <span class="n">dataloader</span><span class="p">:</span>
+    <span class="c1"># Train your model...</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">)</span>
+    <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="ome-zarr-format-for-image-stacks">
+<h2>OME-Zarr Format for Image Stacks<a class="headerlink" href="#ome-zarr-format-for-image-stacks" title="Link to this heading"></a></h2>
+<p>Convert image file stacks to OME-Zarr format with multiscale pyramids:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.utils.stack_to_zarr</span><span class="w"> </span><span class="kn">import</span> <span class="n">stack_files_to_ome_zarr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="c1"># Convert TIFF stack to OME-Zarr</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">stack_files_to_ome_zarr</span><span class="p">(</span>
+    <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;/path/to/tiff_stack&quot;</span><span class="p">,</span>
+    <span class="n">extension</span><span class="o">=</span><span class="s2">&quot;.tif&quot;</span><span class="p">,</span>
+    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;image_(\d+)\.tif$&quot;</span><span class="p">,</span>  <span class="c1"># Matches: image_001.tif, image_002.tif</span>
+    <span class="n">axis_order</span><span class="o">=</span><span class="s2">&quot;ZCYX&quot;</span><span class="p">,</span>  <span class="c1"># Z (depth), Channel, Y, X</span>
+    <span class="n">pyramid_levels</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>   <span class="c1"># Create 4 resolution levels</span>
+    <span class="n">downsample_mode</span><span class="o">=</span><span class="s2">&quot;2d&quot;</span><span class="p">,</span>  <span class="c1"># Downsample each slice independently</span>
+    <span class="n">downsample_method</span><span class="o">=</span><span class="s2">&quot;dask&quot;</span>  <span class="c1"># Use dask for parallel downsampling</span>
+<span class="p">)</span>
+
+<span class="c1"># Access multiscale data</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;image&quot;</span><span class="p">][</span><span class="s2">&quot;zarr_path&quot;</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+
+<span class="c1"># Level 0: Full resolution</span>
+<span class="n">full_res</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;0&quot;</span><span class="p">]</span>  <span class="c1"># Shape: (Z, C, Y, X)</span>
+
+<span class="c1"># Level 1: 2x downsampled</span>
+<span class="n">level_1</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;1&quot;</span><span class="p">]</span>  <span class="c1"># Shape: (Z, C, Y//2, X//2)</span>
+
+<span class="c1"># Level 2: 4x downsampled</span>
+<span class="n">level_2</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;2&quot;</span><span class="p">]</span>  <span class="c1"># Shape: (Z, C, Y//4, X//4)</span>
+
+<span class="c1"># OME-Zarr files are compatible with:</span>
+<span class="c1"># - napari (image viewer)</span>
+<span class="c1"># - ome-zarr-py (OME-Zarr Python library)</span>
+<span class="c1"># - Any OME-Zarr compatible viewer</span>
+</pre></div>
+</div>
+<p>Benefits of OME-Zarr:
+- <strong>Multiscale pyramids</strong>: Efficient viewing at different zoom levels
+- <strong>Chunked storage</strong>: Fast random access to specific regions
+- <strong>Standard format</strong>: Compatible with many bioimaging tools
+- <strong>Metadata</strong>: Rich metadata stored in OME format</p>
 </section>
 </section>
 
