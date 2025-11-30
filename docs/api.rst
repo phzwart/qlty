@@ -244,6 +244,227 @@ extract_overlapping_pixels_3d
     # K is the total number of overlapping pixels
     # Corresponding pixels are at the same index in both tensors
 
+Advanced Patch Pair Functions
+-------------------------------
+
+extract_patch_pairs_metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.patch_pairs_2d.extract_patch_pairs_metadata
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty.patch_pairs_2d import extract_patch_pairs_metadata
+    import torch
+
+    tensor = torch.randn(10, 3, 128, 128)  # 10 images, 3 channels, 128x128
+    window = (32, 32)
+    num_patches = 20
+    delta_range = (8.0, 16.0)
+
+    # Extract metadata without loading patches into memory
+    metadata = extract_patch_pairs_metadata(
+        tensor, window, num_patches, delta_range,
+        random_seed=42, num_workers=4
+    )
+
+    # metadata contains:
+    # - patch1_x, patch1_y: Coordinates of first patches
+    # - patch2_x, patch2_y: Coordinates of second patches
+    # - dx, dy: Displacement vectors
+    # - rotation: Rotation applied to second patch
+    # - image_idx: Which image each patch pair came from
+    # - mean1, mean2: Mean values of patches
+    # - sigma1, sigma2: Standard deviations of patches
+    # - window: Window size used
+
+extract_patches_from_metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.patch_pairs_2d.extract_patches_from_metadata
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty.patch_pairs_2d import (
+        extract_patch_pairs_metadata,
+        extract_patches_from_metadata
+    )
+    import torch
+
+    tensor = torch.randn(10, 3, 128, 128)
+    window = (32, 32)
+    num_patches = 20
+    delta_range = (8.0, 16.0)
+
+    # First, extract metadata
+    metadata = extract_patch_pairs_metadata(
+        tensor, window, num_patches, delta_range, random_seed=42
+    )
+
+    # Later, extract patches for specific indices
+    selected_indices = [0, 5, 10, 15]  # Extract only these patch pairs
+    patches1, patches2, deltas, rotations = extract_patches_from_metadata(
+        tensor, metadata, selected_indices
+    )
+
+    # patches1: (4, 3, 32, 32) - only selected patches
+    # patches2: (4, 3, 32, 32)
+    # deltas: (4, 2)
+    # rotations: (4,)
+
+extract_patches_to_zarr
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.patch_pairs_2d.extract_patches_to_zarr
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty.patch_pairs_2d import (
+        extract_patch_pairs_metadata,
+        extract_patches_to_zarr
+    )
+    import torch
+    import zarr
+
+    tensor = torch.randn(10, 3, 128, 128)
+    window = (32, 32)
+    num_patches = 20
+    delta_range = (8.0, 16.0)
+
+    # Extract metadata
+    metadata = extract_patch_pairs_metadata(
+        tensor, window, num_patches, delta_range, random_seed=42
+    )
+
+    # Save patches to Zarr format
+    zarr_path = "patches.zarr"
+    group = zarr.open_group(zarr_path, mode="w")
+    
+    extract_patches_to_zarr(
+        tensor, metadata, group,
+        chunk_size=(100, 3, 32, 32)  # Custom chunk size
+    )
+
+    # Patches are now stored in Zarr format:
+    # - group["patches1"]: (N*num_patches, C, U, V)
+    # - group["patches2"]: (N*num_patches, C, U, V)
+    # - group["deltas"]: (N*num_patches, 2)
+    # - group["rotations"]: (N*num_patches,)
+    # - group.attrs["metadata"]: Original metadata dict
+
+ZarrPatchPairDataset
+~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: qlty.patch_pairs_2d.ZarrPatchPairDataset
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty.patch_pairs_2d import ZarrPatchPairDataset
+    from torch.utils.data import DataLoader
+    import zarr
+
+    # Open existing Zarr group with patches
+    zarr_path = "patches.zarr"
+    group = zarr.open_group(zarr_path, mode="r")
+
+    # Create PyTorch Dataset
+    dataset = ZarrPatchPairDataset(group)
+
+    # Use with DataLoader
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+
+    for patches1, patches2, deltas, rotations in dataloader:
+        # patches1: (batch_size, C, U, V)
+        # patches2: (batch_size, C, U, V)
+        # deltas: (batch_size, 2)
+        # rotations: (batch_size,)
+        # Train your model...
+        pass
+
+    # With custom transform
+    def normalize_patches(p1, p2, d, r):
+        p1 = (p1 - p1.mean()) / p1.std()
+        p2 = (p2 - p2.mean()) / p2.std()
+        return p1, p2, d, r
+
+    dataset = ZarrPatchPairDataset(group, transform=normalize_patches)
+
+Image Stack Utilities
+----------------------
+
+stack_files_to_zarr
+~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.utils.stack_to_zarr.stack_files_to_zarr
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+    from pathlib import Path
+
+    # Convert image stack to Zarr format
+    result = stack_files_to_zarr(
+        directory="/path/to/images",
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",  # Matches: stack_001.tif, stack_002.tif
+        axis_order="CZYX"  # Channel, Z, Y, X
+    )
+
+    # result is a dict with metadata:
+    # {
+    #     "stack": {
+    #         "zarr_path": "/path/to/images/stack.zarr",
+    #         "shape": (100, 3, 512, 512),  # (Z, C, Y, X)
+    #         "file_count": 100,
+    #         "axis_order": "CZYX"
+    #     }
+    # }
+
+stack_files_to_ome_zarr
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.utils.stack_to_zarr.stack_files_to_ome_zarr
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty.utils.stack_to_zarr import stack_files_to_ome_zarr
+    from pathlib import Path
+
+    # Convert image stack to OME-Zarr format with multiscale pyramids
+    result = stack_files_to_ome_zarr(
+        directory="/path/to/images",
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        axis_order="ZCYX",  # Z, Channel, Y, X
+        pyramid_levels=4,   # Create 4 resolution levels
+        downsample_mode="2d",  # Downsample in 2D (per slice)
+        downsample_method="dask"  # Use dask for downsampling
+    )
+
+    # result contains metadata and zarr path
+    # The OME-Zarr file can be opened with:
+    # import zarr
+    # group = zarr.open_group(result["stack"]["zarr_path"], mode="r")
+    # level_0 = group["0"]  # Full resolution
+    # level_1 = group["1"]  # 2x downsampled
+    # level_2 = group["2"]  # 4x downsampled
+    # etc.
+
 Pre-Tokenization for Patch Processing (2D)
 --------------------------------------------
 

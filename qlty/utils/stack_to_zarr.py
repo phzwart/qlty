@@ -853,659 +853,6 @@ def stack_files_to_ome_zarr(
     """
     directory = Path(directory)
     if not directory.is_dir():
-        msg = f"Directory does not exist: {directory}"
-        raise ValueError(msg)
-
-    # Normalize extension
-    if not extension.startswith("."):
-        extension = "." + extension
-    extension = extension.lower()
-
-    # Compile pattern
-    if isinstance(pattern, str):
-        pattern = re.compile(pattern)
-
-    # Reuse file discovery logic from stack_files_to_zarr
-    # Step 1: File Discovery and Parsing
-    stacks: dict[str, list[tuple[int, Path]]] = defaultdict(list)
-
-    for filepath in directory.iterdir():
-        if not filepath.is_file():
-            continue
-
-        # Check extension
-        if filepath.suffix.lower() != extension:
-            continue
-
-        # Match pattern
-        match = pattern.match(filepath.name)
-        if not match:
-            continue
-
-        if match.lastindex is None or match.lastindex < 1:
-            msg = (
-                "Pattern must have at least 2 groups (basename, counter). "
-                "Pattern has no groups."
-            )
-            raise ValueError(
-                msg,
-            )
-
-        if match.lastindex < 2:
-            msg = (
-                f"Pattern must have at least 2 groups (basename, counter). "
-                f"Got {match.lastindex} groups."
-            )
-            raise ValueError(
-                msg,
-            )
-
-        basename = match.group(1)
-        counter_str = match.group(2)
-
-        try:
-            counter = int(counter_str)
-        except ValueError:
-            continue  # Skip if counter not parseable
-
-        stacks[basename].append((counter, filepath))
-
-    if not stacks:
-        return {}
-
-    # Step 2: Stack Analysis (reuse logic from stack_files_to_zarr)
-    results = {}
-
-    for _stack_idx, (basename, file_list) in enumerate(stacks.items(), 1):
-        # Sort by counter
-        if sort_by_counter:
-            file_list.sort(key=lambda x: x[0])
-
-        counters = [c for c, _ in file_list]
-        counter_min = min(counters)
-        counter_max = max(counters)
-
-        # Check for gaps
-        expected_counters = set(range(counter_min, counter_max + 1))
-        actual_counters = set(counters)
-        missing = expected_counters - actual_counters
-        if missing:
-            print(
-                f"Warning: Stack '{basename}' has missing counters: {sorted(missing)}",
-            )
-
-        # Load first image to determine dimensions
-        first_file = file_list[0][1]
-        first_image = _load_image(first_file)
-
-        # Determine shape
-        if first_image.ndim == 2:
-            # Single channel: (Y, X)
-            Y, X = first_image.shape
-            C = 1
-            has_channels = False
-            final_axis_order = "ZYX"
-            base_shape = (len(file_list), Y, X)
-        elif first_image.ndim == 3:
-            # Multi-channel: could be (C, Y, X) or (Y, X, C)
-            if first_image.shape[2] <= 4:  # Likely (Y, X, C)
-                Y, X, C = first_image.shape
-                first_image = np.transpose(first_image, (2, 0, 1))  # (C, Y, X)
-            else:  # Likely (C, Y, X)
-                C, Y, X = first_image.shape
-            has_channels = True
-            final_axis_order = _normalize_axis_order(axis_order, has_channels)
-            # Start with ZCYX, will apply axis_order later
-            base_shape_ordered = (len(file_list), C, Y, X)
-            _, final_shape_tuple = _apply_axis_order(
-                np.zeros(base_shape_ordered, dtype=first_image.dtype),
-                base_shape_ordered,
-                final_axis_order,
-            )
-            base_shape = final_shape_tuple
-        else:
-            msg = (
-                f"Unsupported image dimensions: {first_image.ndim}D. "
-                "Expected 2D (Y, X) or 3D (C, Y, X) or (Y, X, C)."
-            )
-            raise ValueError(
-                msg,
-            )
-
-        # Determine dtype
-        dtype = first_image.dtype if dtype is None else np.dtype(dtype)
-
-        # Validate all images have same dimensions
-        for _counter, filepath in file_list[1:]:
-            img = _load_image(filepath)
-            if img.ndim == 2:
-                if img.shape != (Y, X):
-                    msg = f"Image {filepath} has shape {img.shape}, expected ({Y}, {X})"
-                    raise ValueError(
-                        msg,
-                    )
-            elif img.ndim == 3:
-                if img.shape[2] <= 4:
-                    img_Y, img_X, img_C = img.shape
-                    if img.shape[:2] != (Y, X) or img_C != C:
-                        msg = (
-                            f"Image {filepath} has shape {img.shape}, "
-                            f"expected ({Y}, {X}, {C})"
-                        )
-                        raise ValueError(
-                            msg,
-                        )
-                else:
-                    img_C, _img_Y, _img_X = img.shape
-                    if img.shape[1:] != (Y, X) or img_C != C:
-                        msg = (
-                            f"Image {filepath} has shape {img.shape}, "
-                            f"expected ({C}, {Y}, {X})"
-                        )
-                        raise ValueError(
-                            msg,
-                        )
-
-        # Determine output path
-        if output_naming is not None:
-            zarr_name = output_naming(basename)
-            if not zarr_name.endswith(".ome.zarr"):
-                zarr_name = zarr_name.replace(".zarr", ".ome.zarr")
-                if not zarr_name.endswith(".ome.zarr"):
-                    zarr_name = f"{zarr_name}.ome.zarr"
-        else:
-            zarr_name = f"{basename}.ome.zarr"
-
-        if output_dir is not None:
-            output_path = Path(output_dir) / zarr_name
-        else:
-            output_path = directory / zarr_name
-
-        # Determine pyramid levels and scale factors
-        if pyramid_scale_factors is not None:
-            num_pyramid_levels = len(pyramid_scale_factors) + 1  # +1 for base level
-        elif pyramid_levels is not None:
-            num_pyramid_levels = pyramid_levels
-        else:
-            # Auto-determine: create pyramid until smallest dimension is < 256
-            min_dim = min(Y, X)
-            num_pyramid_levels = 1
-            dim = min_dim
-            while dim > 256:
-                dim = dim // 2
-                num_pyramid_levels += 1
-            num_pyramid_levels = max(1, min(num_pyramid_levels, 5))  # Limit to 5 levels
-
-        # Determine which axes to downsample
-        if downsample_axes is not None:
-            axes_to_downsample = set(downsample_axes)
-        elif downsample_mode == "2d":
-            # 2D mode: don't downsample Z, only Y and X
-            axes_to_downsample = {"y", "x"}
-        elif downsample_mode == "3d":
-            # 3D mode: downsample Z, Y, X
-            axes_to_downsample = {"z", "y", "x"}
-        else:
-            msg = f"Invalid downsample_mode: {downsample_mode}. Must be '2d' or '3d'."
-            raise ValueError(
-                msg,
-            )
-
-        # Generate scale factors if not provided
-        if pyramid_scale_factors is None:
-            pyramid_scale_factors = []
-            for level in range(1, num_pyramid_levels):
-                scale = 2**level
-                # OME-Zarr format: scale factors are per dimension (Z, C, Y, X)
-                if has_channels:
-                    if final_axis_order == "ZCYX":
-                        z_scale = scale if "z" in axes_to_downsample else 1
-                        c_scale = 1  # Never downsample channels
-                        y_scale = scale if "y" in axes_to_downsample else 1
-                        x_scale = scale if "x" in axes_to_downsample else 1
-                        pyramid_scale_factors.append(
-                            (z_scale, c_scale, y_scale, x_scale),
-                        )
-                    elif final_axis_order == "CZYX":
-                        c_scale = 1  # Never downsample channels
-                        z_scale = scale if "z" in axes_to_downsample else 1
-                        y_scale = scale if "y" in axes_to_downsample else 1
-                        x_scale = scale if "x" in axes_to_downsample else 1
-                        pyramid_scale_factors.append(
-                            (c_scale, z_scale, y_scale, x_scale),
-                        )
-                    else:
-                        # Generic: don't scale C, scale others based on axes_to_downsample
-                        z_scale = scale if "z" in axes_to_downsample else 1
-                        y_scale = scale if "y" in axes_to_downsample else 1
-                        x_scale = scale if "x" in axes_to_downsample else 1
-                        pyramid_scale_factors.append(
-                            (1, 1, y_scale, x_scale),
-                        )  # Default ZCYX order
-                else:
-                    # Single channel: (Z, Y, X)
-                    z_scale = scale if "z" in axes_to_downsample else 1
-                    y_scale = scale if "y" in axes_to_downsample else 1
-                    x_scale = scale if "x" in axes_to_downsample else 1
-                    pyramid_scale_factors.append((z_scale, y_scale, x_scale))
-
-        if not dry_run:
-            # Create OME-Zarr root group
-            root = zarr.open_group(str(output_path), mode="w")
-            multiscales_metadata = []
-
-            # Store base level data
-            # First, load all images and create base level array
-            # Determine chunk size for base level
-            if zarr_chunks is None:
-                if has_channels:
-                    if final_axis_order == "ZCYX":
-                        base_chunks = (1, min(C, 4), min(Y, 256), min(X, 256))
-                    elif final_axis_order == "CZYX":
-                        base_chunks = (min(C, 4), 1, min(Y, 256), min(X, 256))
-                    else:
-                        base_chunks = (1, *tuple(min(d, 256) for d in base_shape[1:]))
-                else:
-                    base_chunks = (1, min(Y, 256), min(X, 256))
-            else:
-                base_chunks = zarr_chunks
-
-            # Load images (reuse logic from stack_files_to_zarr)
-            use_multiprocessing = False
-            if num_workers is None:
-                use_multiprocessing = multiprocessing.cpu_count() > 1
-                workers = multiprocessing.cpu_count()
-            elif num_workers > 1:
-                use_multiprocessing = True
-                workers = num_workers
-            else:
-                workers = 1
-
-            if use_multiprocessing and len(file_list) > 10:
-                load_func = partial(_load_and_process_image, dtype=dtype)
-                with multiprocessing.Pool(processes=workers) as pool:
-                    filepaths = [f for _, f in file_list]
-                    if tqdm is not None:
-                        images = list(
-                            tqdm(
-                                pool.imap(load_func, filepaths),
-                                total=len(filepaths),
-                                desc="    Loading",
-                                unit="image",
-                            ),
-                        )
-                    else:
-                        images = pool.map(load_func, filepaths)
-            else:
-                images = [
-                    _load_and_process_image(filepath, dtype=dtype)
-                    for filepath in (
-                        tqdm([f for _, f in file_list], desc="    Loading")
-                        if tqdm
-                        else [f for _, f in file_list]
-                    )
-                ]
-
-            # Stack images and apply axis order
-            if has_channels:
-                stack_data = np.zeros((len(file_list), C, Y, X), dtype=dtype)
-                for z_idx, img in enumerate(images):
-                    stack_data[z_idx] = img
-                stack_reordered, _ = _apply_axis_order(
-                    stack_data,
-                    (len(file_list), C, Y, X),
-                    final_axis_order,
-                )
-                base_array_data = stack_reordered
-            else:
-                base_array_data = np.stack(images, axis=0)
-
-            # Create base level array (OME-Zarr stores pyramid levels as arrays at root)
-            base_zarr_array = _create_zarr_array(
-                root,
-                "0",
-                data=base_array_data,
-                chunks=base_chunks,
-            )
-            multiscales_metadata.append(
-                {
-                    "path": "0",
-                    "coordinateTransformations": [
-                        {
-                            "type": "scale",
-                            "scale": [1.0] * len(base_shape),  # Base level has scale 1
-                        },
-                    ],
-                },
-            )
-
-            # Create pyramid levels using Dask for parallel processing
-            if num_pyramid_levels > 1:
-                try:
-                    import dask.array as da
-                except ImportError as err:
-                    msg = "dask is required for pyramid creation. Install with: pip install dask"
-                    raise ImportError(
-                        msg,
-                    ) from err
-
-                # Convert base array to Dask array for efficient downsampling
-                current_dask = da.from_zarr(base_zarr_array)
-                current_data = base_array_data
-                current_shape = base_shape
-
-                for level_idx, scale_factors in enumerate(pyramid_scale_factors, 1):
-                    # Determine which dimensions to downsample based on scale factors
-                    # Build coarsen dictionary: {axis_index: scale_factor}
-                    coarsen_dict = {}
-
-                    if has_channels:
-                        if final_axis_order == "ZCYX":
-                            # Shape: (Z, C, Y, X), scale_factors: (z_scale, c_scale, y_scale, x_scale)
-                            z_scale, c_scale, y_scale, x_scale = scale_factors
-                            if z_scale > 1:
-                                coarsen_dict[0] = z_scale  # Z axis
-                            # Skip C axis (axis 1) - never downsample channels
-                            if y_scale > 1:
-                                coarsen_dict[2] = y_scale  # Y axis
-                            if x_scale > 1:
-                                coarsen_dict[3] = x_scale  # X axis
-                        elif final_axis_order == "CZYX":
-                            # Shape: (C, Z, Y, X), scale_factors: (c_scale, z_scale, y_scale, x_scale)
-                            c_scale, z_scale, y_scale, x_scale = scale_factors
-                            # Skip C axis (axis 0) - never downsample channels
-                            if z_scale > 1:
-                                coarsen_dict[1] = z_scale  # Z axis
-                            if y_scale > 1:
-                                coarsen_dict[2] = y_scale  # Y axis
-                            if x_scale > 1:
-                                coarsen_dict[3] = x_scale  # X axis
-                        else:
-                            # Generic: assume standard order and downsample based on scale factors
-                            # This is a fallback - ideally users should specify correct axis order
-                            for dim_idx, scale in enumerate(scale_factors):
-                                if (
-                                    scale > 1 and dim_idx != 1
-                                ):  # Don't downsample channels
-                                    coarsen_dict[dim_idx] = scale
-                    else:
-                        # Single channel: (Z, Y, X), scale_factors: (z_scale, y_scale, x_scale)
-                        z_scale, y_scale, x_scale = scale_factors
-                        if z_scale > 1:
-                            coarsen_dict[0] = z_scale  # Z axis
-                        if y_scale > 1:
-                            coarsen_dict[1] = y_scale  # Y axis
-                        if x_scale > 1:
-                            coarsen_dict[2] = x_scale  # X axis
-
-                    # Downsample using Dask coarsen (block averaging)
-                    if downsample_method == "dask_coarsen":
-                        if coarsen_dict:
-                            # Use dask coarsen with mean reduction for block averaging
-                            downsampled_dask = da.coarsen(
-                                np.mean,
-                                current_dask,
-                                coarsen_dict,
-                            )
-                            # Compute the result and convert to numpy
-                            downsampled = downsampled_dask.compute().astype(dtype)
-                        else:
-                            # No downsampling needed for this level (shouldn't happen, but handle gracefully)
-                            downsampled = current_data
-
-                    elif downsample_method == "scipy_zoom":
-                        # Fallback to scipy zoom
-                        try:
-                            from scipy.ndimage import zoom
-                        except ImportError as err:
-                            msg = "scipy is required for scipy_zoom method. Install with: pip install scipy"
-                            raise ImportError(
-                                msg,
-                            ) from err
-
-                        # Build zoom factors
-                        if has_channels:
-                            if final_axis_order == "ZCYX":
-                                z_scale, c_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [
-                                    1.0 / z_scale,
-                                    1.0,
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                            elif final_axis_order == "CZYX":
-                                c_scale, z_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [
-                                    1.0,
-                                    1.0 / z_scale,
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                            else:
-                                zoom_factors = [1.0] * (len(current_shape) - 2) + [
-                                    1.0 / y_scale,
-                                    1.0 / x_scale,
-                                ]
-                        else:
-                            z_scale, y_scale, x_scale = scale_factors
-                            zoom_factors = [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
-
-                        downsampled = zoom(
-                            current_data,
-                            zoom_factors,
-                            order=1,
-                            prefilter=False,
-                        ).astype(dtype)
-
-                    else:
-                        msg = (
-                            f"Unknown downsample_method: {downsample_method}. "
-                            "Supported methods: 'dask_coarsen', 'scipy_zoom'"
-                        )
-                        raise ValueError(
-                            msg,
-                        )
-
-                    current_data = downsampled
-                    current_shape = current_data.shape
-
-                    # Create array for this pyramid level (stored at root)
-                    level_zarr_array = _create_zarr_array(
-                        root,
-                        str(level_idx),
-                        data=current_data,
-                        chunks=tuple(min(d, 256) for d in current_shape),
-                    )
-                    multiscales_metadata.append(
-                        {
-                            "path": str(level_idx),
-                            "coordinateTransformations": [
-                                {
-                                    "type": "scale",
-                                    "scale": list(scale_factors),
-                                },
-                            ],
-                        },
-                    )
-
-                    # Convert to Dask for next iteration (if there are more levels)
-                    if level_idx < len(pyramid_scale_factors):
-                        current_dask = da.from_zarr(level_zarr_array)
-
-            # Create OME metadata
-            # Determine axis names based on shape
-            if has_channels:
-                if final_axis_order == "ZCYX":
-                    axes = ["z", "c", "y", "x"]
-                elif final_axis_order == "CZYX":
-                    axes = ["c", "z", "y", "x"]
-                else:
-                    axes = ["z", "c", "y", "x"]  # Default
-            else:
-                axes = ["z", "y", "x"]
-
-            ome_metadata = {
-                "multiscales": [
-                    {
-                        "version": "0.4",
-                        "axes": [
-                            {
-                                "name": ax,
-                                "type": "space" if ax in ["x", "y", "z"] else "channel",
-                            }
-                            for ax in axes
-                        ],
-                        "datasets": multiscales_metadata,
-                    },
-                ],
-            }
-
-            # Add OME metadata to root
-            root.attrs["multiscales"] = ome_metadata["multiscales"]
-            root.attrs["omero"] = {
-                "id": 1,
-                "name": basename,
-                "version": "0.4",
-            }
-
-            # Store additional metadata
-            root.attrs["basename"] = basename
-            root.attrs["file_count"] = len(file_list)
-            root.attrs["counter_range"] = [counter_min, counter_max]
-            root.attrs["axis_order"] = final_axis_order
-            root.attrs["files"] = [str(f) for _, f in file_list]
-            root.attrs["pattern"] = (
-                pattern.pattern if isinstance(pattern, re.Pattern) else pattern
-            )
-            root.attrs["extension"] = extension
-
-        else:
-            pass
-
-        # Store results
-        results[basename] = {
-            "zarr_path": str(output_path),
-            "shape": base_shape,
-            "dtype": dtype,
-            "file_count": len(file_list),
-            "files": [str(f) for _, f in file_list],
-            "counter_range": (counter_min, counter_max),
-            "axis_order": final_axis_order,
-            "pyramid_levels": num_pyramid_levels,
-        }
-
-    return results
-
-
-def stack_files_to_ome_zarr(
-    directory: str | Path,
-    extension: str,
-    pattern: str | re.Pattern,
-    output_dir: str | Path | None = None,
-    zarr_chunks: tuple[int, ...] | None = None,
-    dtype: np.dtype | None = None,
-    axis_order: str = "ZCYX",
-    output_naming: Callable[[str], str] | None = None,
-    sort_by_counter: bool = True,
-    dry_run: bool = False,
-    num_workers: int | None = None,
-    pyramid_levels: int | None = None,
-    pyramid_scale_factors: list[tuple[int, ...]] | None = None,
-    downsample_mode: str = "2d",
-    downsample_axes: tuple[str, ...] | None = None,
-    downsample_method: str = "dask_coarsen",
-) -> dict[str, dict]:
-    """
-    Scan directory for image files, group into 3D stacks, and save as OME-Zarr with pyramids.
-
-    Creates OME-Zarr format files with multiscale image pyramids (multiple resolution levels).
-    OME-Zarr follows the Next-Generation File Format (NGFF) specification for bioimaging data.
-
-    Parameters
-    ----------
-    directory : str | Path
-        Directory to scan for image files (top level only, non-recursive)
-    extension : str
-        File extension to match (e.g., '.tif', '.png')
-    pattern : str | re.Pattern
-        Regex pattern with two groups: (basename, counter)
-        Example: r"(.+)_(\\d+)\\.tif$"
-    output_dir : str | Path | None
-        Directory to save OME-Zarr files. If None, saves in same directory.
-    zarr_chunks : tuple[int, ...] | None
-        Chunk size for base resolution zarr arrays. If None, uses reasonable defaults.
-    dtype : np.dtype | None
-        Data type for zarr arrays. If None, infers from first image.
-    axis_order : str
-        Axis order for multi-channel images. Default: "ZCYX"
-        Options: "ZCYX", "CZYX", "ZYCX", etc.
-        Single channel images always use "ZYX" regardless of this setting.
-        Note: OME-Zarr standard uses "TCZYX" but we use "ZCYX" for compatibility.
-    output_naming : Callable[[str], str] | None
-        Function to generate output zarr filename from basename.
-        If None, uses default: f"{basename}.ome.zarr"
-        Example: lambda b: f"{b}_stack.ome.zarr"
-    sort_by_counter : bool
-        Whether to sort files by counter value (default: True)
-    dry_run : bool
-        If True, only analyze files without creating zarr (default: False)
-    num_workers : int | None
-        Number of worker processes for parallel image loading. If None, uses
-        number of CPU cores. If 0 or 1, disables multiprocessing (default: None)
-    pyramid_levels : int | None
-        Number of pyramid levels to create (including base level).
-        If None, automatically determines based on image size.
-        Example: pyramid_levels=4 creates 4 resolution levels (1x, 2x, 4x, 8x downsampled).
-    pyramid_scale_factors : list[tuple[int, ...]] | None
-        Custom scale factors for each pyramid level (excluding base level).
-        Each tuple specifies scale factors for each dimension (Z, C, Y, X).
-        If None, uses automatic 2x downsampling per level.
-        Example: [(1, 1, 2, 2), (1, 1, 4, 4)] creates 2 pyramid levels with 2x and 4x downsampling in Y/X.
-    downsample_mode : str
-        Downsampling mode for pyramid generation. Default: "2d"
-        - "2d": For 2D operations on 3D grid - downsample only Y, X (not Z)
-        - "3d": For pure 3D work - downsample Z, Y, X
-        Ignored if downsample_axes is provided.
-    downsample_axes : tuple[str, ...] | None
-        Explicit control over which axes to downsample. If None, auto-determined from downsample_mode.
-        Options: ("z", "y", "x") or ("y", "x") or ("y",) or ("x",)
-        Takes precedence over downsample_mode.
-    downsample_method : str
-        Downsampling algorithm to use. Default: "dask_coarsen"
-        - "dask_coarsen": Use Dask coarsen (fast, parallel, recommended)
-        - "scipy_zoom": Use scipy.ndimage.zoom (fallback)
-        Future methods can be added (e.g., "block_average")
-
-    Returns
-    -------
-    dict[str, dict]
-        Dictionary mapping stack basename to metadata:
-        {
-            "stack_name": {
-                "zarr_path": str,
-                "shape": tuple[int, ...],  # (Z, C, Y, X) or (Z, Y, X) - base level
-                "dtype": np.dtype,
-                "file_count": int,
-                "files": list[str],  # Sorted list of file paths
-                "counter_range": tuple[int, int],  # (min, max)
-                "axis_order": str,  # Actual axis order used
-                "pyramid_levels": int,  # Number of pyramid levels created
-            }
-        }
-
-    Examples
-    --------
-    >>> from qlty.utils.stack_to_zarr import stack_files_to_ome_zarr
-    >>> result = stack_files_to_ome_zarr(
-    ...     directory="/path/to/images",
-    ...     extension=".tif",
-    ...     pattern=r"(.+)_(\\d+)\\.tif$",
-    ...     output_dir="/path/to/ome_zarr_output",
-    ...     pyramid_levels=4  # Create 4 resolution levels
-    ... )
-    """
-    directory = Path(directory)
-    if not directory.is_dir():
         raise ValueError(f"Directory does not exist: {directory}")
 
     # Normalize extension
@@ -1707,19 +1054,25 @@ def stack_files_to_ome_zarr(
                         c_scale = 1  # Never downsample channels
                         y_scale = scale if "y" in axes_to_downsample else 1
                         x_scale = scale if "x" in axes_to_downsample else 1
-                        pyramid_scale_factors.append((z_scale, c_scale, y_scale, x_scale))
+                        pyramid_scale_factors.append(
+                            (z_scale, c_scale, y_scale, x_scale)
+                        )
                     elif final_axis_order == "CZYX":
                         c_scale = 1  # Never downsample channels
                         z_scale = scale if "z" in axes_to_downsample else 1
                         y_scale = scale if "y" in axes_to_downsample else 1
                         x_scale = scale if "x" in axes_to_downsample else 1
-                        pyramid_scale_factors.append((c_scale, z_scale, y_scale, x_scale))
+                        pyramid_scale_factors.append(
+                            (c_scale, z_scale, y_scale, x_scale)
+                        )
                     else:
                         # Generic: don't scale C, scale others based on axes_to_downsample
                         z_scale = scale if "z" in axes_to_downsample else 1
                         y_scale = scale if "y" in axes_to_downsample else 1
                         x_scale = scale if "x" in axes_to_downsample else 1
-                        pyramid_scale_factors.append((1, 1, y_scale, x_scale))  # Default ZCYX order
+                        pyramid_scale_factors.append(
+                            (1, 1, y_scale, x_scale)
+                        )  # Default ZCYX order
                 else:
                     # Single channel: (Z, Y, X)
                     z_scale = scale if "z" in axes_to_downsample else 1
@@ -1782,7 +1135,11 @@ def stack_files_to_ome_zarr(
             else:
                 images = [
                     _load_and_process_image(filepath, dtype=dtype)
-                    for filepath in (tqdm([f for _, f in file_list], desc="    Loading") if tqdm else [f for _, f in file_list])
+                    for filepath in (
+                        tqdm([f for _, f in file_list], desc="    Loading")
+                        if tqdm
+                        else [f for _, f in file_list]
+                    )
                 ]
 
             # Stack images and apply axis order
@@ -1797,9 +1154,9 @@ def stack_files_to_ome_zarr(
             else:
                 base_array_data = np.stack(images, axis=0)
 
-
             # Create base level array (OME-Zarr stores pyramid levels as arrays at root)
-            base_zarr_array = root.create_array(
+            base_zarr_array = _create_zarr_array(
+                root,
                 "0",
                 data=base_array_data,
                 chunks=base_chunks,
@@ -1824,19 +1181,21 @@ def stack_files_to_ome_zarr(
                     raise ImportError(
                         "dask is required for pyramid creation. Install with: pip install dask"
                     ) from err
-                
+
                 # Convert base array to Dask array for efficient downsampling
                 current_dask = da.from_zarr(base_zarr_array)
                 current_data = base_array_data
                 current_shape = base_shape
-                
+
                 for level_idx, scale_factors in enumerate(pyramid_scale_factors, 1):
-                    print(f"  Creating pyramid level {level_idx + 1}/{num_pyramid_levels}...")
-                    
+                    print(
+                        f"  Creating pyramid level {level_idx + 1}/{num_pyramid_levels}..."
+                    )
+
                     # Determine which dimensions to downsample based on scale factors
                     # Build coarsen dictionary: {axis_index: scale_factor}
                     coarsen_dict = {}
-                    
+
                     if has_channels:
                         if final_axis_order == "ZCYX":
                             # Shape: (Z, C, Y, X), scale_factors: (z_scale, c_scale, y_scale, x_scale)
@@ -1862,7 +1221,9 @@ def stack_files_to_ome_zarr(
                             # Generic: assume standard order and downsample based on scale factors
                             # This is a fallback - ideally users should specify correct axis order
                             for dim_idx, scale in enumerate(scale_factors):
-                                if scale > 1 and dim_idx != 1:  # Don't downsample channels
+                                if (
+                                    scale > 1 and dim_idx != 1
+                                ):  # Don't downsample channels
                                     coarsen_dict[dim_idx] = scale
                     else:
                         # Single channel: (Z, Y, X), scale_factors: (z_scale, y_scale, x_scale)
@@ -1878,13 +1239,15 @@ def stack_files_to_ome_zarr(
                     if downsample_method == "dask_coarsen":
                         if coarsen_dict:
                             # Use dask coarsen with mean reduction for block averaging
-                            downsampled_dask = da.coarsen(np.mean, current_dask, coarsen_dict)
+                            downsampled_dask = da.coarsen(
+                                np.mean, current_dask, coarsen_dict
+                            )
                             # Compute the result and convert to numpy
                             downsampled = downsampled_dask.compute().astype(dtype)
                         else:
                             # No downsampling needed for this level (shouldn't happen, but handle gracefully)
                             downsampled = current_data
-                    
+
                     elif downsample_method == "scipy_zoom":
                         # Fallback to scipy zoom
                         try:
@@ -1893,23 +1256,38 @@ def stack_files_to_ome_zarr(
                             raise ImportError(
                                 "scipy is required for scipy_zoom method. Install with: pip install scipy"
                             ) from err
-                        
+
                         # Build zoom factors
                         if has_channels:
                             if final_axis_order == "ZCYX":
                                 z_scale, c_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [1.0 / z_scale, 1.0, 1.0 / y_scale, 1.0 / x_scale]
+                                zoom_factors = [
+                                    1.0 / z_scale,
+                                    1.0,
+                                    1.0 / y_scale,
+                                    1.0 / x_scale,
+                                ]
                             elif final_axis_order == "CZYX":
                                 c_scale, z_scale, y_scale, x_scale = scale_factors
-                                zoom_factors = [1.0, 1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
+                                zoom_factors = [
+                                    1.0,
+                                    1.0 / z_scale,
+                                    1.0 / y_scale,
+                                    1.0 / x_scale,
+                                ]
                             else:
-                                zoom_factors = [1.0] * (len(current_shape) - 2) + [1.0 / y_scale, 1.0 / x_scale]
+                                zoom_factors = [1.0] * (len(current_shape) - 2) + [
+                                    1.0 / y_scale,
+                                    1.0 / x_scale,
+                                ]
                         else:
                             z_scale, y_scale, x_scale = scale_factors
                             zoom_factors = [1.0 / z_scale, 1.0 / y_scale, 1.0 / x_scale]
-                        
-                        downsampled = zoom(current_data, zoom_factors, order=1, prefilter=False).astype(dtype)
-                    
+
+                        downsampled = zoom(
+                            current_data, zoom_factors, order=1, prefilter=False
+                        ).astype(dtype)
+
                     else:
                         raise ValueError(
                             f"Unknown downsample_method: {downsample_method}. "
@@ -1918,9 +1296,10 @@ def stack_files_to_ome_zarr(
 
                     current_data = downsampled
                     current_shape = current_data.shape
-                    
+
                     # Create array for this pyramid level (stored at root)
-                    level_zarr_array = root.create_array(
+                    level_zarr_array = _create_zarr_array(
+                        root,
                         str(level_idx),
                         data=current_data,
                         chunks=tuple(min(d, 256) for d in current_shape),
@@ -1936,7 +1315,7 @@ def stack_files_to_ome_zarr(
                             ],
                         }
                     )
-                    
+
                     # Convert to Dask for next iteration (if there are more levels)
                     if level_idx < len(pyramid_scale_factors):
                         current_dask = da.from_zarr(level_zarr_array)
@@ -1957,7 +1336,13 @@ def stack_files_to_ome_zarr(
                 "multiscales": [
                     {
                         "version": "0.4",
-                        "axes": [{"name": ax, "type": "space" if ax in ["x", "y", "z"] else "channel"} for ax in axes],
+                        "axes": [
+                            {
+                                "name": ax,
+                                "type": "space" if ax in ["x", "y", "z"] else "channel",
+                            }
+                            for ax in axes
+                        ],
                         "datasets": multiscales_metadata,
                     }
                 ]

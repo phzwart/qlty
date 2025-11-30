@@ -502,3 +502,138 @@ the overlap information needed for training sequence-based models.
 - ❌ Simple patch extraction (use ``NCYXQuilt.unstitch()`` instead)
 - ❌ Stitching patches back together (use ``NCYXQuilt.stitch()`` instead)
 - ❌ When you don't need overlap information
+
+Example 12: Metadata Extraction and Zarr Storage
+--------------------------------------------------
+
+**Use Case**: Extract patch pair metadata for a large dataset, then selectively load patches or save to Zarr for efficient storage.
+
+**Step 1: Extract Metadata Only**::
+
+    from qlty.patch_pairs_2d import extract_patch_pairs_metadata
+    import torch
+
+    # Large dataset: 1000 images
+    tensor = torch.randn(1000, 3, 256, 256)
+    window = (64, 64)
+    num_patches = 100  # 100 patch pairs per image = 100,000 total
+
+    # Extract metadata (fast, doesn't load patches)
+    metadata = extract_patch_pairs_metadata(
+        tensor, window, num_patches, delta_range=(10.0, 20.0),
+        random_seed=42,
+        num_workers=8  # Parallel processing
+    )
+
+    print(f"Extracted metadata for {len(metadata['patch1_x'])} patch pairs")
+
+**Step 2: Save to Zarr Format**::
+
+    from qlty.patch_pairs_2d import extract_patches_to_zarr
+    import zarr
+
+    # Save all patches to Zarr
+    zarr_path = "large_patches.zarr"
+    group = zarr.open_group(zarr_path, mode="w")
+
+    extract_patches_to_zarr(
+        tensor, metadata, group,
+        chunk_size=(1000, 3, 64, 64)  # Optimize for batch loading
+    )
+
+    print("Patches saved to Zarr format")
+
+**Step 3: Load with PyTorch DataLoader**::
+
+    from qlty.patch_pairs_2d import ZarrPatchPairDataset
+    from torch.utils.data import DataLoader
+
+    # Open Zarr group
+    group = zarr.open_group("large_patches.zarr", mode="r")
+    dataset = ZarrPatchPairDataset(group)
+
+    # Create DataLoader
+    dataloader = DataLoader(
+        dataset,
+        batch_size=64,
+        shuffle=True,
+        num_workers=4
+    )
+
+    # Train model
+    for epoch in range(10):
+        for patches1, patches2, deltas, rotations in dataloader:
+            # Training code...
+            output1 = model(patches1)
+            output2 = model(patches2)
+            loss = compute_loss(output1, output2, deltas)
+            loss.backward()
+
+**Benefits**:
+- **Memory efficient**: Metadata extraction is fast and doesn't load patches
+- **Selective loading**: Extract only patches you need
+- **Zarr storage**: Efficient chunked storage for large datasets
+- **DataLoader integration**: Seamless PyTorch integration
+
+Example 13: Converting Image Stacks to OME-Zarr
+-------------------------------------------------
+
+**Use Case**: Convert a directory of TIFF images into OME-Zarr format with multiscale pyramids for efficient viewing and processing.
+
+**Basic Conversion**::
+
+    from qlty.utils.stack_to_zarr import stack_files_to_ome_zarr
+    from pathlib import Path
+
+    # Directory structure:
+    # images/
+    #   stack1_001.tif
+    #   stack1_002.tif
+    #   ...
+    #   stack1_100.tif
+    #   stack2_001.tif
+    #   ...
+
+    result = stack_files_to_ome_zarr(
+        directory="images",
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",  # Matches basename and counter
+        axis_order="ZCYX",  # Z (depth), Channel, Y, X
+        pyramid_levels=4,
+        downsample_mode="2d",
+        downsample_method="dask"
+    )
+
+    # result contains metadata for each stack:
+    # {
+    #     "stack1": {
+    #         "zarr_path": "images/stack1.zarr",
+    #         "shape": (100, 3, 512, 512),
+    #         "file_count": 100,
+    #         "pyramid_levels": 4
+    #     },
+    #     "stack2": {...}
+    # }
+
+**Viewing with napari**::
+
+    import napari
+    import zarr
+
+    # Open OME-Zarr file
+    zarr_path = result["stack1"]["zarr_path"]
+    group = zarr.open_group(zarr_path, mode="r")
+
+    # Load full resolution
+    data = group["0"][:]  # Shape: (Z, C, Y, X)
+
+    # View in napari (supports multiscale automatically)
+    viewer = napari.Viewer()
+    viewer.add_image(data, multiscale=True)
+    napari.run()
+
+**Benefits**:
+- **Multiscale pyramids**: Efficient viewing at different zoom levels
+- **Standard format**: Compatible with bioimaging tools
+- **Chunked storage**: Fast random access
+- **Rich metadata**: OME metadata stored automatically

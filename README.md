@@ -15,6 +15,9 @@
 - **2.5D Quilt**: Convert 3D volumetric data (N, C, Z, Y, X) to multi-channel 2D by slicing Z dimension into channels
 - **Backend System**: Unified interface for multiple data sources (torch.Tensor, Zarr, HDF5, memory-mapped arrays)
 - **Image Stack Utilities**: Convert image file stacks (TIFF, PNG) to efficient Zarr format with pattern matching
+- **OME-Zarr Support**: Convert image stacks to OME-Zarr format with multiscale pyramids
+- **Patch Pair Metadata**: Extract patch pair metadata without loading patches into memory
+- **Zarr Patch Storage**: Save and load patch pairs efficiently using Zarr format
 - **False Color Visualization**: UMAP-based false-color visualization of 2D images using patch-based dimensionality reduction
 - **Sparse Data Handling**: Filter out patches with missing or invalid data
 
@@ -105,15 +108,80 @@ quilt = NCZYX25DQuilt(data_source=data, channel_spec={'identity': [0]})
   - Support for single-channel and multi-channel images
   - Customizable axis orders and chunk sizes
 
-```python
-from qlty.utils.stack_to_zarr import stack_files_to_zarr
+- **`stack_files_to_ome_zarr()`**: Convert to OME-Zarr format with multiscale pyramids
+  - Multiscale resolution levels for efficient viewing
+  - Compatible with napari and other OME-Zarr viewers
+  - Parallel processing support
+  - Rich OME metadata
 
+```python
+from qlty.utils.stack_to_zarr import stack_files_to_zarr, stack_files_to_ome_zarr
+
+# Basic Zarr conversion
 result = stack_files_to_zarr(
     directory="/path/to/images",
     extension=".tif",
     pattern=r"(.+)_(\d+)\.tif$"  # Matches: stack_001.tif, stack_002.tif, etc.
 )
+
+# OME-Zarr with multiscale pyramids
+ome_result = stack_files_to_ome_zarr(
+    directory="/path/to/images",
+    extension=".tif",
+    pattern=r"(.+)_(\d+)\.tif$",
+    pyramid_levels=4,  # Create 4 resolution levels
+    downsample_mode="2d"
+)
 # Returns metadata dict with zarr paths and stack information
+```
+
+### Advanced Patch Pair Functions (New in 1.3.5)
+
+**Metadata extraction and Zarr storage for patch pairs:**
+
+- **`extract_patch_pairs_metadata()`**: Extract patch pair metadata without loading patches
+  - Memory-efficient for large datasets
+  - Multiprocessing support
+  - Includes patch statistics (mean, std)
+
+- **`extract_patches_from_metadata()`**: Selectively extract patches from metadata
+  - Extract only specific patch pairs
+  - Useful for iterative training or memory-constrained environments
+
+- **`extract_patches_to_zarr()`**: Save patch pairs to Zarr format
+  - Efficient chunked storage
+  - Optimized for batch loading
+  - Preserves all metadata
+
+- **`ZarrPatchPairDataset`**: PyTorch Dataset for Zarr-stored patches
+  - Seamless DataLoader integration
+  - Supports transforms
+  - Efficient random access
+
+```python
+from qlty.patch_pairs_2d import (
+    extract_patch_pairs_metadata,
+    extract_patches_from_metadata,
+    extract_patches_to_zarr,
+    ZarrPatchPairDataset
+)
+from torch.utils.data import DataLoader
+import zarr
+
+# Extract metadata (fast, memory-efficient)
+metadata = extract_patch_pairs_metadata(
+    tensor, window=(64, 64), num_patches=100,
+    delta_range=(10.0, 20.0), num_workers=4
+)
+
+# Save to Zarr
+group = zarr.open_group("patches.zarr", mode="w")
+extract_patches_to_zarr(tensor, metadata, group)
+
+# Load with DataLoader
+group = zarr.open_group("patches.zarr", mode="r")
+dataset = ZarrPatchPairDataset(group)
+dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 ```
 
 ### In-Memory Classes
