@@ -1277,9 +1277,9 @@ def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
     base_z = root["0"].shape[0]
     for level in range(1, 3):
         level_z = root[str(level)].shape[0]
-        assert level_z == base_z, (
-            f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
-        )
+        assert (
+            level_z == base_z
+        ), f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
 
 
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
@@ -1492,9 +1492,9 @@ def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
     base_z = root["0"].shape[0]
     for level in range(1, 3):
         level_z = root[str(level)].shape[0]
-        assert level_z == base_z, (
-            f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
-        )
+        assert (
+            level_z == base_z
+        ), f"Z dimension changed in 2D mode: {base_z} -> {level_z}"
 
 
 @pytest.mark.skipif(zarr is None, reason="zarr not available")

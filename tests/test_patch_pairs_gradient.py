@@ -137,20 +137,20 @@ def test_kernel_optimization_with_overlapping_pixels():
     # Assertions - focus on kernel convergence
     # Note: Loss may not go to zero because patches1 and patches2 are different patches
     # from the same image, so even with identical kernels, outputs differ
-    assert final_kernel_diff < 0.1, (
-        f"Kernels did not converge. Final difference: {final_kernel_diff}"
-    )
-    assert kernel_diffs[-1] < kernel_diffs[0] * 0.5, (
-        f"Kernel difference did not decrease significantly. Initial: {kernel_diffs[0]:.6f}, Final: {final_kernel_diff:.6f}"
-    )
+    assert (
+        final_kernel_diff < 0.1
+    ), f"Kernels did not converge. Final difference: {final_kernel_diff}"
+    assert (
+        kernel_diffs[-1] < kernel_diffs[0] * 0.5
+    ), f"Kernel difference did not decrease significantly. Initial: {kernel_diffs[0]:.6f}, Final: {final_kernel_diff:.6f}"
 
     # Verify that trainable conv has gradients
-    assert trainable_conv.weight.grad is not None, (
-        "Trainable conv weights have no gradients"
-    )
-    assert torch.abs(trainable_conv.weight.grad).sum().item() > 0, (
-        "Trainable conv weight gradients are zero"
-    )
+    assert (
+        trainable_conv.weight.grad is not None
+    ), "Trainable conv weights have no gradients"
+    assert (
+        torch.abs(trainable_conv.weight.grad).sum().item() > 0
+    ), "Trainable conv weight gradients are zero"
 
 
 def test_kernel_optimization_different_initialization():
@@ -243,9 +243,9 @@ def test_kernel_optimization_different_initialization():
         fixed_kernel,
     ).item()
 
-    assert final_kernel_diff < 0.1, (
-        f"Kernels did not converge from different initialization. Diff: {final_kernel_diff}"
-    )
+    assert (
+        final_kernel_diff < 0.1
+    ), f"Kernels did not converge from different initialization. Diff: {final_kernel_diff}"
 
 
 def test_alternating_kernel_optimization():
@@ -295,12 +295,12 @@ def test_alternating_kernel_optimization():
     overlap_fraction = overlapping_pixels_count / total_possible_pixels
 
     # Verify overlap is less than 100%
-    assert overlap_fraction < 1.0, (
-        f"Overlap fraction should be less than 100%, got {overlap_fraction * 100:.2f}%"
-    )
-    assert overlapping_pixels_count < total_possible_pixels, (
-        f"Overlapping pixels ({overlapping_pixels_count}) should be less than total possible ({total_possible_pixels})"
-    )
+    assert (
+        overlap_fraction < 1.0
+    ), f"Overlap fraction should be less than 100%, got {overlap_fraction * 100:.2f}%"
+    assert (
+        overlapping_pixels_count < total_possible_pixels
+    ), f"Overlapping pixels ({overlapping_pixels_count}) should be less than total possible ({total_possible_pixels})"
 
     # Create two trainable Conv2D layers
     kernel_size = 3
@@ -401,16 +401,16 @@ def test_alternating_kernel_optimization():
     ).item()
 
     # Verify that kernels converged toward each other
-    assert final_kernel_diff < initial_diff * 0.5, (
-        f"Kernels did not converge. Initial diff: {initial_diff:.6f}, Final diff: {final_kernel_diff:.6f}"
-    )
+    assert (
+        final_kernel_diff < initial_diff * 0.5
+    ), f"Kernels did not converge. Initial diff: {initial_diff:.6f}, Final diff: {final_kernel_diff:.6f}"
 
     # Verify that both kernels have gradients (at least in the last step)
-    assert conv1.weight.grad is not None or conv2.weight.grad is not None, (
-        "At least one kernel should have gradients"
-    )
+    assert (
+        conv1.weight.grad is not None or conv2.weight.grad is not None
+    ), "At least one kernel should have gradients"
 
     # Verify loss decreased
-    assert losses[-1] < losses[0] * 0.8, (
-        f"Loss did not decrease significantly. Initial: {losses[0]:.6f}, Final: {losses[-1]:.6f}"
-    )
+    assert (
+        losses[-1] < losses[0] * 0.8
+    ), f"Loss did not decrease significantly. Initial: {losses[0]:.6f}, Final: {losses[-1]:.6f}"
