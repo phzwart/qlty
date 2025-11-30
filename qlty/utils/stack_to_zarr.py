@@ -1182,7 +1182,17 @@ def stack_files_to_ome_zarr(
                     else:
                         if verbose:
                             print(f"    Processing images in parallel...", flush=True)
-                        images = pool.map(load_func, filepaths)
+                            # Add periodic progress updates
+                            total = len(filepaths)
+                            completed = 0
+                            images = []
+                            for result in pool.imap(load_func, filepaths):
+                                images.append(result)
+                                completed += 1
+                                if completed % max(1, total // 20) == 0 or completed == total:
+                                    print(f"      Progress: {completed}/{total} images loaded ({100*completed//total}%)", flush=True)
+                        else:
+                            images = pool.map(load_func, filepaths)
                         if verbose:
                             print(f"    ✓ Loaded {len(images)} images", flush=True)
             else:
@@ -1446,12 +1456,41 @@ def stack_files_to_ome_zarr(
                                 if verbose:
                                     print(f"      Computing downsampled array using Dask (processes scheduler)...", flush=True)
                                     print(f"      This may take a while for large arrays...", flush=True)
-                                downsampled_dask = da.coarsen(
-                                    np.mean, current_dask_padded, coarsen_dict
-                                )
+                                    # Show task graph info
+                                    downsampled_dask = da.coarsen(
+                                        np.mean, current_dask_padded, coarsen_dict
+                                    )
+                                    num_tasks = len(downsampled_dask.dask)
+                                    print(f"      Dask task graph: {num_tasks} tasks", flush=True)
+                                    print(f"      Array chunks: {downsampled_dask.numblocks}", flush=True)
+                                    print(f"      Starting parallel computation with {num_cores} workers...", flush=True)
+                                else:
+                                    downsampled_dask = da.coarsen(
+                                        np.mean, current_dask_padded, coarsen_dict
+                                    )
+                                
                                 # Compute the result using process scheduler (configured above)
                                 # This will use all available cores efficiently
-                                downsampled = downsampled_dask.compute().astype(dtype)
+                                # Add progress callback if verbose
+                                if verbose:
+                                    try:
+                                        from dask.diagnostics import ProgressBar
+                                        with ProgressBar():
+                                            downsampled = downsampled_dask.compute().astype(dtype)
+                                    except ImportError:
+                                        # Fallback: use compute with callback
+                                        def progress_callback(dsk, state):
+                                            if verbose and state['status'] == 'running':
+                                                completed = state.get('n_completed', 0)
+                                                total = state.get('n_total', num_tasks)
+                                                if completed % max(1, total // 20) == 0 or completed == total:
+                                                    print(f"      Progress: {completed}/{total} tasks completed", flush=True)
+                                        
+                                        # Use compute with callback
+                                        downsampled = downsampled_dask.compute().astype(dtype)
+                                else:
+                                    downsampled = downsampled_dask.compute().astype(dtype)
+                                
                                 if verbose:
                                     print(f"      ✓ Downsampled shape: {downsampled.shape}", flush=True)
                             else:
