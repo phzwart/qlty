@@ -305,7 +305,7 @@ def _load_and_write_to_all_pyramid_levels(
         current_img = img_reordered.copy()
         prev_scale_factors = None
 
-        for level_idx, (_level_shape, cumulative_scale_factors) in enumerate(
+        for level_idx, (expected_level_shape, cumulative_scale_factors) in enumerate(
             zip(pyramid_level_shapes[1:], pyramid_scale_factors), start=1
         ):
             # Calculate incremental scale factors
@@ -393,14 +393,53 @@ def _load_and_write_to_all_pyramid_levels(
 
             # Write downsampled image to this pyramid level
             level_array = zarr_group[str(level_idx)]
+            
+            # Validate and write - expected_level_shape is from the loop iteration
             if has_channels:
+                # downsampled shape is (C, Y, X)
+                # We need to match the spatial dimensions (Y, X) from expected_level_shape
                 if axis_order == "CZYX":
+                    # Array shape: (C, Z, Y, X)
+                    # Expected: (C, Z, Y, X) -> slice at z_idx should be (C, Y, X)
+                    expected_C, expected_Z, expected_Y, expected_X = expected_level_shape
+                    if downsampled.shape != (expected_C, expected_Y, expected_X):
+                        raise ValueError(
+                            f"Shape mismatch at level {level_idx}, z_idx {z_idx}: "
+                            f"downsampled shape {downsampled.shape} != expected (C={expected_C}, Y={expected_Y}, X={expected_X}). "
+                            f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}"
+                        )
                     level_array[:, z_idx, :, :] = downsampled
                 elif axis_order == "ZCYX":
+                    # Array shape: (Z, C, Y, X)
+                    # Expected: (Z, C, Y, X) -> slice at z_idx should be (C, Y, X)
+                    expected_Z, expected_C, expected_Y, expected_X = expected_level_shape
+                    if downsampled.shape != (expected_C, expected_Y, expected_X):
+                        raise ValueError(
+                            f"Shape mismatch at level {level_idx}, z_idx {z_idx}: "
+                            f"downsampled shape {downsampled.shape} != expected (C={expected_C}, Y={expected_Y}, X={expected_X}). "
+                            f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}"
+                        )
                     level_array[z_idx, :, :, :] = downsampled
                 else:
+                    # Generic: assume Z is first dimension
+                    # Expected level shape should match array shape
+                    if downsampled.shape != expected_level_shape[1:]:  # Skip Z dimension after Z
+                        raise ValueError(
+                            f"Shape mismatch at level {level_idx}, z_idx {z_idx}: "
+                            f"downsampled shape {downsampled.shape} != expected {expected_level_shape[1:]}. "
+                            f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}"
+                        )
                     level_array[z_idx, ...] = downsampled
             else:
+                # Single channel: downsampled is (Y, X)
+                # Expected level shape: (Z, Y, X) -> slice should be (Y, X)
+                expected_Z, expected_Y, expected_X = expected_level_shape
+                if downsampled.shape != (expected_Y, expected_X):
+                    raise ValueError(
+                        f"Shape mismatch at level {level_idx}, z_idx {z_idx}: "
+                        f"downsampled shape {downsampled.shape} != expected (Y={expected_Y}, X={expected_X}). "
+                        f"Level array shape: {level_array.shape}, expected level shape: {expected_level_shape}"
+                    )
                 level_array[z_idx, :, :] = downsampled
 
             # Update for next level
@@ -1432,54 +1471,56 @@ def stack_files_to_ome_zarr(
 
             # CLEAN REWRITE: Calculate pyramid level shapes upfront
             # For 2D mode: only downsample Y, X (not Z)
+            # IMPORTANT: Cumulative scale factors are relative to BASE, not previous level
+            # So we divide BASE shape by cumulative factors, not previous shape
             pyramid_level_shapes = [base_shape]
             if num_pyramid_levels > 1:
                 for cumulative_scale_factors in pyramid_scale_factors:
                     if has_channels:
                         if final_axis_order == "ZCYX":
                             z_scale, c_scale, y_scale, x_scale = cumulative_scale_factors
-                            prev_shape = pyramid_level_shapes[-1]
+                            # Divide BASE shape by cumulative scale factors
                             level_shape = (
-                                prev_shape[0],  # Z unchanged
-                                prev_shape[1],  # C unchanged
-                                prev_shape[2] // int(y_scale) if y_scale > 1 else prev_shape[2],
-                                prev_shape[3] // int(x_scale) if x_scale > 1 else prev_shape[3],
+                                base_shape[0],  # Z unchanged
+                                base_shape[1],  # C unchanged
+                                base_shape[2] // int(y_scale) if y_scale > 1 else base_shape[2],
+                                base_shape[3] // int(x_scale) if x_scale > 1 else base_shape[3],
                             )
                         elif final_axis_order == "CZYX":
                             c_scale, z_scale, y_scale, x_scale = cumulative_scale_factors
-                            prev_shape = pyramid_level_shapes[-1]
+                            # Divide BASE shape by cumulative scale factors
                             level_shape = (
-                                prev_shape[0],  # C unchanged
-                                prev_shape[1],  # Z unchanged
-                                prev_shape[2] // int(y_scale) if y_scale > 1 else prev_shape[2],
-                                prev_shape[3] // int(x_scale) if x_scale > 1 else prev_shape[3],
+                                base_shape[0],  # C unchanged
+                                base_shape[1],  # Z unchanged
+                                base_shape[2] // int(y_scale) if y_scale > 1 else base_shape[2],
+                                base_shape[3] // int(x_scale) if x_scale > 1 else base_shape[3],
                             )
                         else:
                             # Generic: assume standard order
-                            prev_shape = pyramid_level_shapes[-1]
                             # Extract Y, X scale factors (last two)
                             y_scale = cumulative_scale_factors[-2] if len(cumulative_scale_factors) >= 2 else 1
                             x_scale = cumulative_scale_factors[-1] if len(cumulative_scale_factors) >= 1 else 1
+                            # Divide BASE shape by cumulative scale factors
                             level_shape = tuple(
-                                prev_shape[i] if i < len(prev_shape) - 2 else (
-                                    prev_shape[i] // int(s) if s > 1 else prev_shape[i]
+                                base_shape[i] if i < len(base_shape) - 2 else (
+                                    base_shape[i] // int(s) if s > 1 else base_shape[i]
                                 )
                                 for i, s in enumerate(cumulative_scale_factors)
                             )
-                            # Ensure Y, X are downsampled correctly
+                            # Ensure Y, X are downsampled correctly from base
                             if len(level_shape) >= 2:
                                 level_shape = level_shape[:-2] + (
-                                    prev_shape[-2] // int(y_scale) if y_scale > 1 else prev_shape[-2],
-                                    prev_shape[-1] // int(x_scale) if x_scale > 1 else prev_shape[-1],
+                                    base_shape[-2] // int(y_scale) if y_scale > 1 else base_shape[-2],
+                                    base_shape[-1] // int(x_scale) if x_scale > 1 else base_shape[-1],
                                 )
                     else:
                         # Single channel: (Z, Y, X)
                         z_scale, y_scale, x_scale = cumulative_scale_factors
-                        prev_shape = pyramid_level_shapes[-1]
+                        # Divide BASE shape by cumulative scale factors
                         level_shape = (
-                            prev_shape[0],  # Z unchanged for 2D mode
-                            prev_shape[1] // int(y_scale) if y_scale > 1 else prev_shape[1],
-                            prev_shape[2] // int(x_scale) if x_scale > 1 else prev_shape[2],
+                            base_shape[0],  # Z unchanged for 2D mode
+                            base_shape[1] // int(y_scale) if y_scale > 1 else base_shape[1],
+                            base_shape[2] // int(x_scale) if x_scale > 1 else base_shape[2],
                         )
                     pyramid_level_shapes.append(level_shape)
 
