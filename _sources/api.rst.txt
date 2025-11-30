@@ -345,7 +345,7 @@ extract_patches_to_zarr
     # Save patches to Zarr format
     zarr_path = "patches.zarr"
     group = zarr.open_group(zarr_path, mode="w")
-    
+
     extract_patches_to_zarr(
         tensor, metadata, group,
         chunk_size=(100, 3, 32, 32)  # Custom chunk size
