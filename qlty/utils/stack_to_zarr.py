@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import multiprocessing
 import re
+import time
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
@@ -761,6 +762,7 @@ def stack_files_to_ome_zarr(
     downsample_mode: str = "2d",
     downsample_axes: tuple[str, ...] | None = None,
     downsample_method: str = "dask_coarsen",
+    verbose: bool = True,
 ) -> dict[str, dict]:
     """
     Scan directory for image files, group into 3D stacks, and save as OME-Zarr with pyramids.
@@ -822,6 +824,14 @@ def stack_files_to_ome_zarr(
         - "dask_coarsen": Use Dask coarsen (fast, parallel, recommended)
         - "scipy_zoom": Use scipy.ndimage.zoom (fallback)
         Future methods can be added (e.g., "block_average")
+    verbose : bool
+        Whether to print detailed progress information. Default: True
+        When True, prints:
+        - File discovery and stack information
+        - Image dimensions and memory estimates
+        - Loading progress
+        - Pyramid level creation progress with timing
+        - Dask configuration details
 
     Returns
     -------
@@ -904,18 +914,29 @@ def stack_files_to_ome_zarr(
         stacks[basename].append((counter, filepath))
 
     if not stacks:
-        print("No matching files found.")
+        if verbose:
+            print("No matching files found.")
         return {}
 
-    print(f"Found {len(stacks)} stack(s) to process")
+    if verbose:
+        print(f"Found {len(stacks)} stack(s) to process")
+        print(f"Scanning directory: {directory}")
+        print(f"File pattern: {pattern.pattern if isinstance(pattern, re.Pattern) else pattern}")
+        print(f"Extension: {extension}")
 
     # Step 2: Stack Analysis (reuse logic from stack_files_to_zarr)
     results = {}
 
     for stack_idx, (basename, file_list) in enumerate(stacks.items(), 1):
-        print(
-            f"\n[{stack_idx}/{len(stacks)}] Processing stack: {basename} ({len(file_list)} files)"
-        )
+        if verbose:
+            print(
+                f"\n{'='*70}"
+            )
+            print(
+                f"[{stack_idx}/{len(stacks)}] Processing stack: {basename}"
+            )
+            print(f"  Files found: {len(file_list)}")
+            print(f"  Counter range: {min(c for c, _ in file_list)} - {max(c for c, _ in file_list)}")
         # Sort by counter
         if sort_by_counter:
             file_list.sort(key=lambda x: x[0])
@@ -973,6 +994,20 @@ def stack_files_to_ome_zarr(
             dtype = first_image.dtype
         else:
             dtype = np.dtype(dtype)
+        
+        if verbose:
+            print(f"  Image dimensions: {first_image.shape}")
+            print(f"  Detected shape: {base_shape}")
+            print(f"  Data type: {dtype}")
+            print(f"  Axis order: {final_axis_order}")
+            if has_channels:
+                print(f"  Channels: {C}")
+            # Calculate approximate memory size
+            import sys
+            element_size = np.dtype(dtype).itemsize
+            total_elements = np.prod(base_shape)
+            memory_gb = (total_elements * element_size) / (1024**3)
+            print(f"  Estimated memory per level: {memory_gb:.2f} GB")
 
         # Validate all images have same dimensions
         for _counter, filepath in file_list[1:]:
@@ -1081,9 +1116,12 @@ def stack_files_to_ome_zarr(
                     pyramid_scale_factors.append((z_scale, y_scale, x_scale))
 
         if not dry_run:
-            print(f"  Creating OME-Zarr: {output_path}")
-            print(f"  Base shape: {base_shape}, dtype: {dtype}")
-            print(f"  Pyramid levels: {num_pyramid_levels}")
+            if verbose:
+                print(f"  Creating OME-Zarr: {output_path}")
+                print(f"  Base shape: {base_shape}, dtype: {dtype}")
+                print(f"  Pyramid levels: {num_pyramid_levels}")
+                print(f"  Downsample method: {downsample_method}")
+                print(f"  Downsample mode: {downsample_mode}")
 
             # Create OME-Zarr root group
             root = zarr.open_group(str(output_path), mode="w")
@@ -1105,7 +1143,8 @@ def stack_files_to_ome_zarr(
             else:
                 base_chunks = zarr_chunks
 
-            print("  Loading images for base level...")
+            if verbose:
+                print("\n  [Step 1/3] Loading images for base level...")
             # Load images (reuse logic from stack_files_to_zarr)
             use_multiprocessing = False
             if num_workers is None:
@@ -1116,6 +1155,12 @@ def stack_files_to_ome_zarr(
                 workers = num_workers
             else:
                 workers = 1
+            
+            if verbose:
+                if use_multiprocessing:
+                    print(f"    Using multiprocessing with {workers} workers")
+                else:
+                    print(f"    Using sequential loading (1 worker)")
 
             if use_multiprocessing and len(file_list) > 10:
                 load_func = partial(_load_and_process_image, dtype=dtype)
@@ -1143,6 +1188,8 @@ def stack_files_to_ome_zarr(
                 ]
 
             # Stack images and apply axis order
+            if verbose:
+                print("    Stacking images and applying axis order...")
             if has_channels:
                 stack_data = np.zeros((len(file_list), C, Y, X), dtype=dtype)
                 for z_idx, img in enumerate(images):
@@ -1154,13 +1201,21 @@ def stack_files_to_ome_zarr(
             else:
                 base_array_data = np.stack(images, axis=0)
 
+            if verbose:
+                print(f"    Base array shape: {base_array_data.shape}")
+                print(f"    Chunk size: {base_chunks}")
+
             # Create base level array (OME-Zarr stores pyramid levels as arrays at root)
+            if verbose:
+                print("    Writing base level to zarr...")
             base_zarr_array = _create_zarr_array(
                 root,
                 "0",
                 data=base_array_data,
                 chunks=base_chunks,
             )
+            if verbose:
+                print("    ✓ Base level written")
             multiscales_metadata.append(
                 {
                     "path": "0",
@@ -1188,6 +1243,13 @@ def stack_files_to_ome_zarr(
                 # This is critical for large arrays on multi-core machines
                 import multiprocessing
                 num_cores = multiprocessing.cpu_count()
+                
+                if verbose:
+                    print(f"\n  [Step 2/3] Creating {num_pyramid_levels - 1} pyramid level(s)...")
+                    print(f"    Dask configuration:")
+                    print(f"      Scheduler: processes (bypasses GIL)")
+                    print(f"      Workers: {num_cores}")
+                    print(f"      Threads per worker: 1")
                 
                 # Configure Dask to use all available cores with processes
                 # Set chunk size based on available memory and cores
@@ -1247,9 +1309,11 @@ def stack_files_to_ome_zarr(
                     for level_idx, cumulative_scale_factors in enumerate(
                         pyramid_scale_factors, 1
                     ):
-                        print(
-                            f"  Creating pyramid level {level_idx + 1}/{num_pyramid_levels}..."
-                        )
+                        if verbose:
+                            level_start_time = time.time()
+                            print(f"\n    Level {level_idx}/{num_pyramid_levels - 1}:")
+                            print(f"      Current shape: {current_shape}")
+                            print(f"      Cumulative scale factors: {cumulative_scale_factors}")
 
                         # Compute incremental scale factors from cumulative ones
                         # Cumulative scale factors are relative to base (e.g., 2, 4, 8)
@@ -1265,6 +1329,9 @@ def stack_files_to_ome_zarr(
                                     cumulative_scale_factors, prev_scale_factors
                                 )
                             )
+                        
+                        if verbose:
+                            print(f"      Incremental scale factors: {incremental_scale_factors}")
 
                         # Determine which dimensions to downsample based on incremental scale factors
                         # Build coarsen dictionary: {axis_index: scale_factor}
@@ -1322,6 +1389,8 @@ def stack_files_to_ome_zarr(
                         # Downsample using Dask coarsen (block averaging)
                         if downsample_method == "dask_coarsen":
                             if coarsen_dict:
+                                if verbose:
+                                    print(f"      Downsampling axes: {list(coarsen_dict.keys())} with factors {list(coarsen_dict.values())}")
                                 # Check if dimensions are divisible by scale factors
                                 # Dask coarsen requires exact divisibility
                                 # If not divisible, pad with zeros to make them divisible
@@ -1343,6 +1412,8 @@ def stack_files_to_ome_zarr(
                                         pad_widths[axis] = (0, padding_needed)
 
                                 if needs_padding:
+                                    if verbose:
+                                        print(f"      Padding required: {padded_shape} (from {current_shape})")
                                     # Pad the data with zeros
                                     current_data_padded = np.pad(
                                         current_data,
@@ -1360,12 +1431,16 @@ def stack_files_to_ome_zarr(
                                     current_dask_padded = current_dask
 
                                 # Use dask coarsen with mean reduction for block averaging
+                                if verbose:
+                                    print(f"      Computing downsampled array using Dask (processes scheduler)...")
                                 downsampled_dask = da.coarsen(
                                     np.mean, current_dask_padded, coarsen_dict
                                 )
                                 # Compute the result using process scheduler (configured above)
                                 # This will use all available cores efficiently
                                 downsampled = downsampled_dask.compute().astype(dtype)
+                                if verbose:
+                                    print(f"      ✓ Downsampled shape: {downsampled.shape}")
                             else:
                                 # No downsampling needed for this level (shouldn't happen, but handle gracefully)
                                 downsampled = current_data
@@ -1399,12 +1474,17 @@ def stack_files_to_ome_zarr(
                         current_shape = current_data.shape
 
                         # Create array for this pyramid level (stored at root)
+                        if verbose:
+                            print(f"      Writing level {level_idx} to zarr...")
                         level_zarr_array = _create_zarr_array(
                             root,
                             str(level_idx),
                             data=current_data,
                             chunks=tuple(min(d, 256) for d in current_shape),
                         )
+                        if verbose:
+                            level_time = time.time() - level_start_time
+                            print(f"      ✓ Level {level_idx} complete ({level_time:.1f}s)")
                         multiscales_metadata.append(
                             {
                                 "path": str(level_idx),
@@ -1431,6 +1511,8 @@ def stack_files_to_ome_zarr(
                             current_dask = da.from_zarr(level_zarr_array, chunks=next_optimal_chunks)
 
             # Create OME metadata
+            if verbose:
+                print(f"\n  [Step 3/3] Writing OME metadata...")
             # Determine axis names based on shape
             if has_channels:
                 if final_axis_order == "ZCYX":
@@ -1477,7 +1559,11 @@ def stack_files_to_ome_zarr(
             )
             root.attrs["extension"] = extension
 
-            print(f"  ✓ Completed OME-Zarr: {basename}")
+            if verbose:
+                print(f"\n  ✓ Completed OME-Zarr: {basename}")
+                print(f"  Output: {output_path}")
+                print(f"  Total pyramid levels: {num_pyramid_levels}")
+                print(f"{'='*70}")
         else:
             print(f"  Dry run: Would create OME-Zarr at {output_path}")
             print(f"  Base shape: {base_shape}, dtype: {dtype}")
@@ -1495,5 +1581,10 @@ def stack_files_to_ome_zarr(
             "pyramid_levels": num_pyramid_levels,
         }
 
-    print(f"\n✓ Successfully processed {len(results)} stack(s) as OME-Zarr")
+    if verbose:
+        print(f"\n{'='*70}")
+        print(f"✓ Successfully processed {len(results)} stack(s) as OME-Zarr")
+        for stack_name, metadata in results.items():
+            print(f"  - {stack_name}: {metadata['zarr_path']}")
+            print(f"    Shape: {metadata['shape']}, Levels: {metadata['pyramid_levels']}")
     return results
