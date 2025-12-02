@@ -1913,27 +1913,27 @@ def stack_files_to_ome_zarr(
                     )
                     print("-" * 70, flush=True)
 
-                # Create pool and verify it actually created workers
-                pool = multiprocessing.Pool(processes=workers)
-                if verbose:
-                    try:
-                        import psutil
+                # Use context manager for proper cleanup on all platforms (especially Linux)
+                # This ensures the pool is properly closed even if ProcessSynchronizer holds locks
+                with multiprocessing.Pool(processes=workers) as pool:
+                    if verbose:
+                        try:
+                            import psutil
 
-                        current_process = psutil.Process()
-                        children = current_process.children(recursive=True)
-                        print(
-                            f"    DEBUG: Pool created, active child processes: {len(children)}",
-                            flush=True,
-                        )
-                        if len(children) < workers:
+                            current_process = psutil.Process()
+                            children = current_process.children(recursive=True)
                             print(
-                                f"    WARNING: Only {len(children)} child processes created, expected {workers}!",
+                                f"    DEBUG: Pool created, active child processes: {len(children)}",
                                 flush=True,
                             )
-                    except ImportError:
-                        pass
+                            if len(children) < workers:
+                                print(
+                                    f"    WARNING: Only {len(children)} child processes created, expected {workers}!",
+                                    flush=True,
+                                )
+                        except ImportError:
+                            pass
 
-                try:
                     # Write directly to zarr in parallel (like stack_files_to_zarr)
                     # Using imap_unordered for better performance with many tasks
                     chunksize = max(1, len(tasks) // (workers * 4))
@@ -2017,9 +2017,6 @@ def stack_files_to_ome_zarr(
                             )
                         except ImportError:
                             pass
-                finally:
-                    pool.close()
-                    pool.join()
             else:
                 # Sequential writing (small stacks or num_workers=1)
                 if verbose:
