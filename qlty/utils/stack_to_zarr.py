@@ -563,9 +563,9 @@ def _load_and_write_to_all_pyramid_levels(
                         downsampled = padded
 
                 # Final verification
-                assert (
-                    downsampled.shape == (expected_Y, expected_X)
-                ), f"Shape fix failed: {downsampled.shape} != ({expected_Y}, {expected_X})"
+                assert downsampled.shape == (expected_Y, expected_X), (
+                    f"Shape fix failed: {downsampled.shape} != ({expected_Y}, {expected_X})"
+                )
 
                 # Write with exact shape match
                 level_array[z_idx, :, :] = downsampled
@@ -1598,7 +1598,16 @@ def stack_files_to_ome_zarr(
 
             # Create OME-Zarr root group
             # Use ProcessSynchronizer for concurrent writes when using multiprocessing
-            if will_use_multiprocessing and ProcessSynchronizer is not None:
+            # Note: Disable on Linux due to hanging issues with file locks during cleanup
+            import sys
+
+            is_linux = sys.platform.startswith("linux")
+            use_synchronizer = (
+                will_use_multiprocessing
+                and ProcessSynchronizer is not None
+                and not is_linux
+            )
+            if use_synchronizer:
                 # Create synchronizer file in the zarr directory
                 sync_path = str(output_path / ".zarr_sync")
                 synchronizer = ProcessSynchronizer(sync_path)
@@ -1612,19 +1621,27 @@ def stack_files_to_ome_zarr(
                 )
             else:
                 if verbose:
-                    if will_use_multiprocessing and ProcessSynchronizer is None:
-                        print(
-                            "  Creating zarr root group (ProcessSynchronizer not available, using default)...",
-                            flush=True,
-                        )
-                        print(
-                            "  WARNING: ProcessSynchronizer not available. For concurrent writes, consider installing:",
-                            flush=True,
-                        )
-                        print(
-                            "    pip install fasteners  # Required for ProcessSynchronizer",
-                            flush=True,
-                        )
+                    if will_use_multiprocessing:
+                        if ProcessSynchronizer is None:
+                            print(
+                                "  Creating zarr root group (ProcessSynchronizer not available, using default)...",
+                                flush=True,
+                            )
+                            print(
+                                "  WARNING: ProcessSynchronizer not available. For concurrent writes, consider installing:",
+                                flush=True,
+                            )
+                            print(
+                                "    pip install fasteners  # Required for ProcessSynchronizer",
+                                flush=True,
+                            )
+                        elif is_linux:
+                            print(
+                                "  Creating zarr root group (ProcessSynchronizer disabled on Linux to prevent hanging)...",
+                                flush=True,
+                            )
+                        else:
+                            print("  Creating zarr root group...", flush=True)
                     else:
                         print("  Creating zarr root group...", flush=True)
                 root = zarr.open_group(str(output_path), mode="w")
@@ -2017,6 +2034,15 @@ def stack_files_to_ome_zarr(
                             )
                         except ImportError:
                             pass
+
+                    # Ensure all results are consumed and operations complete
+                    # This is critical on Linux where ProcessSynchronizer locks can prevent cleanup
+                    # The context manager will handle pool.close() and pool.join(), but we ensure
+                    # all zarr operations are complete first
+                    del write_results  # Explicitly release references
+                    import gc
+
+                    gc.collect()  # Force garbage collection to release zarr handles
             else:
                 # Sequential writing (small stacks or num_workers=1)
                 if verbose:
