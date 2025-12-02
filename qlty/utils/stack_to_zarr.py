@@ -563,9 +563,9 @@ def _load_and_write_to_all_pyramid_levels(
                         downsampled = padded
 
                 # Final verification
-                assert downsampled.shape == (expected_Y, expected_X), (
-                    f"Shape fix failed: {downsampled.shape} != ({expected_Y}, {expected_X})"
-                )
+                assert (
+                    downsampled.shape == (expected_Y, expected_X)
+                ), f"Shape fix failed: {downsampled.shape} != ({expected_Y}, {expected_X})"
 
                 # Write with exact shape match
                 level_array[z_idx, :, :] = downsampled
