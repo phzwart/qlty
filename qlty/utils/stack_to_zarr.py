@@ -427,9 +427,12 @@ def _load_and_write_to_all_pyramid_levels(
                 if axis_order == "CZYX":
                     # Array shape: (C, Z, Y, X)
                     # Expected: (C, Z, Y, X) -> slice at z_idx should be (C, Y, X)
-                    expected_C, expected_Z, expected_Y, expected_X = (
-                        expected_level_shape
-                    )
+                    (
+                        expected_C,
+                        expected_Z,
+                        expected_Y,
+                        expected_X,
+                    ) = expected_level_shape
                     C_actual, Y_actual, X_actual = downsampled.shape
 
                     # Fix shape if needed
@@ -462,9 +465,12 @@ def _load_and_write_to_all_pyramid_levels(
                 elif axis_order == "ZCYX":
                     # Array shape: (Z, C, Y, X)
                     # Expected: (Z, C, Y, X) -> slice at z_idx should be (C, Y, X)
-                    expected_Z, expected_C, expected_Y, expected_X = (
-                        expected_level_shape
-                    )
+                    (
+                        expected_Z,
+                        expected_C,
+                        expected_Y,
+                        expected_X,
+                    ) = expected_level_shape
                     C_actual, Y_actual, X_actual = downsampled.shape
 
                     # Fix shape if needed
@@ -557,9 +563,9 @@ def _load_and_write_to_all_pyramid_levels(
                         downsampled = padded
 
                 # Final verification
-                assert downsampled.shape == (expected_Y, expected_X), (
-                    f"Shape fix failed: {downsampled.shape} != ({expected_Y}, {expected_X})"
-                )
+                assert (
+                    downsampled.shape == (expected_Y, expected_X)
+                ), f"Shape fix failed: {downsampled.shape} != ({expected_Y}, {expected_X})"
 
                 # Write with exact shape match
                 level_array[z_idx, :, :] = downsampled
