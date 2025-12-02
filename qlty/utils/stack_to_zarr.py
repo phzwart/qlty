@@ -563,9 +563,9 @@ def _load_and_write_to_all_pyramid_levels(
                         downsampled = padded
 
                 # Final verification
-                assert (
-                    downsampled.shape == (expected_Y, expected_X)
-                ), f"Shape fix failed: {downsampled.shape} != ({expected_Y}, {expected_X})"
+                assert downsampled.shape == (expected_Y, expected_X), (
+                    f"Shape fix failed: {downsampled.shape} != ({expected_Y}, {expected_X})"
+                )
 
                 # Write with exact shape match
                 level_array[z_idx, :, :] = downsampled
@@ -573,6 +573,15 @@ def _load_and_write_to_all_pyramid_levels(
             # Update for next level
             current_img = downsampled
             prev_scale_factors = cumulative_scale_factors
+
+        # Explicitly release zarr group reference to help with cleanup on Linux
+        # Zarr groups don't have close(), but releasing references helps GC
+        del zarr_group
+        del base_array
+        del level_array
+        import gc
+
+        gc.collect()  # Force garbage collection to release file handles
 
         return (z_idx, True)
     except Exception:
@@ -1598,14 +1607,16 @@ def stack_files_to_ome_zarr(
 
             # Create OME-Zarr root group
             # Use ProcessSynchronizer for concurrent writes when using multiprocessing
-            # Note: Disable on Linux due to hanging issues with file locks during cleanup
+            # Note: Disable on Linux with Python < 3.11 due to hanging issues with file locks
             import sys
 
-            is_linux = sys.platform.startswith("linux")
+            is_linux_python_old = sys.platform.startswith(
+                "linux"
+            ) and sys.version_info < (3, 11)
             use_synchronizer = (
                 will_use_multiprocessing
                 and ProcessSynchronizer is not None
-                and not is_linux
+                and not is_linux_python_old
             )
             if use_synchronizer:
                 # Create synchronizer file in the zarr directory
@@ -1635,9 +1646,9 @@ def stack_files_to_ome_zarr(
                                 "    pip install fasteners  # Required for ProcessSynchronizer",
                                 flush=True,
                             )
-                        elif is_linux:
+                        elif is_linux_python_old:
                             print(
-                                "  Creating zarr root group (ProcessSynchronizer disabled on Linux to prevent hanging)...",
+                                "  Creating zarr root group (ProcessSynchronizer disabled on Linux/Python < 3.11 to prevent hanging)...",
                                 flush=True,
                             )
                         else:
@@ -1930,9 +1941,19 @@ def stack_files_to_ome_zarr(
                     )
                     print("-" * 70, flush=True)
 
-                # Use context manager for proper cleanup on all platforms (especially Linux)
-                # This ensures the pool is properly closed even if ProcessSynchronizer holds locks
-                with multiprocessing.Pool(processes=workers) as pool:
+                    # Use context manager for proper cleanup on all platforms
+                    # On Linux with Python < 3.11, use 'spawn' start method to avoid
+                    # fork-related file handle inheritance issues that cause hanging
+                    import sys
+
+                    if sys.platform.startswith("linux") and sys.version_info < (3, 11):
+                        # Use spawn method on Linux with Python < 3.11 to avoid file handle issues
+                        ctx = multiprocessing.get_context("spawn")
+                        pool = ctx.Pool(processes=workers)
+                    else:
+                        pool = multiprocessing.Pool(processes=workers)
+
+                try:
                     if verbose:
                         try:
                             import psutil
@@ -2036,13 +2057,32 @@ def stack_files_to_ome_zarr(
                             pass
 
                     # Ensure all results are consumed and operations complete
-                    # This is critical on Linux where ProcessSynchronizer locks can prevent cleanup
+                    # This is critical on Linux where file handles can prevent cleanup
                     # The context manager will handle pool.close() and pool.join(), but we ensure
                     # all zarr operations are complete first
                     del write_results  # Explicitly release references
+
+                    # On Linux with Python < 3.11, ensure all file operations complete before pool cleanup
+                    # Small delay to allow file system to sync and release locks
+                    import sys
+                    import time
+
+                    if sys.platform.startswith("linux") and sys.version_info < (3, 11):
+                        time.sleep(
+                            0.2
+                        )  # Give Linux/Python < 3.11 time to release file handles
+
                     import gc
 
                     gc.collect()  # Force garbage collection to release zarr handles
+                finally:
+                    # Ensure pool is properly closed even if there are issues
+                    # On Linux, use terminate() if join() hangs to prevent infinite wait
+                    pool.close()
+                    pool.join()
+                    # If join() didn't complete (shouldn't happen, but safety check)
+                    # Note: We can't easily detect if join() hung, so we rely on
+                    # the cleanup steps above (GC, delay on Linux) to prevent hangs
             else:
                 # Sequential writing (small stacks or num_workers=1)
                 if verbose:
