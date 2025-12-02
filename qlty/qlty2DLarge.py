@@ -178,7 +178,13 @@ class LargeNCYXQuilt:
             return unstitched_in, unstitched_out
         return [], []
 
-    def unstitch(self, tensor: torch.Tensor, index: int) -> torch.Tensor:
+    def unstitch(
+        self,
+        tensor: torch.Tensor,
+        index: int,
+        return_positions: bool = False,
+        include_n_position: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
         Extract a single patch from a tensor by index.
 
@@ -194,11 +200,21 @@ class LargeNCYXQuilt:
             - Y, X: Must match self.Y and self.X
         index : int
             Linear index of the patch to extract. Must be in range [0, N_chunks).
+        return_positions : bool, optional
+            If True, also return positional embeddings. Default is False.
+        include_n_position : bool, optional
+            If True and return_positions=True, include N (batch) index in positions.
+            If False, positions only contain [Y_pos, X_pos]. Default is False.
 
         Returns
         -------
-        torch.Tensor
-            Single patch of shape (C, window[0], window[1])
+        torch.Tensor or Tuple[torch.Tensor, torch.Tensor]
+            If return_positions=False:
+            - Single patch of shape (C, window[0], window[1])
+
+            If return_positions=True:
+            - patch: Tensor of shape (C, window[0], window[1])
+            - position: Tensor of shape (2,) or (3,) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]
 
         Examples
         --------
@@ -207,6 +223,12 @@ class LargeNCYXQuilt:
         >>> data = torch.randn(10, 3, 128, 128)
         >>> patch = quilt.unstitch(data, index=0)
         >>> print(patch.shape)  # (3, 32, 32)
+        >>> # With positional embeddings (Y, X only):
+        >>> patch, position = quilt.unstitch(data, index=0, return_positions=True)
+        >>> print(position.shape)  # (2,) - [Y_pos, X_pos]
+        >>> # With N position included:
+        >>> patch, position = quilt.unstitch(data, index=0, return_positions=True, include_n_position=True)
+        >>> print(position.shape)  # (3,) - [N_idx, Y_pos, X_pos]
         """
         N, _C, Y, X = tensor.shape
 
@@ -220,7 +242,19 @@ class LargeNCYXQuilt:
         stop_y = start_y + self.window[0]
         stop_x = start_x + self.window[1]
 
-        return tensor[n, :, start_y:stop_y, start_x:stop_x]
+        patch = tensor[n, :, start_y:stop_y, start_x:stop_x]
+
+        if return_positions:
+            if include_n_position:
+                position = torch.tensor(
+                    [n, start_y, start_x], dtype=torch.int64, device=tensor.device
+                )
+            else:
+                position = torch.tensor(
+                    [start_y, start_x], dtype=torch.int64, device=tensor.device
+                )
+            return patch, position
+        return patch
 
     def stitch(
         self,
@@ -276,7 +310,12 @@ class LargeNCYXQuilt:
         if n == 0:
             self.norma[start_y:stop_y, start_x:stop_x] += self.weight.numpy()
 
-    def unstitch_next(self, tensor: torch.Tensor) -> tuple[int, torch.Tensor]:
+    def unstitch_next(
+        self,
+        tensor: torch.Tensor,
+        return_positions: bool = False,
+        include_n_position: bool = False,
+    ) -> tuple[int, torch.Tensor] | tuple[int, torch.Tensor, torch.Tensor]:
         """
         Get the next patch in sequence (generator-like interface).
 
@@ -287,13 +326,21 @@ class LargeNCYXQuilt:
         ----------
         tensor : torch.Tensor
             Input tensor of shape (N, C, Y, X) where N matches self.N
+        return_positions : bool, optional
+            If True, also return positional embeddings. Default is False.
+        include_n_position : bool, optional
+            If True and return_positions=True, include N (batch) index in positions.
+            If False, positions only contain [Y_pos, X_pos]. Default is False.
 
         Returns
         -------
-        Tuple[int, torch.Tensor]
-            A tuple of (index, patch) where:
+        Tuple[int, torch.Tensor] or Tuple[int, torch.Tensor, torch.Tensor]
+            If return_positions=False:
             - index: Linear index of the patch (0 to N_chunks-1)
             - patch: Patch tensor of shape (C, window[0], window[1])
+
+            If return_positions=True, additionally returns:
+            - position: Tensor of shape (2,) or (3,) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]
 
         Notes
         -----
@@ -312,8 +359,24 @@ class LargeNCYXQuilt:
         ...     idx, patch = quilt.unstitch_next(data)
         ...     processed = model(patch.unsqueeze(0))
         ...     quilt.stitch(processed, idx)
+        >>> # With positional embeddings (Y, X only):
+        >>> for i in range(quilt.N_chunks):
+        ...     idx, patch, pos = quilt.unstitch_next(data, return_positions=True)
+        ...     # Use position for positional embeddings
+        >>> # With N position included:
+        >>> for i in range(quilt.N_chunks):
+        ...     idx, patch, pos = quilt.unstitch_next(data, return_positions=True, include_n_position=True)
+        ...     # Use position for positional embeddings
         """
         this_ind = next(self.chunkerator)
+        if return_positions:
+            tmp, position = self.unstitch(
+                tensor,
+                this_ind,
+                return_positions=True,
+                include_n_position=include_n_position,
+            )
+            return this_ind, tmp, position
         tmp = self.unstitch(tensor, this_ind)
         return this_ind, tmp
 

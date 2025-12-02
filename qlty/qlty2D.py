@@ -288,7 +288,12 @@ class NCYXQuilt:
         tensor_in: torch.Tensor,
         tensor_out: torch.Tensor,
         missing_label: float | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return_positions: bool = False,
+        include_n_position: bool = False,
+    ) -> (
+        tuple[torch.Tensor, torch.Tensor]
+        | tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    ):
         """
         Split input and output tensors into smaller overlapping patches.
 
@@ -307,14 +312,22 @@ class NCYXQuilt:
             Label value that indicates missing/invalid data. If provided, pixels
             in the border region will be set to this value in the output patches.
             Default is None (no masking).
+        return_positions : bool, optional
+            If True, also return positional embeddings. Default is False.
+        include_n_position : bool, optional
+            If True and return_positions=True, include N (batch) index in positions.
+            If False, positions only contain [Y_pos, X_pos]. Default is False.
 
         Returns
         -------
-        Tuple[torch.Tensor, torch.Tensor]
-            A tuple of (input_patches, output_patches) where:
+        Tuple[torch.Tensor, torch.Tensor] or Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            If return_positions=False:
             - input_patches: Shape (M, C, window[0], window[1])
             - output_patches: Shape (M, C, window[0], window[1]) or (M, window[0], window[1])
             where M = N * nY * nX
+
+            If return_positions=True, additionally returns:
+            - positions: Tensor of shape (M, 2) or (M, 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]
 
         Examples
         --------
@@ -337,17 +350,32 @@ class NCYXQuilt:
         assert len(tensor_in.shape) == 4
         assert tensor_in.shape[0] == tensor_out.shape[0]
 
-        unstitched_in = self.unstitch(tensor_in)
-        unstitched_out = self.unstitch(tensor_out)
+        if return_positions:
+            unstitched_in, positions = self.unstitch(
+                tensor_in, return_positions=True, include_n_position=include_n_position
+            )
+            unstitched_out = self.unstitch(tensor_out)
+        else:
+            unstitched_in = self.unstitch(tensor_in)
+            unstitched_out = self.unstitch(tensor_out)
+
         if modsel is not None:
             unstitched_out[:, :, modsel] = missing_label
 
         if rearranged:
             assert unstitched_out.shape[1] == 1
             unstitched_out = unstitched_out.squeeze(dim=1)
+
+        if return_positions:
+            return unstitched_in, unstitched_out, positions
         return unstitched_in, unstitched_out
 
-    def unstitch(self, tensor: torch.Tensor) -> torch.Tensor:
+    def unstitch(
+        self,
+        tensor: torch.Tensor,
+        return_positions: bool = False,
+        include_n_position: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
         Split a tensor into smaller overlapping patches.
 
@@ -359,13 +387,23 @@ class NCYXQuilt:
             - C: Number of channels
             - Y: Height (must match self.Y)
             - X: Width (must match self.X)
+        return_positions : bool, optional
+            If True, also return positional embeddings. Default is False.
+        include_n_position : bool, optional
+            If True and return_positions=True, include N (batch) index in positions.
+            If False, positions only contain [Y_pos, X_pos]. Default is False.
 
         Returns
         -------
-        torch.Tensor
-            Patches tensor of shape (M, C, window[0], window[1]) where:
-            - M = N * nY * nX (total number of patches)
-            - window[0], window[1]: Patch dimensions
+        torch.Tensor or Tuple[torch.Tensor, torch.Tensor]
+            If return_positions=False:
+            - Patches tensor of shape (M, C, window[0], window[1]) where:
+              - M = N * nY * nX (total number of patches)
+              - window[0], window[1]: Patch dimensions
+
+            If return_positions=True:
+            - patches: Tensor of shape (M, C, window[0], window[1])
+            - positions: Tensor of shape (M, 2) or (M, 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]
 
         Examples
         --------
@@ -373,9 +411,16 @@ class NCYXQuilt:
         >>> data = torch.randn(10, 3, 128, 128)
         >>> patches = quilt.unstitch(data)
         >>> print(patches.shape)  # (M, 3, 32, 32)
+        >>> # With positional embeddings (Y, X only):
+        >>> patches, positions = quilt.unstitch(data, return_positions=True)
+        >>> print(positions.shape)  # (M, 2) - [Y_pos, X_pos]
+        >>> # With N position included:
+        >>> patches, positions = quilt.unstitch(data, return_positions=True, include_n_position=True)
+        >>> print(positions.shape)  # (M, 3) - [N_idx, Y_pos, X_pos]
         """
         N, _C, _Y, _X = tensor.shape
         result = []
+        positions_list = [] if return_positions else None
 
         for n in range(N):
             tmp = tensor[n, ...]
@@ -387,7 +432,19 @@ class NCYXQuilt:
                     stop_x = start_x + self.window[1]
                     patch = tmp[:, start_y:stop_y, start_x:stop_x]
                     result.append(patch)
-        return einops.rearrange(result, "M C Y X -> M C Y X")
+                    if return_positions:
+                        if include_n_position:
+                            positions_list.append([n, start_y, start_x])
+                        else:
+                            positions_list.append([start_y, start_x])
+
+        patches = einops.rearrange(result, "M C Y X -> M C Y X")
+        if return_positions:
+            positions = torch.tensor(
+                positions_list, dtype=torch.int64, device=tensor.device
+            )
+            return patches, positions
+        return patches
 
     def stitch(
         self,
