@@ -1285,7 +1285,7 @@ def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 @pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
 def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
-    """Test OME-Zarr with 3D downsampling mode (downsample Z, Y, X)."""
+    """Test that 3D downsampling mode raises ValueError (not implemented)."""
     if tifffile is None:
         pytest.skip("tifffile not available")
 
@@ -1295,25 +1295,15 @@ def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
         data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
         tifffile.imwrite(str(filepath), data)
 
-    result = stack_files_to_ome_zarr(
-        directory=temp_dir,
-        extension=".tif",
-        pattern=r"(.+)_(\d+)\.tif$",
-        pyramid_levels=2,
-        downsample_mode="3d",
-    )
-
-    metadata = result["vol"]
-    zarr_path = Path(metadata["zarr_path"])
-    root = zarr.open_group(str(zarr_path), mode="r")
-
-    # In 3D mode, Z should be downsampled
-    base_shape = root["0"].shape
-    level1_shape = root["1"].shape
-
-    # Z dimension should be downsampled (if original is divisible by 2)
-    # Allow for rounding differences
-    assert level1_shape[0] <= base_shape[0] // 2 + 1
+    # 3D mode should raise ValueError
+    with pytest.raises(ValueError, match="Invalid downsample_mode.*Must be '2d'"):
+        stack_files_to_ome_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+            pyramid_levels=2,
+            downsample_mode="3d",
+        )
 
 
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
@@ -1500,7 +1490,7 @@ def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 @pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
 def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
-    """Test OME-Zarr with 3D downsampling mode (downsample Z, Y, X)."""
+    """Test that 3D downsampling mode raises ValueError (not implemented)."""
     if tifffile is None:
         pytest.skip("tifffile not available")
 
@@ -1510,25 +1500,15 @@ def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
         data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
         tifffile.imwrite(str(filepath), data)
 
-    result = stack_files_to_ome_zarr(
-        directory=temp_dir,
-        extension=".tif",
-        pattern=r"(.+)_(\d+)\.tif$",
-        pyramid_levels=2,
-        downsample_mode="3d",
-    )
-
-    metadata = result["vol"]
-    zarr_path = Path(metadata["zarr_path"])
-    root = zarr.open_group(str(zarr_path), mode="r")
-
-    # In 3D mode, Z should be downsampled
-    base_shape = root["0"].shape
-    level1_shape = root["1"].shape
-
-    # Z dimension should be downsampled (if original is divisible by 2)
-    # Allow for rounding differences
-    assert level1_shape[0] <= base_shape[0] // 2 + 1
+    # 3D mode should raise ValueError
+    with pytest.raises(ValueError, match="Invalid downsample_mode.*Must be '2d'"):
+        stack_files_to_ome_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+            pyramid_levels=2,
+            downsample_mode="3d",
+        )
 
 
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
