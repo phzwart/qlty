@@ -41,21 +41,21 @@ Note: The base level (lowest resolution Gaussian level) is stored at the highest
 
 #### Option A: New Function (Recommended)
 Create `stack_files_to_ome_zarr_laplacian()` as a fresh implementation:
-- **Pros**: 
+- **Pros**:
   - Clean separation of concerns
   - Doesn't risk breaking existing functionality
   - Easier to test and maintain
   - Can be optimized independently
-- **Cons**: 
+- **Cons**:
   - Some code duplication
   - Need to maintain two code paths
 
 #### Option B: Add Mode Flag
 Add `pyramid_mode: str = "gaussian" | "laplacian"` parameter to existing function:
-- **Pros**: 
+- **Pros**:
   - Single entry point
   - Shared infrastructure
-- **Cons**: 
+- **Cons**:
   - More complex conditional logic
   - Risk of breaking existing code
   - Harder to test edge cases
@@ -198,7 +198,7 @@ def reconstruct_from_laplacian_pyramid(
 ) -> np.ndarray:
     """
     Reconstruct full resolution image from Laplacian pyramid.
-    
+
     Process:
     1. Load base level (lowest resolution)
     2. Upsample and add difference maps progressively
@@ -343,4 +343,3 @@ reconstructed = reconstruct_from_laplacian_pyramid(zarr_path, z_idx=0)
 4. Integrate with main pipeline
 5. Add reconstruction utility
 6. Comprehensive testing and documentation
-

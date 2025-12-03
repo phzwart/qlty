@@ -33,4 +33,3 @@ result = stack_files_to_ome_zarr_laplacian(
 )
 
 print(f"Created Laplacian pyramid: {result}")
-

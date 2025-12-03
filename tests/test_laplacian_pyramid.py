@@ -44,7 +44,9 @@ def temp_dir(tmp_path):
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-@pytest.mark.skipif(not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available")
+@pytest.mark.skipif(
+    not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available"
+)
 def test_downsample_with_torch_single_channel():
     """Test PyTorch downsampling for single-channel images."""
     # Create test image: (Y, X) = (64, 64)
@@ -63,7 +65,9 @@ def test_downsample_with_torch_single_channel():
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-@pytest.mark.skipif(not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available")
+@pytest.mark.skipif(
+    not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available"
+)
 def test_downsample_with_torch_multi_channel():
     """Test PyTorch downsampling for multi-channel images."""
     # Create test image: (C, Y, X) = (3, 64, 64)
@@ -82,7 +86,9 @@ def test_downsample_with_torch_multi_channel():
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-@pytest.mark.skipif(not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available")
+@pytest.mark.skipif(
+    not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available"
+)
 def test_upsample_with_torch_bilinear():
     """Test PyTorch bilinear upsampling."""
     # Create small test image: (Y, X) = (16, 16)
@@ -101,7 +107,9 @@ def test_upsample_with_torch_bilinear():
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-@pytest.mark.skipif(not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available")
+@pytest.mark.skipif(
+    not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available"
+)
 def test_upsample_with_torch_bicubic():
     """Test PyTorch bicubic upsampling."""
     # Create small test image: (Y, X) = (16, 16)
@@ -120,7 +128,9 @@ def test_upsample_with_torch_bicubic():
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-@pytest.mark.skipif(not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available")
+@pytest.mark.skipif(
+    not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available"
+)
 def test_downsample_upsample_roundtrip():
     """Test that downsampling then upsampling produces reasonable results."""
     # Create test image
@@ -143,7 +153,9 @@ def test_downsample_upsample_roundtrip():
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-@pytest.mark.skipif(not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available")
+@pytest.mark.skipif(
+    not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available"
+)
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 def test_reconstruct_from_laplacian_pyramid_single_channel(temp_dir):
     """Test reconstruction from Laplacian pyramid for single-channel images."""
@@ -174,7 +186,9 @@ def test_reconstruct_from_laplacian_pyramid_single_channel(temp_dir):
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-@pytest.mark.skipif(not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available")
+@pytest.mark.skipif(
+    not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available"
+)
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 def test_reconstruct_from_laplacian_pyramid_multi_channel(temp_dir):
     """Test reconstruction from Laplacian pyramid for multi-channel images."""
@@ -200,12 +214,18 @@ def test_reconstruct_from_laplacian_pyramid_multi_channel(temp_dir):
         zarr_path, z_idx=0, interpolation_mode="bilinear"
     )
 
-    assert reconstructed.shape == (3, 32, 32), f"Expected (3, 32, 32), got {reconstructed.shape}"
+    assert reconstructed.shape == (
+        3,
+        32,
+        32,
+    ), f"Expected (3, 32, 32), got {reconstructed.shape}"
     assert reconstructed.dtype in (np.float32, np.uint8)
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-@pytest.mark.skipif(not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available")
+@pytest.mark.skipif(
+    not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available"
+)
 def test_laplacian_pyramid_perfect_reconstruction():
     """Test that Laplacian pyramid enables perfect reconstruction."""
     # Create a test image
@@ -258,13 +278,17 @@ def test_laplacian_pyramid_perfect_reconstruction():
     # Note: Due to floating point precision and interpolation, exact match is not expected
     # But should be very close
     # The reconstructed should have the same shape as original
-    assert reconstructed.shape == original.shape, f"Shape mismatch: {reconstructed.shape} vs {original.shape}"
+    assert (
+        reconstructed.shape == original.shape
+    ), f"Shape mismatch: {reconstructed.shape} vs {original.shape}"
     mse = np.mean((reconstructed - original) ** 2)
     assert mse < 1.0  # Mean squared error should be small
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-@pytest.mark.skipif(not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available")
+@pytest.mark.skipif(
+    not HAS_LAPLACIAN, reason="Laplacian pyramid functions not available"
+)
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 def test_stack_files_to_ome_zarr_laplacian_integration(temp_dir):
     """Integration test for stack_files_to_ome_zarr_laplacian."""
@@ -319,4 +343,3 @@ def test_stack_files_to_ome_zarr_laplacian_integration(temp_dir):
         zarr_path, z_idx=0, interpolation_mode="bilinear"
     )
     assert reconstructed.shape == (64, 64)  # Full resolution
-

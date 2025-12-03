@@ -229,7 +229,9 @@ def _downsample_with_torch(
         Downsampled image with same dtype as input
     """
     if not HAS_TORCH:
-        msg = "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+        msg = (
+            "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+        )
         raise ImportError(msg)
 
     original_dtype = img.dtype
@@ -287,7 +289,9 @@ def _upsample_with_torch(
         Upsampled image with same dtype as input
     """
     if not HAS_TORCH:
-        msg = "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+        msg = (
+            "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+        )
         raise ImportError(msg)
 
     if mode not in ("bilinear", "bicubic"):
@@ -2624,7 +2628,9 @@ def _load_and_write_laplacian_pyramid(
                         d <= e for d, e in zip(difference.shape, expected_slice_shape)
                     ):
                         # Pad
-                        padded_diff = np.zeros(expected_slice_shape, dtype=difference.dtype)
+                        padded_diff = np.zeros(
+                            expected_slice_shape, dtype=difference.dtype
+                        )
                         slices = tuple(
                             slice(0, min(d, e))
                             for d, e in zip(difference.shape, expected_slice_shape)
@@ -2648,7 +2654,9 @@ def _load_and_write_laplacian_pyramid(
                         d <= e for d, e in zip(difference.shape, expected_slice_shape)
                     ):
                         # Pad
-                        padded_diff = np.zeros(expected_slice_shape, dtype=difference.dtype)
+                        padded_diff = np.zeros(
+                            expected_slice_shape, dtype=difference.dtype
+                        )
                         slices = tuple(
                             slice(0, min(d, e))
                             for d, e in zip(difference.shape, expected_slice_shape)
@@ -2796,7 +2804,9 @@ def stack_files_to_ome_zarr_laplacian(
     ... )
     """
     if not HAS_TORCH:
-        msg = "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+        msg = (
+            "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+        )
         raise ImportError(msg)
 
     directory = Path(directory)
@@ -3050,7 +3060,9 @@ def stack_files_to_ome_zarr_laplacian(
 
         if not dry_run:
             if verbose:
-                print(f"  Creating Laplacian pyramid OME-Zarr: {output_path}", flush=True)
+                print(
+                    f"  Creating Laplacian pyramid OME-Zarr: {output_path}", flush=True
+                )
                 print(f"  Base shape: {base_shape}, dtype: {dtype}", flush=True)
                 print(f"  Pyramid levels: {num_pyramid_levels}", flush=True)
                 print(f"  Interpolation mode: {interpolation_mode}", flush=True)
@@ -3274,9 +3286,7 @@ def stack_files_to_ome_zarr_laplacian(
                             min(diff_shape[3], 256),
                         )
                     else:
-                        diff_chunks = (1,) + tuple(
-                            min(d, 256) for d in diff_shape[1:]
-                        )
+                        diff_chunks = (1,) + tuple(min(d, 256) for d in diff_shape[1:])
                 else:
                     diff_chunks = (
                         1,
@@ -3443,13 +3453,18 @@ def stack_files_to_ome_zarr_laplacian(
                         )
 
             if verbose:
-                print(f"\n  ✓ Completed Laplacian pyramid OME-Zarr: {basename}", flush=True)
+                print(
+                    f"\n  ✓ Completed Laplacian pyramid OME-Zarr: {basename}",
+                    flush=True,
+                )
                 print(f"  Output: {output_path}", flush=True)
                 print(f"  Total pyramid levels: {num_pyramid_levels}", flush=True)
                 print(f"  Base level stored: {store_base_level}", flush=True)
                 print(f"{'=' * 70}", flush=True)
         else:
-            print(f"  Dry run: Would create Laplacian pyramid OME-Zarr at {output_path}")
+            print(
+                f"  Dry run: Would create Laplacian pyramid OME-Zarr at {output_path}"
+            )
             print(f"  Base shape: {base_shape}, dtype: {dtype}")
             print(f"  Pyramid levels: {num_pyramid_levels}")
 
@@ -3467,7 +3482,9 @@ def stack_files_to_ome_zarr_laplacian(
 
     if verbose:
         print(f"\n{'=' * 70}")
-        print(f"✓ Successfully processed {len(results)} stack(s) as Laplacian pyramid OME-Zarr")
+        print(
+            f"✓ Successfully processed {len(results)} stack(s) as Laplacian pyramid OME-Zarr"
+        )
         for stack_name, metadata in results.items():
             print(f"  - {stack_name}: {metadata['zarr_path']}")
             print(
@@ -3569,9 +3586,13 @@ def reconstruct_from_laplacian_pyramid(
         # Reconstruct all slices
         if has_channels:
             if axis_order == "ZCYX":
-                reconstructed = np.zeros((Z, C, Y_target, X_target), dtype=base_array.dtype)
+                reconstructed = np.zeros(
+                    (Z, C, Y_target, X_target), dtype=base_array.dtype
+                )
             else:  # CZYX
-                reconstructed = np.zeros((C, Z, Y_target, X_target), dtype=base_array.dtype)
+                reconstructed = np.zeros(
+                    (C, Z, Y_target, X_target), dtype=base_array.dtype
+                )
         else:
             reconstructed = np.zeros((Z, Y_target, X_target), dtype=base_array.dtype)
 
