@@ -163,17 +163,18 @@ def test_reconstruct_from_laplacian_pyramid_single_channel(temp_dir):
     zarr_path = temp_dir / "test_laplacian.zarr"
     root = zarr.open_group(str(zarr_path), mode="w")
 
-    # Create base level (lowest resolution): (Z=1, Y=16, X=16)
+    # Create base level (lowest resolution) at highest level number: (Z=1, Y=16, X=16)
+    # For 2-level pyramid, base is at level "1" (following standard convention)
     base_shape = (1, 16, 16)
     base_data = np.random.randint(0, 255, size=base_shape, dtype=np.uint8)
-    root.create("0", data=base_data)
+    root.create_array("1", data=base_data)
 
     # Create difference map level 0: (Z=1, Y=32, X=32)
     diff_shape = (1, 32, 32)
     diff_data = np.random.randint(-50, 50, size=diff_shape, dtype=np.int16).astype(
         np.float32
     )
-    root.create("diff_0", data=diff_data)
+    root.create_array("diff_0", data=diff_data)
 
     # Reconstruct
     reconstructed = reconstruct_from_laplacian_pyramid(
@@ -196,18 +197,19 @@ def test_reconstruct_from_laplacian_pyramid_multi_channel(temp_dir):
     zarr_path = temp_dir / "test_laplacian_multi.zarr"
     root = zarr.open_group(str(zarr_path), mode="w")
 
-    # Create base level (lowest resolution): (Z=5, C=3, Y=16, X=16) - ZCYX order
+    # Create base level (lowest resolution) at highest level number: (Z=5, C=3, Y=16, X=16) - ZCYX order
+    # For 2-level pyramid, base is at level "1" (following standard convention)
     # Use Z > C to ensure correct axis order detection
     base_shape = (5, 3, 16, 16)
     base_data = np.random.randint(0, 255, size=base_shape, dtype=np.uint8)
-    root.create("0", data=base_data)
+    root.create_array("1", data=base_data)
 
     # Create difference map level 0: (Z=5, C=3, Y=32, X=32)
     diff_shape = (5, 3, 32, 32)
     diff_data = np.random.randint(-50, 50, size=diff_shape, dtype=np.int16).astype(
         np.float32
     )
-    root.create("diff_0", data=diff_data)
+    root.create_array("diff_0", data=diff_data)
 
     # Reconstruct
     reconstructed = reconstruct_from_laplacian_pyramid(

@@ -1922,7 +1922,8 @@ def stack_files_to_ome_zarr(
                     f"    Creating base level (0) with shape {base_shape}...",
                     flush=True,
                 )
-            base_zarr_array = root.create(
+            base_zarr_array = _create_zarr_array(
+                root,
                 "0",
                 shape=base_shape,
                 chunks=base_chunks,
@@ -1966,7 +1967,8 @@ def stack_files_to_ome_zarr(
                         min(level_shape[2], 256),
                     )
                 # Zarr 3.0+ API: shape must be a keyword argument
-                level_array = root.create(
+                level_array = _create_zarr_array(
+                    root,
                     str(level_idx),
                     shape=level_shape,
                     chunks=level_chunks,
@@ -3248,7 +3250,8 @@ def stack_files_to_ome_zarr_laplacian(
                         f"    Creating base level ({base_level_num}) with shape {base_level_shape}...",
                         flush=True,
                     )
-                root.create(
+                _create_zarr_array(
+                    root,
                     str(base_level_num),
                     shape=base_level_shape,
                     chunks=base_chunks,
@@ -3299,7 +3302,8 @@ def stack_files_to_ome_zarr_laplacian(
                         f"    Creating difference map {diff_name} with shape {diff_shape}...",
                         flush=True,
                     )
-                root.create(
+                _create_zarr_array(
+                    root,
                     diff_name,
                     shape=diff_shape,
                     chunks=diff_chunks,
@@ -3529,7 +3533,7 @@ def reconstruct_from_laplacian_pyramid(
     # Find base level (stored at highest level number to match standard convention)
     # Base level is the lowest resolution Gaussian level
     # Find the highest numbered level (excluding diff maps)
-    numeric_levels = [int(k) for k in zarr_group.keys() if k.isdigit()]
+    numeric_levels = [int(k) for k in list(zarr_group.keys()) if k.isdigit()]
 
     if not numeric_levels:
         msg = "Base level not found in Laplacian pyramid"
@@ -3559,7 +3563,7 @@ def reconstruct_from_laplacian_pyramid(
 
     # Find all difference map levels
     diff_levels = []
-    for key in sorted(zarr_group.keys()):
+    for key in sorted(list(zarr_group.keys())):
         if key.startswith("diff_"):
             level_idx = int(key.split("_")[1])
             diff_levels.append((level_idx, zarr_group[key]))
@@ -3633,7 +3637,7 @@ def _reconstruct_slice_from_laplacian(
 ) -> np.ndarray:
     """Helper function to reconstruct a single slice from Laplacian pyramid."""
     # Find base level (stored at highest level number to match standard convention)
-    numeric_levels = [int(k) for k in zarr_group.keys() if k.isdigit()]
+    numeric_levels = [int(k) for k in list(zarr_group.keys()) if k.isdigit()]
 
     if not numeric_levels:
         msg = "Base level not found in Laplacian pyramid"
@@ -3654,7 +3658,7 @@ def _reconstruct_slice_from_laplacian(
 
     # Find all difference maps for this slice
     diff_levels = []
-    for key in sorted(zarr_group.keys()):
+    for key in sorted(list(zarr_group.keys())):
         if key.startswith("diff_"):
             level_idx = int(key.split("_")[1])
             diff_array = zarr_group[key]
