@@ -101,7 +101,7 @@ def _get_zarr_group_keys(group):
     """
     Get keys from a zarr group in a version-compatible way.
 
-    Works with both zarr 3.0.0a5 (which may not have keys() method)
+    Works with both zarr 3.0.0a5 (which may not have keys() method or __iter__)
     and zarr 3.1.5+ (which has keys() method).
 
     Parameters
@@ -114,21 +114,96 @@ def _get_zarr_group_keys(group):
     list
         List of keys in the group
     """
-    # In zarr 3.0.0a5, groups might not have keys() method
-    # Try keys() first, then fall back to iterating directly
+    # In zarr 3.0.0a5, groups might not have keys() method and __iter__ raises NotImplementedError
+    # Try keys() first (for zarr 3.1.5+)
     if hasattr(group, "keys"):
         try:
             return list(group.keys())
         except (AttributeError, TypeError):
             pass
-    # Fallback: iterate directly over the group
-    # Groups are iterable and yield keys in all zarr versions
+    
+    # Try items() method if available
+    if hasattr(group, "items"):
+        try:
+            return [k for k, v in group.items()]
+        except (AttributeError, TypeError):
+            pass
+    
+    # Try accessing internal _keys attribute (some zarr versions)
+    if hasattr(group, "_keys"):
+        try:
+            return list(group._keys)
+        except (AttributeError, TypeError):
+            pass
+    
+    # Try accessing via store (zarr groups have a store attribute)
+    # This works for zarr 3.0.0a5 where keys() and __iter__ don't work
+    if hasattr(group, "store"):
+        try:
+            store = group.store
+            # Get the group path
+            group_path = getattr(group, "path", "") or ""
+            if group_path and not group_path.endswith("/"):
+                group_path += "/"
+            
+            # Try to list keys from store
+            if hasattr(store, "keys"):
+                all_store_keys = list(store.keys())
+                # Filter keys that belong to this group
+                group_keys = set()
+                for store_key in all_store_keys:
+                    # Check if this key belongs to our group
+                    if store_key.startswith(group_path):
+                        # Remove group path prefix
+                        relative_key = store_key[len(group_path):]
+                        if relative_key:
+                            # Split by / to get immediate children
+                            parts = relative_key.split("/")
+                            if len(parts) > 0:
+                                # First part is the immediate child name
+                                child_name = parts[0]
+                                # Remove .zarray/.zgroup suffix if present
+                                if child_name.endswith(".zarray") or child_name.endswith(".zgroup"):
+                                    child_name = child_name[:-7]  # Remove .zarray/.zgroup
+                                if child_name:
+                                    group_keys.add(child_name)
+                
+                if group_keys:
+                    return sorted(list(group_keys))
+        except (AttributeError, TypeError, KeyError, ValueError):
+            pass
+    
+    # Last resort: try iterating (will fail in zarr 3.0.0a5 with NotImplementedError)
     try:
         return list(group)
-    except TypeError:
-        # Last resort: try accessing keys via __iter__ or other methods
-        # This should not happen, but provides a safety net
-        msg = "Unable to get keys from zarr group. Zarr version may be incompatible."
+    except (TypeError, NotImplementedError):
+        # For zarr 3.0.0a5, we need to use a different approach
+        # Try to access keys by checking what's accessible via __getitem__
+        # This is a fallback that tries common key patterns
+        keys = []
+        # Try numeric keys (for pyramid levels)
+        for i in range(10):  # Check levels 0-9
+            try:
+                _ = group[str(i)]
+                keys.append(str(i))
+            except (KeyError, TypeError):
+                pass
+        # Try diff_ keys
+        for i in range(10):  # Check diff_0 to diff_9
+            try:
+                _ = group[f"diff_{i}"]
+                keys.append(f"diff_{i}")
+            except (KeyError, TypeError):
+                pass
+        if keys:
+            return keys
+        
+        # If all else fails, raise an error
+        msg = (
+            "Unable to get keys from zarr group. "
+            "Zarr version may be incompatible. "
+            "Please upgrade to zarr >= 3.1.0 or use a different zarr version."
+        )
         raise RuntimeError(msg) from None
 
 
