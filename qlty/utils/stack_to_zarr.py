@@ -1755,33 +1755,33 @@ def stack_files_to_ome_zarr(
         else:
             output_path = directory / zarr_name
 
-            # Determine pyramid levels and scale factors
-            if pyramid_scale_factors is not None:
-                num_pyramid_levels = len(pyramid_scale_factors) + 1  # +1 for base level
-            elif pyramid_levels is not None:
-                num_pyramid_levels = pyramid_levels
-            else:
-                # Auto-determine: create pyramid until smallest dimension is < 256
-                min_dim = min(Y, X)
-                num_pyramid_levels = 1
-                dim = min_dim
-                while dim > 256:
-                    dim = dim // 2
-                    num_pyramid_levels += 1
-                num_pyramid_levels = max(
-                    1, min(num_pyramid_levels, 5)
-                )  # Limit to 5 levels
+        # Determine pyramid levels and scale factors
+        if pyramid_scale_factors is not None:
+            num_pyramid_levels = len(pyramid_scale_factors) + 1  # +1 for base level
+        elif pyramid_levels is not None:
+            num_pyramid_levels = pyramid_levels
+        else:
+            # Auto-determine: create pyramid until smallest dimension is < 256
+            min_dim = min(Y, X)
+            num_pyramid_levels = 1
+            dim = min_dim
+            while dim > 256:
+                dim = dim // 2
+                num_pyramid_levels += 1
+            num_pyramid_levels = max(
+                1, min(num_pyramid_levels, 5)
+            )  # Limit to 5 levels
 
-            # Determine which axes to downsample
-            if downsample_axes is not None:
-                axes_to_downsample = set(downsample_axes)
-            elif downsample_mode == "2d":
-                # 2D mode: don't downsample Z, only Y and X
-                axes_to_downsample = {"y", "x"}
-            else:
-                raise ValueError(
-                    f"Invalid downsample_mode: {downsample_mode}. Must be '2d'."
-                )
+        # Determine which axes to downsample
+        if downsample_axes is not None:
+            axes_to_downsample = set(downsample_axes)
+        elif downsample_mode == "2d":
+            # 2D mode: don't downsample Z, only Y and X
+            axes_to_downsample = {"y", "x"}
+        else:
+            raise ValueError(
+                f"Invalid downsample_mode: {downsample_mode}. Must be '2d'."
+            )
 
         # Generate scale factors if not provided
         if pyramid_scale_factors is None:
