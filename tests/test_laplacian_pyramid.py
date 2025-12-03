@@ -159,6 +159,11 @@ def test_downsample_upsample_roundtrip():
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 def test_reconstruct_from_laplacian_pyramid_single_channel(temp_dir):
     """Test reconstruction from Laplacian pyramid for single-channel images."""
+    try:
+        from qlty.utils.stack_to_zarr import _create_zarr_array
+    except ImportError:
+        pytest.skip("_create_zarr_array not available")
+
     # Create a simple Laplacian pyramid manually
     zarr_path = temp_dir / "test_laplacian.zarr"
     root = zarr.open_group(str(zarr_path), mode="w")
@@ -167,14 +172,16 @@ def test_reconstruct_from_laplacian_pyramid_single_channel(temp_dir):
     # For 2-level pyramid, base is at level "1" (following standard convention)
     base_shape = (1, 16, 16)
     base_data = np.random.randint(0, 255, size=base_shape, dtype=np.uint8)
-    root.create_array("1", data=base_data)
+    # Use helper function for zarr version compatibility
+    _create_zarr_array(root, "1", data=base_data)
 
     # Create difference map level 0: (Z=1, Y=32, X=32)
     diff_shape = (1, 32, 32)
     diff_data = np.random.randint(-50, 50, size=diff_shape, dtype=np.int16).astype(
         np.float32
     )
-    root.create_array("diff_0", data=diff_data)
+    # Use helper function for zarr version compatibility
+    _create_zarr_array(root, "diff_0", data=diff_data)
 
     # Reconstruct
     reconstructed = reconstruct_from_laplacian_pyramid(
@@ -193,6 +200,11 @@ def test_reconstruct_from_laplacian_pyramid_single_channel(temp_dir):
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 def test_reconstruct_from_laplacian_pyramid_multi_channel(temp_dir):
     """Test reconstruction from Laplacian pyramid for multi-channel images."""
+    try:
+        from qlty.utils.stack_to_zarr import _create_zarr_array
+    except ImportError:
+        pytest.skip("_create_zarr_array not available")
+
     # Create a simple Laplacian pyramid manually
     zarr_path = temp_dir / "test_laplacian_multi.zarr"
     root = zarr.open_group(str(zarr_path), mode="w")
@@ -202,14 +214,16 @@ def test_reconstruct_from_laplacian_pyramid_multi_channel(temp_dir):
     # Use Z > C to ensure correct axis order detection
     base_shape = (5, 3, 16, 16)
     base_data = np.random.randint(0, 255, size=base_shape, dtype=np.uint8)
-    root.create_array("1", data=base_data)
+    # Use helper function for zarr version compatibility
+    _create_zarr_array(root, "1", data=base_data)
 
     # Create difference map level 0: (Z=5, C=3, Y=32, X=32)
     diff_shape = (5, 3, 32, 32)
     diff_data = np.random.randint(-50, 50, size=diff_shape, dtype=np.int16).astype(
         np.float32
     )
-    root.create_array("diff_0", data=diff_data)
+    # Use helper function for zarr version compatibility
+    _create_zarr_array(root, "diff_0", data=diff_data)
 
     # Reconstruct
     reconstructed = reconstruct_from_laplacian_pyramid(
