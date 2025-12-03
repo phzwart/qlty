@@ -1768,9 +1768,7 @@ def stack_files_to_ome_zarr(
             while dim > 256:
                 dim = dim // 2
                 num_pyramid_levels += 1
-            num_pyramid_levels = max(
-                1, min(num_pyramid_levels, 5)
-            )  # Limit to 5 levels
+            num_pyramid_levels = max(1, min(num_pyramid_levels, 5))  # Limit to 5 levels
 
         # Determine which axes to downsample
         if downsample_axes is not None:
