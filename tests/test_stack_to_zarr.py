@@ -2829,25 +2829,24 @@ def test_normalize_axis_order_single_channel():
 
 def test_load_image_pil_fallback(temp_dir, monkeypatch):
     """Test _load_image fallback to PIL when tifffile is not available (lines 113-114)."""
-    import qlty.utils.stack_to_zarr as stack_module
     from qlty.utils.stack_to_zarr import _load_image
+
+    # Skip if PIL is not available (we can't test the fallback without it)
+    if Image is None:
+        pytest.skip("PIL not available, cannot test PIL fallback")
 
     # Create a test image file
     filepath = temp_dir / "test_pil.tif"
     data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
     _tifffile_imwrite(filepath, data)
 
-    # Mock tifffile to be None, forcing PIL fallback
-    original_tifffile = stack_module.tifffile
-    stack_module.tifffile = None
+    # Mock tifffile to be None at module level, forcing PIL fallback
+    monkeypatch.setattr("qlty.utils.stack_to_zarr.tifffile", None)
 
-    try:
-        # Should use PIL fallback
-        img = _load_image(filepath)
-        assert img.shape == (32, 32)
-        assert img.dtype == np.uint8
-    finally:
-        stack_module.tifffile = original_tifffile
+    # Should use PIL fallback
+    img = _load_image(filepath)
+    assert img.shape == (32, 32)
+    assert img.dtype == np.uint8
 
 
 def test_stack_files_to_zarr_skip_non_files(temp_dir):
@@ -3067,29 +3066,6 @@ def test_stack_files_to_ome_zarr_padding_multi_channel(temp_dir):
     assert "1" in root
 
 
-def test_load_image_pil_fallback(temp_dir, monkeypatch):
-    """Test _load_image fallback to PIL when tifffile is not available (lines 113-114)."""
-    import qlty.utils.stack_to_zarr as stack_module
-    from qlty.utils.stack_to_zarr import _load_image
-
-    # Create a test image file
-    filepath = temp_dir / "test_pil.tif"
-    data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
-    _tifffile_imwrite(filepath, data)
-
-    # Mock tifffile to be None, forcing PIL fallback
-    original_tifffile = stack_module.tifffile
-    stack_module.tifffile = None
-
-    try:
-        # Should use PIL fallback
-        img = _load_image(filepath)
-        assert img.shape == (32, 32)
-        assert img.dtype == np.uint8
-    finally:
-        stack_module.tifffile = original_tifffile
-
-
 def test_stack_files_to_zarr_skip_non_files(temp_dir):
     """Test that non-file entries are skipped (line 1340)."""
     from qlty.utils.stack_to_zarr import stack_files_to_zarr
@@ -3160,29 +3136,6 @@ def test_stack_files_to_zarr_skip_non_matching_pattern(temp_dir):
     # Should only process .tif files
     assert len(result) == 1
     assert result["test"]["file_count"] == 3
-
-
-def test_load_image_pil_fallback(temp_dir, monkeypatch):
-    """Test _load_image fallback to PIL when tifffile is not available (lines 113-114)."""
-    import qlty.utils.stack_to_zarr as stack_module
-    from qlty.utils.stack_to_zarr import _load_image
-
-    # Create a test image file
-    filepath = temp_dir / "test_pil.tif"
-    data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
-    _tifffile_imwrite(filepath, data)
-
-    # Mock tifffile to be None, forcing PIL fallback
-    original_tifffile = stack_module.tifffile
-    stack_module.tifffile = None
-
-    try:
-        # Should use PIL fallback
-        img = _load_image(filepath)
-        assert img.shape == (32, 32)
-        assert img.dtype == np.uint8
-    finally:
-        stack_module.tifffile = original_tifffile
 
 
 def test_stack_files_to_zarr_skip_non_files(temp_dir):
