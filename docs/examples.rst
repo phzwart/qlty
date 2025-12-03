@@ -711,17 +711,17 @@ Example 14: Laplacian Pyramid for Perfect Reconstruction
     # Laplacian pyramid stores:
     # - Base level (lowest resolution) at highest level number
     # - Difference maps (diff_0, diff_1, ...) for each resolution level
-    
+
     group = zarr.open_group(zarr_path, mode="r")
-    
+
     # Base level (lowest resolution, stored at level 3 for 4-level pyramid)
     base_level = group["3"]  # Shape: (10, 16, 16) - most downsampled
-    
+
     # Difference maps
     diff_0 = group["diff_0"]  # Difference for highest resolution
     diff_1 = group["diff_1"]  # Difference for level 1
     diff_2 = group["diff_2"]  # Difference for level 2
-    
+
     # Reconstruction process:
     # 1. Start with base level (lowest resolution)
     # 2. Upsample and add diff_2
@@ -735,7 +735,7 @@ Example 14: Laplacian Pyramid for Perfect Reconstruction
   - Use when you need direct access to downsampled versions
   - Better for progressive loading and viewing
   - Each level is independently usable
-  
+
 - **Laplacian Pyramid** (`stack_files_to_ome_zarr_laplacian`):
   - Use when you need perfect reconstruction
   - Can be more storage-efficient (stores differences, not full images)
