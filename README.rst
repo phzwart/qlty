@@ -24,6 +24,8 @@ Features
 * **2.5D Quilt** - Convert 3D volumetric data to multi-channel 2D by slicing Z dimension
 * **Backend System** - Unified interface for multiple data sources (torch.Tensor, Zarr, HDF5, memory-mapped)
 * **Image Stack Utilities** - Convert image file stacks to efficient Zarr format
+* **OME-Zarr Support** - Convert image stacks to OME-Zarr format with multiscale pyramids (Gaussian and Laplacian)
+* **Laplacian Pyramids** - Store difference maps for perfect reconstruction from base level plus residuals
 * **False Color Visualization** - UMAP-based false-color visualization of 2D images
 * Sparse data handling utilities
 * Patch pair extraction helpers for partially overlapping regions in 2D and 3D

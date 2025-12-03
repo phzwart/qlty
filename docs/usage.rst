@@ -640,7 +640,12 @@ Load patches from Zarr with PyTorch DataLoader::
 OME-Zarr Format for Image Stacks
 ---------------------------------
 
-Convert image file stacks to OME-Zarr format with multiscale pyramids::
+Convert image file stacks to OME-Zarr format with multiscale pyramids.
+
+Gaussian Pyramid (Standard)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Convert TIFF stack to OME-Zarr with Gaussian pyramid (stores downsampled versions)::
 
     from qlty.utils.stack_to_zarr import stack_files_to_ome_zarr
     from pathlib import Path
@@ -674,8 +679,57 @@ Convert image file stacks to OME-Zarr format with multiscale pyramids::
     # - ome-zarr-py (OME-Zarr Python library)
     # - Any OME-Zarr compatible viewer
 
-Benefits of OME-Zarr:
-- **Multiscale pyramids**: Efficient viewing at different zoom levels
+Benefits of Gaussian Pyramid:
+- **Direct access**: Each level is independently usable
+- **Progressive loading**: Load lower resolution first, then higher
+- **Multiscale viewing**: Efficient viewing at different zoom levels
 - **Chunked storage**: Fast random access to specific regions
 - **Standard format**: Compatible with many bioimaging tools
-- **Metadata**: Rich metadata stored in OME format
+
+Laplacian Pyramid (Perfect Reconstruction)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Convert TIFF stack to OME-Zarr with Laplacian pyramid (stores difference maps)::
+
+    from qlty.utils.stack_to_zarr import (
+        stack_files_to_ome_zarr_laplacian,
+        reconstruct_from_laplacian_pyramid
+    )
+    from pathlib import Path
+
+    # Create Laplacian pyramid
+    result = stack_files_to_ome_zarr_laplacian(
+        directory="/path/to/tiff_stack",
+        extension=".tif",
+        pattern=r"image_(\d+)\.tif$",
+        pyramid_levels=4,
+        interpolation_mode="bilinear",  # or "bicubic" for better quality
+        store_base_level=True,  # Store lowest resolution level
+        verbose=True
+    )
+
+    # Reconstruct full resolution
+    zarr_path = result["image"]["zarr_path"]
+    reconstructed = reconstruct_from_laplacian_pyramid(
+        zarr_path,
+        z_idx=0,  # Reconstruct first slice (or None for all slices)
+        interpolation_mode="bilinear"
+    )
+
+    # Laplacian pyramid structure:
+    group = zarr.open_group(zarr_path, mode="r")
+    base_level = group["3"]  # Base level (lowest resolution, highest level number)
+    diff_0 = group["diff_0"]  # Difference map for highest resolution
+    diff_1 = group["diff_1"]  # Difference map for level 1
+    diff_2 = group["diff_2"]  # Difference map for level 2
+
+Benefits of Laplacian Pyramid:
+- **Perfect reconstruction**: Reconstruct original image exactly (within numerical precision)
+- **Storage efficiency**: May use less storage than Gaussian pyramid
+- **Progressive transmission**: Transmit base level first, then differences
+- **Compression-friendly**: Difference maps often compress better
+- **Lossless**: Enables perfect reconstruction from base + differences
+
+When to Use Each:
+- **Gaussian**: When you need direct access to downsampled versions
+- **Laplacian**: When you need perfect reconstruction or compression
