@@ -42,6 +42,29 @@ except ImportError:
     HAS_OME_ZARR = False
     stack_files_to_ome_zarr = None
 
+# Optional imports for Laplacian pyramid
+try:
+    import torch
+
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+    torch = None
+
+try:
+    from qlty.utils.stack_to_zarr import (
+        _downsample_with_torch,
+        _upsample_with_torch,
+        reconstruct_from_laplacian_pyramid,
+    )
+
+    HAS_LAPLACIAN = True
+except ImportError:
+    HAS_LAPLACIAN = False
+    _downsample_with_torch = None
+    _upsample_with_torch = None
+    reconstruct_from_laplacian_pyramid = None
+
 
 @pytest.fixture
 def temp_dir(tmp_path):

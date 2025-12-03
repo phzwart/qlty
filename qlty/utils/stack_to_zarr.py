@@ -52,6 +52,16 @@ try:
 except ImportError:
     tqdm = None
 
+try:
+    import torch
+    import torch.nn.functional as F
+
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+    torch = None
+    F = None
+
 
 def _create_zarr_array(group, name, **kwargs):
     """
@@ -194,6 +204,127 @@ def _apply_axis_order(
     new_shape = tuple(current_shape[i] for i in perm)
 
     return data_reordered, new_shape
+
+
+def _downsample_with_torch(
+    img: np.ndarray,
+    y_scale: int,
+    x_scale: int,
+) -> np.ndarray:
+    """
+    Downsample image using PyTorch average pooling (block averaging).
+
+    Parameters
+    ----------
+    img : np.ndarray
+        Input image, shape (Y, X) or (C, Y, X)
+    y_scale : int
+        Downsampling factor for Y dimension
+    x_scale : int
+        Downsampling factor for X dimension
+
+    Returns
+    -------
+    np.ndarray
+        Downsampled image with same dtype as input
+    """
+    if not HAS_TORCH:
+        msg = "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+        raise ImportError(msg)
+
+    original_dtype = img.dtype
+    is_single_channel = img.ndim == 2
+
+    # Convert to torch tensor
+    img_torch = torch.from_numpy(img).float()
+
+    # Add batch dimension if single channel: (Y, X) -> (1, 1, Y, X)
+    # Multi-channel: (C, Y, X) -> (1, C, Y, X)
+    if is_single_channel:
+        img_torch = img_torch.unsqueeze(0).unsqueeze(0)  # (1, 1, Y, X)
+    else:
+        img_torch = img_torch.unsqueeze(0)  # (1, C, Y, X)
+
+    # Apply average pooling (block averaging)
+    downsampled = F.avg_pool2d(
+        img_torch,
+        kernel_size=(y_scale, x_scale),
+        stride=(y_scale, x_scale),
+        padding=0,
+    )
+
+    # Remove batch dimension and convert back to numpy
+    downsampled = downsampled.squeeze(0).numpy()  # (C, Y, X) or (1, Y, X)
+
+    # For single channel, remove the channel dimension if it was added
+    if is_single_channel and downsampled.ndim == 3:
+        downsampled = downsampled.squeeze(0)  # (Y, X)
+
+    # Convert back to original dtype
+    return downsampled.astype(original_dtype)
+
+
+def _upsample_with_torch(
+    img: np.ndarray,
+    target_size: tuple[int, int],
+    mode: str = "bilinear",
+) -> np.ndarray:
+    """
+    Upsample image using PyTorch interpolation.
+
+    Parameters
+    ----------
+    img : np.ndarray
+        Input image, shape (Y, X) or (C, Y, X)
+    target_size : tuple[int, int]
+        Target size (Y_target, X_target)
+    mode : str
+        Interpolation mode: "bilinear" or "bicubic"
+
+    Returns
+    -------
+    np.ndarray
+        Upsampled image with same dtype as input
+    """
+    if not HAS_TORCH:
+        msg = "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+        raise ImportError(msg)
+
+    if mode not in ("bilinear", "bicubic"):
+        msg = f"mode must be 'bilinear' or 'bicubic', got {mode}"
+        raise ValueError(msg)
+
+    original_dtype = img.dtype
+    is_single_channel = img.ndim == 2
+
+    # Convert to torch tensor
+    img_torch = torch.from_numpy(img).float()
+
+    # Add batch dimension if single channel: (Y, X) -> (1, 1, Y, X)
+    # Multi-channel: (C, Y, X) -> (1, C, Y, X)
+    if is_single_channel:
+        img_torch = img_torch.unsqueeze(0).unsqueeze(0)  # (1, 1, Y, X)
+    else:
+        img_torch = img_torch.unsqueeze(0)  # (1, C, Y, X)
+
+    # Upsample using interpolation
+    upsampled = F.interpolate(
+        img_torch,
+        size=target_size,
+        mode=mode,
+        align_corners=False if mode == "bilinear" else None,
+        antialias=True if mode == "bicubic" else False,
+    )
+
+    # Remove batch dimension and convert back to numpy
+    upsampled = upsampled.squeeze(0).numpy()  # (C, Y, X) or (1, Y, X)
+
+    # For single channel, remove the channel dimension if it was added
+    if is_single_channel and upsampled.ndim == 3:
+        upsampled = upsampled.squeeze(0)  # (Y, X)
+
+    # Convert back to original dtype
+    return upsampled.astype(original_dtype)
 
 
 def _load_and_process_image(
@@ -2297,3 +2428,1240 @@ def stack_files_to_ome_zarr(
                 f"    Shape: {metadata['shape']}, Levels: {metadata['pyramid_levels']}"
             )
     return results
+
+
+def _load_and_write_laplacian_pyramid(
+    args: tuple,
+) -> tuple[int, bool]:
+    """
+    Load an image, build Laplacian pyramid, and write difference maps to Zarr.
+
+    This function builds a Gaussian pyramid (downsampled versions) and then
+    computes Laplacian pyramid (difference maps) by upsampling lower levels
+    and subtracting from higher levels.
+
+    Parameters
+    ----------
+    args : tuple
+        Tuple containing:
+        - z_idx: int - Z-index in the zarr array
+        - filepath: Path - Path to image file
+        - zarr_group_path: str - Path to zarr group (OME-Zarr root)
+        - pyramid_level_shapes: list[tuple] - Shapes for each pyramid level
+        - pyramid_scale_factors: list[tuple] - Cumulative scale factors for each level
+        - dtype: np.dtype - Target dtype
+        - has_channels: bool - Whether image has channels
+        - axis_order: str - Final axis order (e.g., "ZCYX", "CZYX")
+        - C: int - Number of channels (for multi-channel)
+        - Y: int - Image height
+        - X: int - Image width
+        - interpolation_mode: str - "bilinear" or "bicubic"
+        - store_base_level: bool - Whether to store lowest resolution level
+
+    Returns
+    -------
+    tuple[int, bool]
+        (z_idx, success) tuple indicating which z-index was written
+    """
+    (
+        z_idx,
+        filepath,
+        zarr_group_path,
+        pyramid_level_shapes,
+        pyramid_scale_factors,
+        dtype,
+        has_channels,
+        axis_order,
+        C,
+        Y,
+        X,
+        interpolation_mode,
+        store_base_level,
+    ) = args
+
+    try:
+        if not HAS_TORCH:
+            msg = "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+            raise ImportError(msg)
+
+        # Load and process image
+        img = _load_and_process_image(filepath, dtype)
+
+        # Open zarr group
+        zarr_group = zarr.open_group(zarr_group_path, mode="r+")
+
+        # Apply axis order transformation if needed
+        if has_channels:
+            slice_data = img[np.newaxis, ...]  # (1, C, Y, X)
+            slice_reordered, _ = _apply_axis_order(
+                slice_data,
+                (1, C, Y, X),
+                axis_order,
+            )
+            img_reordered = slice_reordered[0]  # (C, Y, X)
+        else:
+            img_reordered = img  # (Y, X)
+
+        # Build Gaussian pyramid (downsampled versions)
+        gaussian_pyramid = []
+        current_img = img_reordered.copy()
+        prev_scale_factors = None
+
+        # Add base level (full resolution) to Gaussian pyramid
+        gaussian_pyramid.append(current_img)
+
+        # Downsample progressively to build Gaussian pyramid
+        for _level_idx, (_expected_level_shape, cumulative_scale_factors) in enumerate(
+            zip(pyramid_level_shapes[1:], pyramid_scale_factors), start=1
+        ):
+            # Calculate incremental scale factors
+            if prev_scale_factors is None:
+                incremental_scale_factors = cumulative_scale_factors
+            else:
+                incremental_scale_factors = tuple(
+                    curr / prev if prev > 0 else curr
+                    for curr, prev in zip(cumulative_scale_factors, prev_scale_factors)
+                )
+
+            # Extract Y, X scale factors
+            if has_channels:
+                y_scale, x_scale = incremental_scale_factors[-2:]
+            else:
+                y_scale, x_scale = incremental_scale_factors[-2:]
+
+            y_scale_int = int(y_scale)
+            x_scale_int = int(x_scale)
+
+            # Pad if needed for downsampling
+            if has_channels:
+                C_dim, Y_dim, X_dim = current_img.shape
+                pad_Y = (y_scale_int - (Y_dim % y_scale_int)) % y_scale_int
+                pad_X = (x_scale_int - (X_dim % x_scale_int)) % x_scale_int
+
+                if pad_Y > 0 or pad_X > 0:
+                    padded = np.pad(
+                        current_img,
+                        ((0, 0), (0, pad_Y), (0, pad_X)),
+                        mode="constant",
+                        constant_values=0,
+                    )
+                else:
+                    padded = current_img
+            else:
+                Y_dim, X_dim = current_img.shape
+                pad_Y = (y_scale_int - (Y_dim % y_scale_int)) % y_scale_int
+                pad_X = (x_scale_int - (X_dim % x_scale_int)) % x_scale_int
+
+                if pad_Y > 0 or pad_X > 0:
+                    padded = np.pad(
+                        current_img,
+                        ((0, pad_Y), (0, pad_X)),
+                        mode="constant",
+                        constant_values=0,
+                    )
+                else:
+                    padded = current_img
+
+            # Downsample using PyTorch
+            downsampled = _downsample_with_torch(padded, y_scale_int, x_scale_int)
+            gaussian_pyramid.append(downsampled)
+            current_img = downsampled
+            prev_scale_factors = cumulative_scale_factors
+
+        # Build Laplacian pyramid (difference maps)
+        # Start from lowest resolution and work up
+        num_levels = len(gaussian_pyramid)
+
+        # Store base level (lowest resolution) if requested
+        # Store at highest level number to match standard convention (level 0 = highest resolution)
+        if store_base_level:
+            base_level = gaussian_pyramid[-1]  # Lowest resolution
+            base_level_num = num_levels - 1  # Highest level number
+            base_array = zarr_group[str(base_level_num)]
+            if has_channels:
+                if axis_order == "CZYX":
+                    base_array[:, z_idx, :, :] = base_level
+                elif axis_order == "ZCYX":
+                    base_array[z_idx, :, :, :] = base_level
+                else:
+                    base_array[z_idx, ...] = base_level
+            else:
+                base_array[z_idx, :, :] = base_level
+
+        # Compute and store difference maps (from lowest to highest)
+        for level_idx in range(num_levels - 1, 0, -1):  # Reverse order
+            current_level = gaussian_pyramid[level_idx - 1]  # Higher resolution
+            lower_level = gaussian_pyramid[level_idx]  # Lower resolution
+
+            # Upsample lower level to match current level's shape
+            target_size = current_level.shape[-2:]  # (Y, X)
+            upsampled_lower = _upsample_with_torch(
+                lower_level,
+                target_size,
+                mode=interpolation_mode,
+            )
+
+            # Compute difference map
+            difference = current_level.astype(np.float32) - upsampled_lower.astype(
+                np.float32
+            )
+
+            # Crop if needed to match expected shape
+            if has_channels:
+                expected_shape = pyramid_level_shapes[level_idx - 1]
+                if axis_order == "CZYX":
+                    expected_C, expected_Z, expected_Y, expected_X = expected_shape
+                    expected_slice_shape = (expected_C, expected_Y, expected_X)
+                elif axis_order == "ZCYX":
+                    expected_Z, expected_C, expected_Y, expected_X = expected_shape
+                    expected_slice_shape = (expected_C, expected_Y, expected_X)
+                else:
+                    expected_slice_shape = expected_shape[1:]  # Skip Z
+
+                if difference.shape != expected_slice_shape:
+                    # Crop or pad to match
+                    if all(
+                        d <= e for d, e in zip(difference.shape, expected_slice_shape)
+                    ):
+                        # Pad
+                        padded_diff = np.zeros(expected_slice_shape, dtype=difference.dtype)
+                        slices = tuple(
+                            slice(0, min(d, e))
+                            for d, e in zip(difference.shape, expected_slice_shape)
+                        )
+                        padded_diff[slices] = difference[slices]
+                        difference = padded_diff
+                    else:
+                        # Crop
+                        slices = tuple(
+                            slice(0, min(d, e))
+                            for d, e in zip(difference.shape, expected_slice_shape)
+                        )
+                        difference = difference[slices]
+            else:
+                expected_shape = pyramid_level_shapes[level_idx - 1]
+                expected_Z, expected_Y, expected_X = expected_shape
+                expected_slice_shape = (expected_Y, expected_X)
+
+                if difference.shape != expected_slice_shape:
+                    if all(
+                        d <= e for d, e in zip(difference.shape, expected_slice_shape)
+                    ):
+                        # Pad
+                        padded_diff = np.zeros(expected_slice_shape, dtype=difference.dtype)
+                        slices = tuple(
+                            slice(0, min(d, e))
+                            for d, e in zip(difference.shape, expected_slice_shape)
+                        )
+                        padded_diff[slices] = difference[slices]
+                        difference = padded_diff
+                    else:
+                        # Crop
+                        slices = tuple(
+                            slice(0, min(d, e))
+                            for d, e in zip(difference.shape, expected_slice_shape)
+                        )
+                        difference = difference[slices]
+
+            # Convert difference to target dtype
+            difference = difference.astype(dtype)
+
+            # Write difference map to Zarr
+            # Use "diff_{level_idx}" naming for difference maps
+            diff_array_name = f"diff_{level_idx - 1}"
+            if diff_array_name not in zarr_group:
+                # This shouldn't happen if arrays are pre-created, but handle gracefully
+                continue
+
+            diff_array = zarr_group[diff_array_name]
+            if has_channels:
+                if axis_order == "CZYX":
+                    diff_array[:, z_idx, :, :] = difference
+                elif axis_order == "ZCYX":
+                    diff_array[z_idx, :, :, :] = difference
+                else:
+                    diff_array[z_idx, ...] = difference
+            else:
+                diff_array[z_idx, :, :] = difference
+
+        return (z_idx, True)
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        return (z_idx, False)
+
+
+def stack_files_to_ome_zarr_laplacian(
+    directory: str | Path,
+    extension: str,
+    pattern: str | re.Pattern,
+    output_dir: str | Path | None = None,
+    zarr_chunks: tuple[int, ...] | None = None,
+    dtype: np.dtype | None = None,
+    axis_order: str = "ZCYX",
+    output_naming: Callable[[str], str] | None = None,
+    sort_by_counter: bool = True,
+    dry_run: bool = False,
+    num_workers: int | None = None,
+    pyramid_levels: int | None = None,
+    pyramid_scale_factors: list[tuple[int, ...]] | None = None,
+    downsample_mode: str = "2d",
+    downsample_axes: tuple[str, ...] | None = None,
+    interpolation_mode: str = "bilinear",
+    store_base_level: bool = True,
+    verbose: bool = True,
+) -> dict[str, dict]:
+    """
+    Scan directory for image files and save as OME-Zarr with Laplacian pyramid.
+
+    Creates OME-Zarr format files with Laplacian pyramid (difference maps) instead of
+    Gaussian pyramid (downsampled images). This enables perfect reconstruction from
+    the lowest resolution plus all difference maps.
+
+    Parameters
+    ----------
+    directory : str | Path
+        Directory to scan for image files (top level only, non-recursive)
+    extension : str
+        File extension to match (e.g., '.tif', '.png')
+    pattern : str | re.Pattern
+        Regex pattern with two groups: (basename, counter)
+        Example: r"(.+)_(\\d+)\\.tif$"
+    output_dir : str | Path | None
+        Directory to save OME-Zarr files. If None, saves in same directory.
+    zarr_chunks : tuple[int, ...] | None
+        Chunk size for base resolution zarr arrays. If None, uses reasonable defaults.
+    dtype : np.dtype | None
+        Data type for zarr arrays. If None, infers from first image.
+        Note: Difference maps may contain negative values, so signed types are recommended.
+    axis_order : str
+        Axis order for multi-channel images. Default: "ZCYX"
+    output_naming : Callable[[str], str] | None
+        Function to generate output zarr filename from basename.
+        If None, uses default: f"{basename}.ome.zarr"
+    sort_by_counter : bool
+        Whether to sort files by counter value (default: True)
+    dry_run : bool
+        If True, only analyze files without creating zarr (default: False)
+    num_workers : int | None
+        Number of worker processes for parallel image loading. If None, uses
+        number of CPU cores. If 0 or 1, disables multiprocessing (default: None)
+    pyramid_levels : int | None
+        Number of pyramid levels to create (including base level).
+        If None, automatically determines based on image size.
+    pyramid_scale_factors : list[tuple[int, ...]] | None
+        Custom scale factors for each pyramid level (excluding base level).
+        Each tuple specifies scale factors for each dimension (Z, C, Y, X).
+        If None, uses automatic 2x downsampling per level.
+    downsample_mode : str
+        Downsampling mode for pyramid generation. Default: "2d"
+        - "2d": For 2D operations on 3D grid - downsample only Y, X (not Z)
+    downsample_axes : tuple[str, ...] | None
+        Explicit control over which axes to downsample. If None, auto-determined from downsample_mode.
+    interpolation_mode : str
+        Interpolation mode for upsampling: "bilinear" or "bicubic" (default: "bilinear")
+    store_base_level : bool
+        Whether to store the lowest resolution level (base level). Default: True
+        If False, only difference maps are stored (requires all maps for reconstruction).
+    verbose : bool
+        Whether to print detailed progress information. Default: True
+
+    Returns
+    -------
+    dict[str, dict]
+        Dictionary mapping stack basename to metadata:
+        {
+            "stack_name": {
+                "zarr_path": str,
+                "shape": tuple[int, ...],  # Full resolution shape
+                "dtype": np.dtype,
+                "file_count": int,
+                "files": list[str],
+                "counter_range": tuple[int, int],
+                "axis_order": str,
+                "pyramid_levels": int,
+            }
+        }
+
+    Examples
+    --------
+    >>> from qlty.utils.stack_to_zarr import stack_files_to_ome_zarr_laplacian
+    >>> result = stack_files_to_ome_zarr_laplacian(
+    ...     directory="/path/to/images",
+    ...     extension=".tif",
+    ...     pattern=r"(.+)_(\\d+)\\.tif$",
+    ...     pyramid_levels=4,
+    ...     interpolation_mode="bilinear",
+    ... )
+    """
+    if not HAS_TORCH:
+        msg = "PyTorch is required for Laplacian pyramid. Install with: pip install torch"
+        raise ImportError(msg)
+
+    directory = Path(directory)
+    if not directory.is_dir():
+        raise ValueError(f"Directory does not exist: {directory}")
+
+    # Normalize extension
+    if not extension.startswith("."):
+        extension = "." + extension
+    extension = extension.lower()
+
+    # Compile pattern
+    if isinstance(pattern, str):
+        pattern = re.compile(pattern)
+
+    # Step 1: File Discovery and Parsing (same as stack_files_to_ome_zarr)
+    stacks: dict[str, list[tuple[int, Path]]] = defaultdict(list)
+
+    for filepath in directory.iterdir():
+        if not filepath.is_file():
+            continue
+
+        # Check extension
+        if filepath.suffix.lower() != extension:
+            continue
+
+        # Match pattern
+        match = pattern.match(filepath.name)
+        if not match:
+            continue
+
+        if match.lastindex is None or match.lastindex < 1:
+            raise ValueError(
+                "Pattern must have at least 2 groups (basename, counter). "
+                "Pattern has no groups."
+            )
+
+        if match.lastindex < 2:
+            raise ValueError(
+                f"Pattern must have at least 2 groups (basename, counter). "
+                f"Got {match.lastindex} groups."
+            )
+
+        basename = match.group(1)
+        counter_str = match.group(2)
+
+        try:
+            counter = int(counter_str)
+        except ValueError:
+            continue  # Skip if counter not parseable
+
+        stacks[basename].append((counter, filepath))
+
+    if not stacks:
+        if verbose:
+            print("No matching files found.")
+        return {}
+
+    if verbose:
+        print(f"Found {len(stacks)} stack(s) to process")
+        print(f"Scanning directory: {directory}")
+        print(
+            f"File pattern: {pattern.pattern if isinstance(pattern, re.Pattern) else pattern}"
+        )
+        print(f"Extension: {extension}")
+
+    # Step 2: Stack Analysis (same as stack_files_to_ome_zarr)
+    results = {}
+
+    for stack_idx, (basename, file_list) in enumerate(stacks.items(), 1):
+        if verbose:
+            print(f"\n{'=' * 70}")
+            print(f"[{stack_idx}/{len(stacks)}] Processing stack: {basename}")
+            print(f"  Files found: {len(file_list)}")
+            print(
+                f"  Counter range: {min(c for c, _ in file_list)} - {max(c for c, _ in file_list)}"
+            )
+        # Sort by counter
+        if sort_by_counter:
+            file_list.sort(key=lambda x: x[0])
+
+        counters = [c for c, _ in file_list]
+        counter_min = min(counters)
+        counter_max = max(counters)
+
+        # Check for gaps
+        expected_counters = set(range(counter_min, counter_max + 1))
+        actual_counters = set(counters)
+        missing = expected_counters - actual_counters
+        if missing:
+            print(
+                f"Warning: Stack '{basename}' has missing counters: {sorted(missing)}"
+            )
+
+        # Load first image to determine dimensions
+        first_file = file_list[0][1]
+        first_image = _load_image(first_file)
+
+        # Determine shape
+        if first_image.ndim == 2:
+            # Single channel: (Y, X)
+            Y, X = first_image.shape
+            C = 1
+            has_channels = False
+            final_axis_order = "ZYX"
+            base_shape = (len(file_list), Y, X)
+        elif first_image.ndim == 3:
+            # Multi-channel: could be (C, Y, X) or (Y, X, C)
+            if first_image.shape[2] <= 4:  # Likely (Y, X, C)
+                Y, X, C = first_image.shape
+                first_image = np.transpose(first_image, (2, 0, 1))  # (C, Y, X)
+            else:  # Likely (C, Y, X)
+                C, Y, X = first_image.shape
+            has_channels = True
+            final_axis_order = _normalize_axis_order(axis_order, has_channels)
+            # Start with ZCYX, will apply axis_order later
+            base_shape_ordered = (len(file_list), C, Y, X)
+            _, final_shape_tuple = _apply_axis_order(
+                np.zeros(base_shape_ordered, dtype=first_image.dtype),
+                base_shape_ordered,
+                final_axis_order,
+            )
+            base_shape = final_shape_tuple
+        else:
+            raise ValueError(
+                f"Unsupported image dimensions: {first_image.ndim}D. "
+                "Expected 2D (Y, X) or 3D (C, Y, X) or (Y, X, C)."
+            )
+
+        # Determine dtype
+        if dtype is None:
+            dtype = first_image.dtype
+        else:
+            dtype = np.dtype(dtype)
+
+        # For difference maps, we may need signed types if values can be negative
+        # Use float32 for difference maps to handle negative values
+        diff_dtype = np.float32
+
+        if verbose:
+            print(f"  Image dimensions: {first_image.shape}")
+            print(f"  Detected shape: {base_shape}")
+            print(f"  Data type: {dtype}")
+            print(f"  Difference map dtype: {diff_dtype}")
+            print(f"  Axis order: {final_axis_order}")
+            if has_channels:
+                print(f"  Channels: {C}")
+
+        # Validate all images have same dimensions
+        for _counter, filepath in file_list[1:]:
+            img = _load_image(filepath)
+            if img.ndim == 2:
+                if img.shape != (Y, X):
+                    raise ValueError(
+                        f"Image {filepath} has shape {img.shape}, expected ({Y}, {X})"
+                    )
+            elif img.ndim == 3:
+                if img.shape[2] <= 4:
+                    img_Y, img_X, img_C = img.shape
+                    if img.shape[:2] != (Y, X) or img_C != C:
+                        raise ValueError(
+                            f"Image {filepath} has shape {img.shape}, "
+                            f"expected ({Y}, {X}, {C})"
+                        )
+                else:
+                    img_C, img_Y, img_X = img.shape
+                    if img.shape[1:] != (Y, X) or img_C != C:
+                        raise ValueError(
+                            f"Image {filepath} has shape {img.shape}, "
+                            f"expected ({C}, {Y, X})"
+                        )
+
+        # Determine output path
+        if output_naming is not None:
+            zarr_name = output_naming(basename)
+            if not zarr_name.endswith(".ome.zarr"):
+                zarr_name = zarr_name.replace(".zarr", ".ome.zarr")
+                if not zarr_name.endswith(".ome.zarr"):
+                    zarr_name = f"{zarr_name}.ome.zarr"
+        else:
+            zarr_name = f"{basename}.ome.zarr"
+
+        if output_dir is not None:
+            output_path = Path(output_dir) / zarr_name
+        else:
+            output_path = directory / zarr_name
+
+        # Determine pyramid levels and scale factors (same logic as stack_files_to_ome_zarr)
+        if pyramid_scale_factors is not None:
+            num_pyramid_levels = len(pyramid_scale_factors) + 1  # +1 for base level
+        elif pyramid_levels is not None:
+            num_pyramid_levels = pyramid_levels
+        else:
+            # Auto-determine: create pyramid until smallest dimension is < 256
+            min_dim = min(Y, X)
+            num_pyramid_levels = 1
+            dim = min_dim
+            while dim > 256:
+                dim = dim // 2
+                num_pyramid_levels += 1
+            num_pyramid_levels = max(1, min(num_pyramid_levels, 5))  # Limit to 5 levels
+
+        # Determine which axes to downsample
+        if downsample_axes is not None:
+            axes_to_downsample = set(downsample_axes)
+        elif downsample_mode == "2d":
+            # 2D mode: don't downsample Z, only Y and X
+            axes_to_downsample = {"y", "x"}
+        else:
+            raise ValueError(
+                f"Invalid downsample_mode: {downsample_mode}. Must be '2d'."
+            )
+
+        # Generate scale factors if not provided
+        if pyramid_scale_factors is None:
+            pyramid_scale_factors = []
+            for level in range(1, num_pyramid_levels):
+                scale = 2**level
+                # OME-Zarr format: scale factors are per dimension (Z, C, Y, X)
+                if has_channels:
+                    if final_axis_order == "ZCYX":
+                        z_scale = scale if "z" in axes_to_downsample else 1
+                        c_scale = 1  # Never downsample channels
+                        y_scale = scale if "y" in axes_to_downsample else 1
+                        x_scale = scale if "x" in axes_to_downsample else 1
+                        pyramid_scale_factors.append(
+                            (z_scale, c_scale, y_scale, x_scale)
+                        )
+                    elif final_axis_order == "CZYX":
+                        c_scale = 1  # Never downsample channels
+                        z_scale = scale if "z" in axes_to_downsample else 1
+                        y_scale = scale if "y" in axes_to_downsample else 1
+                        x_scale = scale if "x" in axes_to_downsample else 1
+                        pyramid_scale_factors.append(
+                            (c_scale, z_scale, y_scale, x_scale)
+                        )
+                    else:
+                        # Generic: don't scale C, scale others based on axes_to_downsample
+                        z_scale = scale if "z" in axes_to_downsample else 1
+                        y_scale = scale if "y" in axes_to_downsample else 1
+                        x_scale = scale if "x" in axes_to_downsample else 1
+                        pyramid_scale_factors.append(
+                            (1, 1, y_scale, x_scale)
+                        )  # Default ZCYX order
+                else:
+                    # Single channel: (Z, Y, X)
+                    z_scale = scale if "z" in axes_to_downsample else 1
+                    y_scale = scale if "y" in axes_to_downsample else 1
+                    x_scale = scale if "x" in axes_to_downsample else 1
+                    pyramid_scale_factors.append((z_scale, y_scale, x_scale))
+
+        if not dry_run:
+            if verbose:
+                print(f"  Creating Laplacian pyramid OME-Zarr: {output_path}", flush=True)
+                print(f"  Base shape: {base_shape}, dtype: {dtype}", flush=True)
+                print(f"  Pyramid levels: {num_pyramid_levels}", flush=True)
+                print(f"  Interpolation mode: {interpolation_mode}", flush=True)
+                print(f"  Store base level: {store_base_level}", flush=True)
+                print(
+                    "\n  *** STARTING PROCESSING - THIS MAY TAKE A WHILE ***",
+                    flush=True,
+                )
+                print("  *** WATCH FOR PROGRESS BARS BELOW ***\n", flush=True)
+
+            # Determine if we'll use multiprocessing
+            import multiprocessing
+
+            if num_workers is None:
+                will_use_multiprocessing = multiprocessing.cpu_count() > 1
+            elif num_workers > 1:
+                will_use_multiprocessing = True
+            else:
+                will_use_multiprocessing = False
+
+            # Create OME-Zarr root group
+            import sys
+
+            is_linux_python_old = sys.platform.startswith(
+                "linux"
+            ) and sys.version_info < (3, 11)
+            use_synchronizer = (
+                will_use_multiprocessing
+                and ProcessSynchronizer is not None
+                and not is_linux_python_old
+            )
+            if use_synchronizer:
+                sync_path = str(output_path / ".zarr_sync")
+                synchronizer = ProcessSynchronizer(sync_path)
+                if verbose:
+                    print(
+                        "  Creating zarr root group with ProcessSynchronizer for concurrent writes...",
+                        flush=True,
+                    )
+                root = zarr.open_group(
+                    str(output_path), mode="w", synchronizer=synchronizer
+                )
+            else:
+                if verbose:
+                    if will_use_multiprocessing:
+                        if ProcessSynchronizer is None:
+                            print(
+                                "  Creating zarr root group (ProcessSynchronizer not available, using default)...",
+                                flush=True,
+                            )
+                        elif is_linux_python_old:
+                            print(
+                                "  Creating zarr root group (ProcessSynchronizer disabled on Linux/Python < 3.11)...",
+                                flush=True,
+                            )
+                        else:
+                            print("  Creating zarr root group...", flush=True)
+                    else:
+                        print("  Creating zarr root group...", flush=True)
+                root = zarr.open_group(str(output_path), mode="w")
+
+            if verbose:
+                print("  ✓ Zarr root group created", flush=True)
+                print("  Calculating pyramid level shapes...", flush=True)
+
+            # Calculate pyramid level shapes progressively (same as stack_files_to_ome_zarr)
+            pyramid_level_shapes = [base_shape]
+            if num_pyramid_levels > 1:
+                current_simulated_shape = list(base_shape)
+                prev_cumulative_scale_factors = None
+
+                for cumulative_scale_factors in pyramid_scale_factors:
+                    if prev_cumulative_scale_factors is None:
+                        incremental_scale_factors = cumulative_scale_factors
+                    else:
+                        incremental_scale_factors = tuple(
+                            curr / prev if prev > 0 else curr
+                            for curr, prev in zip(
+                                cumulative_scale_factors, prev_cumulative_scale_factors
+                            )
+                        )
+
+                    # Extract Y, X scale factors for 2D downsampling
+                    if has_channels:
+                        y_scale = incremental_scale_factors[-2]
+                        x_scale = incremental_scale_factors[-1]
+                        if final_axis_order == "ZCYX":
+                            Y_dim = current_simulated_shape[2]
+                            X_dim = current_simulated_shape[3]
+                        elif final_axis_order == "CZYX":
+                            Y_dim = current_simulated_shape[2]
+                            X_dim = current_simulated_shape[3]
+                        else:
+                            Y_dim = current_simulated_shape[-2]
+                            X_dim = current_simulated_shape[-1]
+                    else:
+                        y_scale, x_scale = incremental_scale_factors[-2:]
+                        Y_dim = current_simulated_shape[1]
+                        X_dim = current_simulated_shape[2]
+
+                    # Calculate padding
+                    y_scale_int = int(y_scale)
+                    x_scale_int = int(x_scale)
+                    pad_Y = (y_scale_int - (Y_dim % y_scale_int)) % y_scale_int
+                    pad_X = (x_scale_int - (X_dim % x_scale_int)) % x_scale_int
+
+                    # Calculate new dimensions after padding and downsampling
+                    Y_padded = Y_dim + pad_Y
+                    X_padded = X_dim + pad_X
+                    Y_new = Y_padded // y_scale_int
+                    X_new = X_padded // x_scale_int
+
+                    # Build new level shape
+                    if has_channels:
+                        if final_axis_order == "ZCYX":
+                            level_shape = (
+                                current_simulated_shape[0],  # Z unchanged
+                                current_simulated_shape[1],  # C unchanged
+                                Y_new,
+                                X_new,
+                            )
+                        elif final_axis_order == "CZYX":
+                            level_shape = (
+                                current_simulated_shape[0],  # C unchanged
+                                current_simulated_shape[1],  # Z unchanged
+                                Y_new,
+                                X_new,
+                            )
+                        else:
+                            level_shape = tuple(current_simulated_shape[:-2]) + (
+                                Y_new,
+                                X_new,
+                            )
+                    else:
+                        level_shape = (
+                            current_simulated_shape[0],  # Z unchanged
+                            Y_new,
+                            X_new,
+                        )
+
+                    pyramid_level_shapes.append(level_shape)
+                    current_simulated_shape = list(level_shape)
+                    prev_cumulative_scale_factors = cumulative_scale_factors
+
+            if verbose:
+                print(
+                    f"  ✓ Calculated {len(pyramid_level_shapes)} pyramid level shapes",
+                    flush=True,
+                )
+                for idx, shape in enumerate(pyramid_level_shapes):
+                    print(f"    Level {idx}: {shape}", flush=True)
+
+            # Determine chunk size
+            if zarr_chunks is None:
+                if has_channels:
+                    if final_axis_order == "ZCYX":
+                        base_chunks = (1, min(C, 4), min(Y, 256), min(X, 256))
+                    elif final_axis_order == "CZYX":
+                        base_chunks = (min(C, 4), 1, min(Y, 256), min(X, 256))
+                    else:
+                        base_chunks = (1,) + tuple(min(d, 256) for d in base_shape[1:])
+                else:
+                    base_chunks = (1, min(Y, 256), min(X, 256))
+            else:
+                base_chunks = zarr_chunks
+
+            # Create Zarr arrays for Laplacian pyramid
+            # Base level (lowest resolution) if store_base_level=True
+            # Difference maps for each level (diff_0, diff_1, etc.)
+            if verbose:
+                print(
+                    "\n    Creating Laplacian pyramid zarr arrays...",
+                    flush=True,
+                )
+
+            # Create base level array (lowest resolution)
+            # Store at highest level number to match standard convention (level 0 = highest resolution)
+            if store_base_level:
+                base_level_shape = pyramid_level_shapes[-1]  # Lowest resolution
+                base_level_num = num_pyramid_levels - 1  # Highest level number
+                if verbose:
+                    print(
+                        f"    Creating base level ({base_level_num}) with shape {base_level_shape}...",
+                        flush=True,
+                    )
+                root.create(
+                    str(base_level_num),
+                    shape=base_level_shape,
+                    chunks=base_chunks,
+                    dtype=dtype,
+                )
+                if verbose:
+                    print(f"    ✓ Created base level ({base_level_num})", flush=True)
+
+            # Create difference map arrays
+            # Following standard convention: level 0 = highest resolution
+            # diff_0 corresponds to difference between level 0 (full res) and level 1
+            # diff_1 corresponds to difference between level 1 and level 2
+            # etc.
+            # Base level (lowest resolution) is stored at highest level number
+            # So we need num_pyramid_levels - 1 difference maps
+            for diff_idx in range(num_pyramid_levels - 1):
+                # Difference map shape matches the higher resolution level
+                diff_shape = pyramid_level_shapes[diff_idx]
+                diff_name = f"diff_{diff_idx}"
+
+                # Determine chunks for difference map
+                if has_channels:
+                    if final_axis_order == "ZCYX":
+                        diff_chunks = (
+                            1,
+                            min(diff_shape[1], 4),
+                            min(diff_shape[2], 256),
+                            min(diff_shape[3], 256),
+                        )
+                    elif final_axis_order == "CZYX":
+                        diff_chunks = (
+                            min(diff_shape[0], 4),
+                            1,
+                            min(diff_shape[2], 256),
+                            min(diff_shape[3], 256),
+                        )
+                    else:
+                        diff_chunks = (1,) + tuple(
+                            min(d, 256) for d in diff_shape[1:]
+                        )
+                else:
+                    diff_chunks = (
+                        1,
+                        min(diff_shape[1], 256),
+                        min(diff_shape[2], 256),
+                    )
+
+                if verbose:
+                    print(
+                        f"    Creating difference map {diff_name} with shape {diff_shape}...",
+                        flush=True,
+                    )
+                root.create(
+                    diff_name,
+                    shape=diff_shape,
+                    chunks=diff_chunks,
+                    dtype=diff_dtype,
+                )
+                if verbose:
+                    print(f"    ✓ Created difference map {diff_name}", flush=True)
+
+            if verbose:
+                print(
+                    f"    ✓ Created Laplacian pyramid arrays (base level: {store_base_level}, {num_pyramid_levels - 1} difference maps)",
+                    flush=True,
+                )
+                print("\n" + "=" * 70, flush=True)
+                print(
+                    "  [STEP 1/1] LOADING + BUILDING LAPLACIAN PYRAMID + WRITING DIFFERENCE MAPS",
+                    flush=True,
+                )
+                print("=" * 70 + "\n", flush=True)
+                sys.stdout.flush()
+                sys.stderr.flush()
+
+            # Setup multiprocessing
+            if num_workers is None:
+                num_cores = multiprocessing.cpu_count()
+                use_multiprocessing = num_cores > 1
+                workers = num_cores
+            elif num_workers > 1:
+                use_multiprocessing = True
+                workers = num_workers
+                num_cores = num_workers
+            else:
+                workers = 1
+                num_cores = 1
+                use_multiprocessing = False
+
+            if verbose:
+                if use_multiprocessing:
+                    print(
+                        f"    Using multiprocessing with {workers} workers",
+                        flush=True,
+                    )
+                    print(
+                        f"    Processing {len(file_list)} images: load → build Laplacian pyramid → write difference maps",
+                        flush=True,
+                    )
+                else:
+                    print("    Using sequential processing (1 worker)", flush=True)
+                    print(f"    Processing {len(file_list)} images...", flush=True)
+
+            # Prepare tasks for Laplacian pyramid worker
+            if use_multiprocessing and len(file_list) > 10:
+                tasks = []
+                for z_idx, (_, filepath) in enumerate(file_list):
+                    tasks.append(
+                        (
+                            z_idx,
+                            filepath,
+                            str(output_path),  # zarr group path
+                            pyramid_level_shapes,  # All pyramid level shapes
+                            pyramid_scale_factors,  # Cumulative scale factors
+                            dtype,
+                            has_channels,
+                            final_axis_order,
+                            C,
+                            Y,
+                            X,
+                            interpolation_mode,
+                            store_base_level,
+                        ),
+                    )
+
+                if verbose:
+                    print(
+                        f"\n    Starting multiprocessing pool with {workers} workers...",
+                        flush=True,
+                    )
+
+                # Use spawn method on Linux with Python < 3.11
+                if sys.platform.startswith("linux") and sys.version_info < (3, 11):
+                    ctx = multiprocessing.get_context("spawn")
+                    pool = ctx.Pool(processes=workers)
+                else:
+                    pool = multiprocessing.Pool(processes=workers)
+
+                try:
+                    if tqdm is not None:
+                        write_results = list(
+                            tqdm(
+                                pool.imap_unordered(
+                                    _load_and_write_laplacian_pyramid,
+                                    tasks,
+                                ),
+                                total=len(tasks),
+                                desc=f"  Processing {basename}",
+                                unit="image",
+                            ),
+                        )
+                    else:
+                        write_results = list(
+                            pool.imap_unordered(
+                                _load_and_write_laplacian_pyramid, tasks
+                            )
+                        )
+
+                    # Check for failures
+                    failures = [r for r in write_results if not r[1]]
+                    if failures:
+                        if verbose:
+                            print(
+                                f"    Warning: {len(failures)} images failed to process",
+                                flush=True,
+                            )
+                finally:
+                    pool.close()
+                    pool.join()
+
+            else:
+                # Sequential processing
+                write_results = []
+                for z_idx, (_, filepath) in enumerate(file_list):
+                    task = (
+                        z_idx,
+                        filepath,
+                        str(output_path),
+                        pyramid_level_shapes,
+                        pyramid_scale_factors,
+                        dtype,
+                        has_channels,
+                        final_axis_order,
+                        C,
+                        Y,
+                        X,
+                        interpolation_mode,
+                        store_base_level,
+                    )
+                    result = _load_and_write_laplacian_pyramid(task)
+                    write_results.append(result)
+                    if verbose and (z_idx + 1) % max(1, len(file_list) // 20) == 0:
+                        print(
+                            f"    Processed {z_idx + 1}/{len(file_list)} images...",
+                            flush=True,
+                        )
+
+                failures = [r for r in write_results if not r[1]]
+                if failures:
+                    if verbose:
+                        print(
+                            f"    Warning: {len(failures)} images failed to process",
+                            flush=True,
+                        )
+
+            if verbose:
+                print(f"\n  ✓ Completed Laplacian pyramid OME-Zarr: {basename}", flush=True)
+                print(f"  Output: {output_path}", flush=True)
+                print(f"  Total pyramid levels: {num_pyramid_levels}", flush=True)
+                print(f"  Base level stored: {store_base_level}", flush=True)
+                print(f"{'=' * 70}", flush=True)
+        else:
+            print(f"  Dry run: Would create Laplacian pyramid OME-Zarr at {output_path}")
+            print(f"  Base shape: {base_shape}, dtype: {dtype}")
+            print(f"  Pyramid levels: {num_pyramid_levels}")
+
+        # Store results
+        results[basename] = {
+            "zarr_path": str(output_path),
+            "shape": base_shape,  # Full resolution shape
+            "dtype": dtype,
+            "file_count": len(file_list),
+            "files": [str(f) for _, f in file_list],
+            "counter_range": (counter_min, counter_max),
+            "axis_order": final_axis_order,
+            "pyramid_levels": num_pyramid_levels,
+        }
+
+    if verbose:
+        print(f"\n{'=' * 70}")
+        print(f"✓ Successfully processed {len(results)} stack(s) as Laplacian pyramid OME-Zarr")
+        for stack_name, metadata in results.items():
+            print(f"  - {stack_name}: {metadata['zarr_path']}")
+            print(
+                f"    Shape: {metadata['shape']}, Levels: {metadata['pyramid_levels']}"
+            )
+    return results
+
+
+def reconstruct_from_laplacian_pyramid(
+    zarr_group_path: str | Path,
+    z_idx: int | None = None,
+    interpolation_mode: str = "bilinear",
+) -> np.ndarray:
+    """
+    Reconstruct full resolution image from Laplacian pyramid.
+
+    Reconstructs the original image by starting from the base level (lowest resolution)
+    and progressively adding difference maps while upsampling.
+
+    Parameters
+    ----------
+    zarr_group_path : str | Path
+        Path to OME-Zarr group containing Laplacian pyramid
+    z_idx : int | None
+        Z-index to reconstruct. If None, reconstructs all slices (returns full stack)
+    interpolation_mode : str
+        Interpolation mode for upsampling: "bilinear" or "bicubic"
+
+    Returns
+    -------
+    np.ndarray
+        Reconstructed image(s). Shape depends on z_idx:
+        - If z_idx is None: (Z, C, Y, X) or (Z, Y, X) - full stack
+        - If z_idx is int: (C, Y, X) or (Y, X) - single slice
+    """
+    if not HAS_TORCH:
+        msg = "PyTorch is required for Laplacian pyramid reconstruction. Install with: pip install torch"
+        raise ImportError(msg)
+
+    zarr_group = zarr.open_group(str(zarr_group_path), mode="r")
+
+    # Find base level (stored at highest level number to match standard convention)
+    # Base level is the lowest resolution Gaussian level
+    # Find the highest numbered level (excluding diff maps)
+    numeric_levels = [int(k) for k in zarr_group.keys() if k.isdigit()]
+
+    if not numeric_levels:
+        msg = "Base level not found in Laplacian pyramid"
+        raise ValueError(msg)
+
+    base_level_num = max(numeric_levels)
+    base_array = zarr_group[str(base_level_num)]
+    base_shape = base_array.shape
+
+    # Determine if multi-channel
+    if len(base_shape) == 3:  # (Z, Y, X)
+        has_channels = False
+        Z, Y_base, X_base = base_shape
+    elif len(base_shape) == 4:  # (Z, C, Y, X) or (C, Z, Y, X)
+        has_channels = True
+        # Try to determine axis order from shape
+        # Assume ZCYX for now (can be improved with metadata)
+        if base_shape[0] > base_shape[1]:  # Likely (Z, C, Y, X)
+            Z, C, Y_base, X_base = base_shape
+            axis_order = "ZCYX"
+        else:  # Likely (C, Z, Y, X)
+            C, Z, Y_base, X_base = base_shape
+            axis_order = "CZYX"
+    else:
+        msg = f"Unexpected base array shape: {base_shape}"
+        raise ValueError(msg)
+
+    # Find all difference map levels
+    diff_levels = []
+    for key in sorted(zarr_group.keys()):
+        if key.startswith("diff_"):
+            level_idx = int(key.split("_")[1])
+            diff_levels.append((level_idx, zarr_group[key]))
+
+    if not diff_levels:
+        msg = "No difference maps found in Laplacian pyramid"
+        raise ValueError(msg)
+
+    # Sort by level index in reverse order (highest index = lowest resolution first)
+    # This ensures we process from base level up: diff_1 then diff_0
+    diff_levels.sort(key=lambda x: x[0], reverse=True)
+
+    # Determine target shape from highest difference map
+    highest_diff = diff_levels[-1][1]
+    if has_channels:
+        if axis_order == "ZCYX":
+            _, _, Y_target, X_target = highest_diff.shape
+        else:  # CZYX
+            _, _, Y_target, X_target = highest_diff.shape
+    else:
+        _, Y_target, X_target = highest_diff.shape
+
+    if z_idx is None:
+        # Reconstruct all slices
+        if has_channels:
+            if axis_order == "ZCYX":
+                reconstructed = np.zeros((Z, C, Y_target, X_target), dtype=base_array.dtype)
+            else:  # CZYX
+                reconstructed = np.zeros((C, Z, Y_target, X_target), dtype=base_array.dtype)
+        else:
+            reconstructed = np.zeros((Z, Y_target, X_target), dtype=base_array.dtype)
+
+        for z in range(Z):
+            slice_recon = _reconstruct_slice_from_laplacian(
+                zarr_group,
+                z,
+                has_channels,
+                axis_order if has_channels else None,
+                interpolation_mode,
+            )
+            if has_channels:
+                if axis_order == "ZCYX":
+                    reconstructed[z] = slice_recon
+                else:  # CZYX
+                    reconstructed[:, z] = slice_recon
+            else:
+                reconstructed[z] = slice_recon
+
+        return reconstructed
+    else:
+        # Reconstruct single slice
+        return _reconstruct_slice_from_laplacian(
+            zarr_group,
+            z_idx,
+            has_channels,
+            axis_order if has_channels else None,
+            interpolation_mode,
+        )
+
+
+def _reconstruct_slice_from_laplacian(
+    zarr_group: zarr.Group,
+    z_idx: int,
+    has_channels: bool,
+    axis_order: str | None,
+    interpolation_mode: str,
+) -> np.ndarray:
+    """Helper function to reconstruct a single slice from Laplacian pyramid."""
+    # Find base level (stored at highest level number to match standard convention)
+    numeric_levels = [int(k) for k in zarr_group.keys() if k.isdigit()]
+
+    if not numeric_levels:
+        msg = "Base level not found in Laplacian pyramid"
+        raise ValueError(msg)
+
+    base_level_num = max(numeric_levels)
+    base_array = zarr_group[str(base_level_num)]
+    if has_channels:
+        if axis_order == "ZCYX":
+            base_slice = base_array[z_idx, :, :, :]  # (C, Y, X)
+        else:  # CZYX
+            base_slice = base_array[:, z_idx, :, :]  # (C, Y, X)
+    else:
+        base_slice = base_array[z_idx, :, :]  # (Y, X)
+
+    # Start reconstruction from base level
+    reconstructed = base_slice.copy().astype(np.float32)
+
+    # Find all difference maps for this slice
+    diff_levels = []
+    for key in sorted(zarr_group.keys()):
+        if key.startswith("diff_"):
+            level_idx = int(key.split("_")[1])
+            diff_array = zarr_group[key]
+            if has_channels:
+                if axis_order == "ZCYX":
+                    diff_slice = diff_array[z_idx, :, :, :]  # (C, Y, X)
+                else:  # CZYX
+                    diff_slice = diff_array[:, z_idx, :, :]  # (C, Y, X)
+            else:
+                diff_slice = diff_array[z_idx, :, :]  # (Y, X)
+            diff_levels.append((level_idx, diff_slice))
+
+    # Sort by level index in reverse order (highest index = lowest resolution first)
+    # This ensures we process from base level up: diff_1 (32x32) then diff_0 (64x64)
+    diff_levels.sort(key=lambda x: x[0], reverse=True)
+
+    # Progressively upsample and add difference maps (from lowest to highest resolution)
+    for _level_idx, diff_map in diff_levels:
+        # Upsample current reconstruction to match difference map size
+        target_size = diff_map.shape[-2:]  # (Y, X)
+        upsampled = _upsample_with_torch(
+            reconstructed.astype(np.float32),
+            target_size,
+            mode=interpolation_mode,
+        )
+
+        # Add difference map
+        reconstructed = upsampled + diff_map.astype(np.float32)
+
+    # Convert back to original dtype
+    return reconstructed.astype(base_slice.dtype)
