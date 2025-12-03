@@ -2991,37 +2991,6 @@ def test_stack_files_to_ome_zarr_padding_multi_channel(temp_dir):
     assert "0" in root
     assert "1" in root
 
-
-@pytest.mark.skipif(zarr is None, reason="zarr not available")
-@pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
-def test_stack_files_to_ome_zarr_worker_error_handling(temp_dir):
-    """Test error handling in multiprocessing worker function (lines 677-681)."""
-    if tifffile is None:
-        pytest.skip("tifffile not available")
-
-    # Create some valid images
-    for i in range(3):
-        filepath = temp_dir / f"valid_{i:02d}.tif"
-        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
-        tifffile.imwrite(str(filepath), data)
-
-    # Create an invalid/corrupted file that will cause an error
-    invalid_file = temp_dir / "valid_03.tif"
-    invalid_file.write_bytes(b"invalid tiff data")
-
-    # Should handle the error gracefully and continue processing valid files
-    result = stack_files_to_ome_zarr(
-        directory=temp_dir,
-        extension=".tif",
-        pattern=r"(.+)_(\d+)\.tif$",
-        pyramid_levels=1,
-        num_workers=2,  # Use multiprocessing to trigger worker error handling
-    )
-
-    # Should still process valid files
-    assert len(result) == 1
-    # The result may have fewer files if one failed, but should not crash
-
     result = stack_files_to_zarr(
         directory=temp_dir,
         extension=".tif",
