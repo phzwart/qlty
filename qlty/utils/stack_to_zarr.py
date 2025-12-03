@@ -3563,7 +3563,7 @@ def reconstruct_from_laplacian_pyramid(
 
     # Find all difference map levels
     diff_levels = []
-    for key in sorted(list(zarr_group.keys())):
+    for key in sorted(zarr_group.keys()):
         if key.startswith("diff_"):
             level_idx = int(key.split("_")[1])
             diff_levels.append((level_idx, zarr_group[key]))
@@ -3658,7 +3658,7 @@ def _reconstruct_slice_from_laplacian(
 
     # Find all difference maps for this slice
     diff_levels = []
-    for key in sorted(list(zarr_group.keys())):
+    for key in sorted(zarr_group.keys()):
         if key.startswith("diff_"):
             level_idx = int(key.split("_")[1])
             diff_array = zarr_group[key]
