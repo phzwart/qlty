@@ -2643,6 +2643,30 @@ def test_create_zarr_array_without_data(temp_dir):
     assert arr.dtype == np.uint8
 
 
+def test_create_zarr_array_with_data(temp_dir):
+    """Test _create_zarr_array with data parameter (covers line 84)."""
+    try:
+        from qlty.utils.stack_to_zarr import _create_zarr_array
+    except ImportError:
+        pytest.skip("_create_zarr_array not available")
+
+    # Create zarr group
+    zarr_path = temp_dir / "test.zarr"
+    group = zarr.open_group(str(zarr_path), mode="w")
+
+    # Create test data
+    test_data = np.random.randint(0, 255, size=(10, 10), dtype=np.uint8)
+
+    # Create array with data
+    arr = _create_zarr_array(group, "test_array", data=test_data, chunks=(5, 5))
+
+    assert "test_array" in group
+    assert arr.shape == (10, 10)
+    assert arr.dtype == np.uint8
+    # Verify data was written (line 84)
+    assert np.array_equal(arr[:], test_data)
+
+
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 @pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
 def test_stack_files_to_ome_zarr_multiprocessing_many_files_no_tqdm(
