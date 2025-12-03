@@ -121,21 +121,21 @@ def _get_zarr_group_keys(group):
             return list(group.keys())
         except (AttributeError, TypeError):
             pass
-    
+
     # Try items() method if available
     if hasattr(group, "items"):
         try:
             return [k for k, v in group.items()]
         except (AttributeError, TypeError):
             pass
-    
+
     # Try accessing internal _keys attribute (some zarr versions)
     if hasattr(group, "_keys"):
         try:
             return list(group._keys)
         except (AttributeError, TypeError):
             pass
-    
+
     # Try accessing via store (zarr groups have a store attribute)
     # This works for zarr 3.0.0a5 where keys() and __iter__ don't work
     if hasattr(group, "store"):
@@ -145,7 +145,7 @@ def _get_zarr_group_keys(group):
             group_path = getattr(group, "path", "") or ""
             if group_path and not group_path.endswith("/"):
                 group_path += "/"
-            
+
             # Try to list keys from store
             if hasattr(store, "keys"):
                 all_store_keys = list(store.keys())
@@ -155,7 +155,7 @@ def _get_zarr_group_keys(group):
                     # Check if this key belongs to our group
                     if store_key.startswith(group_path):
                         # Remove group path prefix
-                        relative_key = store_key[len(group_path):]
+                        relative_key = store_key[len(group_path) :]
                         if relative_key:
                             # Split by / to get immediate children
                             parts = relative_key.split("/")
@@ -163,16 +163,20 @@ def _get_zarr_group_keys(group):
                                 # First part is the immediate child name
                                 child_name = parts[0]
                                 # Remove .zarray/.zgroup suffix if present
-                                if child_name.endswith(".zarray") or child_name.endswith(".zgroup"):
-                                    child_name = child_name[:-7]  # Remove .zarray/.zgroup
+                                if child_name.endswith(
+                                    ".zarray"
+                                ) or child_name.endswith(".zgroup"):
+                                    child_name = child_name[
+                                        :-7
+                                    ]  # Remove .zarray/.zgroup
                                 if child_name:
                                     group_keys.add(child_name)
-                
+
                 if group_keys:
-                    return sorted(list(group_keys))
+                    return sorted(group_keys)
         except (AttributeError, TypeError, KeyError, ValueError):
             pass
-    
+
     # Last resort: try iterating (will fail in zarr 3.0.0a5 with NotImplementedError)
     try:
         return list(group)
@@ -197,7 +201,7 @@ def _get_zarr_group_keys(group):
                 pass
         if keys:
             return keys
-        
+
         # If all else fails, raise an error
         msg = (
             "Unable to get keys from zarr group. "
