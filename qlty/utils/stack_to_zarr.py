@@ -1102,6 +1102,9 @@ def stack_files_to_zarr(
     sort_by_counter: bool = True,
     dry_run: bool = False,
     num_workers: int | None = None,
+    normalize: bool = False,
+    normalize_mean: float | None = None,
+    normalize_std: float | None = None,
 ) -> dict[str, dict]:
     """
     Scan directory for image files, group into 3D stacks, and save as zarr.
@@ -1136,6 +1139,16 @@ def stack_files_to_zarr(
     num_workers : int | None
         Number of worker processes for parallel image loading. If None, uses
         number of CPU cores. If 0 or 1, disables multiprocessing (default: None)
+    normalize : bool
+        Whether to normalize images by subtracting mean and dividing by std.
+        Normalization is applied only to the full-resolution image.
+        Default is False.
+    normalize_mean : float | None
+        Global mean for normalization across all images. If None and normalize=True,
+        mean is computed per image. Default is None.
+    normalize_std : float | None
+        Global standard deviation for normalization across all images. If None and
+        normalize=True, std is computed per image. Default is None.
 
     Returns
     -------
@@ -1354,6 +1367,25 @@ def stack_files_to_zarr(
                 chunks=zarr_chunks,
                 dtype=dtype,
             )
+
+            # Handle normalization parameters
+            # Initialize global_mean and global_std
+            global_mean = normalize_mean
+            global_std = normalize_std
+            if normalize and (global_mean is None or global_std is None):
+                # Compute global mean/std if needed
+                all_means = []
+                all_stds = []
+                for _, filepath in file_list:
+                    img = _load_image(filepath)
+                    all_means.append(float(np.mean(img)))
+                    all_stds.append(float(np.std(img)))
+                if global_mean is None:
+                    global_mean = float(np.mean(all_means))
+                if global_std is None:
+                    global_std = float(np.mean(all_stds))
+                if global_std == 0:
+                    global_std = 1.0
 
             # Determine if we should use multiprocessing
             use_multiprocessing = False
