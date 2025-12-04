@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import multiprocessing
 import re
+import sys
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
@@ -246,6 +247,51 @@ def _load_image(filepath: Path) -> np.ndarray:
     )
 
 
+def _normalize_image(
+    img: np.ndarray,
+    normalize: bool = False,
+    mean: float | None = None,
+    std: float | None = None,
+) -> np.ndarray:
+    """
+    Normalize an image using mean subtraction and division by standard deviation.
+
+    Parameters
+    ----------
+    img : np.ndarray
+        Image array to normalize
+    normalize : bool
+        Whether to normalize the image
+    mean : float | None
+        Mean value for normalization. If None and normalize=True, uses image mean.
+    std : float | None
+        Standard deviation for normalization. If None and normalize=True, uses image std.
+
+    Returns
+    -------
+    np.ndarray
+        Normalized image array (same dtype as input)
+    """
+    if not normalize:
+        return img
+
+    # Compute mean and std if not provided
+    if mean is None:
+        mean = float(np.mean(img))
+    if std is None:
+        std = float(np.std(img))
+
+    # Avoid division by zero
+    if std == 0:
+        std = 1.0
+
+    # Normalize: (img - mean) / std
+    normalized = (img.astype(np.float32) - mean) / std
+
+    # Preserve original dtype if possible
+    return normalized.astype(img.dtype)
+
+
 def _normalize_axis_order(axis_order: str, has_channels: bool) -> str:
     """
     Normalize and validate axis order.
@@ -448,6 +494,9 @@ def _upsample_with_torch(
 def _load_and_process_image(
     filepath: Path,
     dtype: np.dtype | None,
+    normalize: bool = False,
+    normalize_mean: float | None = None,
+    normalize_std: float | None = None,
 ) -> np.ndarray:
     """
     Load and process a single image file.
@@ -462,6 +511,12 @@ def _load_and_process_image(
         Path to image file
     dtype : np.dtype | None
         Target dtype for conversion
+    normalize : bool
+        Whether to normalize the image (per-image mean/std)
+    normalize_mean : float | None
+        Mean value for normalization (if provided, uses this instead of image mean)
+    normalize_std : float | None
+        Standard deviation for normalization (if provided, uses this instead of image std)
 
     Returns
     -------
@@ -473,6 +528,9 @@ def _load_and_process_image(
     # Normalize to (C, Y, X) if multi-channel
     if img.ndim == 3 and img.shape[2] <= 4:  # (Y, X, C)
         img = np.transpose(img, (2, 0, 1))  # (C, Y, X)
+
+    # Apply normalization
+    img = _normalize_image(img, normalize, normalize_mean, normalize_std)
 
     # Convert dtype if needed
     if dtype is not None and img.dtype != dtype:
@@ -523,11 +581,16 @@ def _load_and_write_to_all_pyramid_levels(
         C,
         Y,
         X,
+        normalize,
+        normalize_mean,
+        normalize_std,
     ) = args
 
     try:
         # Load and process image
-        img = _load_and_process_image(filepath, dtype)
+        img = _load_and_process_image(
+            filepath, dtype, normalize, normalize_mean, normalize_std
+        )
 
         # Open zarr group (read-write mode supports concurrent writes)
         # If the group was created with a ProcessSynchronizer, zarr will automatically
@@ -883,11 +946,16 @@ def _load_and_write_to_ome_zarr_base(
         C,
         Y,
         X,
+        normalize,
+        normalize_mean,
+        normalize_std,
     ) = args
 
     try:
         # Load and process image
-        img = _load_and_process_image(filepath, dtype)
+        img = _load_and_process_image(
+            filepath, dtype, normalize, normalize_mean, normalize_std
+        )
 
         # Open zarr group and array (read-write mode supports concurrent writes)
         zarr_group = zarr.open_group(zarr_group_path, mode="r+")
@@ -971,11 +1039,16 @@ def _load_and_write_to_zarr(
         C,
         Y,
         X,
+        normalize,
+        normalize_mean,
+        normalize_std,
     ) = args
 
     try:
         # Load and process image
-        img = _load_and_process_image(filepath, dtype)
+        img = _load_and_process_image(
+            filepath, dtype, normalize, normalize_mean, normalize_std
+        )
 
         # Open zarr array (read-write mode supports concurrent writes)
         zarr_array = zarr.open(zarr_path, mode="r+")
@@ -1317,6 +1390,9 @@ def stack_files_to_zarr(
                             C,
                             Y,
                             X,
+                            normalize,
+                            global_mean,
+                            global_std,
                         ),
                     )
 
@@ -1357,7 +1433,13 @@ def stack_files_to_zarr(
                 # Sequential or small stack: load all first, then write
                 if use_multiprocessing and len(file_list) > 1:
                     # Parallel loading only
-                    load_func = partial(_load_and_process_image, dtype=dtype)
+                    load_func = partial(
+                        _load_and_process_image,
+                        dtype=dtype,
+                        normalize=normalize,
+                        normalize_mean=global_mean,
+                        normalize_std=global_std,
+                    )
                     with multiprocessing.Pool(processes=workers) as pool:
                         filepaths = [f for _, f in file_list]
                         if tqdm is not None:
@@ -1374,7 +1456,13 @@ def stack_files_to_zarr(
                 # Sequential loading
                 elif tqdm is not None:
                     images = [
-                        _load_and_process_image(filepath, dtype=dtype)
+                        _load_and_process_image(
+                            filepath,
+                            dtype=dtype,
+                            normalize=normalize,
+                            normalize_mean=global_mean,
+                            normalize_std=global_std,
+                        )
                         for filepath in tqdm(
                             [f for _, f in file_list],
                             desc="  Loading images",
@@ -1385,7 +1473,13 @@ def stack_files_to_zarr(
                     images = []
                     for idx, (_, filepath) in enumerate(file_list, 1):
                         images.append(
-                            _load_and_process_image(filepath, dtype=dtype),
+                            _load_and_process_image(
+                                filepath,
+                                dtype=dtype,
+                                normalize=normalize,
+                                normalize_mean=global_mean,
+                                normalize_std=global_std,
+                            ),
                         )
                         if idx % max(1, len(file_list) // 20) == 0 or idx == len(
                             file_list,
@@ -1469,6 +1563,9 @@ def stack_files_to_ome_zarr(
     downsample_mode: str = "2d",
     downsample_axes: tuple[str, ...] | None = None,
     downsample_method: str = "dask_coarsen",
+    normalize: bool = False,
+    normalize_mean: float | None = None,
+    normalize_std: float | None = None,
     verbose: bool = True,
 ) -> dict[str, dict]:
     """
@@ -1530,6 +1627,17 @@ def stack_files_to_ome_zarr(
         - "dask_coarsen": Use Dask coarsen (fast, parallel, recommended)
         - "scipy_zoom": Use scipy.ndimage.zoom (fallback)
         Future methods can be added (e.g., "block_average")
+    normalize : bool
+        Whether to normalize images. Default: False
+        If True, applies mean subtraction and division by standard deviation.
+        - If normalize_mean and normalize_std are None: per-image normalization
+        - If normalize_mean and normalize_std are provided: global normalization across all images
+    normalize_mean : float | None
+        Mean value for normalization. If None and normalize=True, uses per-image mean.
+        If provided, uses this value for all images (global normalization).
+    normalize_std : float | None
+        Standard deviation for normalization. If None and normalize=True, uses per-image std.
+        If provided, uses this value for all images (global normalization).
     verbose : bool
         Whether to print detailed progress information. Default: True
         When True, prints:
@@ -1700,6 +1808,35 @@ def stack_files_to_ome_zarr(
             dtype = first_image.dtype
         else:
             dtype = np.dtype(dtype)
+
+        # Compute global mean/std if normalize=True and global normalization requested
+        # (normalize_mean and normalize_std are provided)
+        global_mean = normalize_mean
+        global_std = normalize_std
+        if normalize and (normalize_mean is not None or normalize_std is not None):
+            # If only one is provided, compute the other across all images
+            if normalize_mean is None or normalize_std is None:
+                if verbose:
+                    print("  Computing global statistics across all images...")
+                all_means = []
+                all_stds = []
+                for _, filepath in file_list:
+                    img = _load_image(filepath)
+                    # Normalize to (C, Y, X) if multi-channel
+                    if img.ndim == 3 and img.shape[2] <= 4:  # (Y, X, C)
+                        img = np.transpose(img, (2, 0, 1))  # (C, Y, X)
+                    all_means.append(float(np.mean(img)))
+                    all_stds.append(float(np.std(img)))
+                if normalize_mean is None:
+                    global_mean = float(np.mean(all_means))
+                if normalize_std is None:
+                    global_std = float(
+                        np.mean(all_stds)
+                    )  # Use mean of stds, or could use pooled std
+                if verbose:
+                    print(
+                        f"  Global mean: {global_mean:.6f}, Global std: {global_std:.6f}"
+                    )
 
         if verbose:
             print(f"  Image dimensions: {first_image.shape}")
@@ -2152,6 +2289,9 @@ def stack_files_to_ome_zarr(
                             C,
                             Y,
                             X,
+                            normalize,
+                            global_mean,
+                            global_std,
                         ),
                     )
                 if verbose:
@@ -2371,6 +2511,9 @@ def stack_files_to_ome_zarr(
                                 C,
                                 Y,
                                 X,
+                                normalize,
+                                global_mean,
+                                global_std,
                             )
                         )
                         if not result[1] and verbose:
@@ -2406,6 +2549,9 @@ def stack_files_to_ome_zarr(
                                 C,
                                 Y,
                                 X,
+                                normalize,
+                                global_mean,
+                                global_std,
                             )
                         )
                         completed += 1
@@ -2595,6 +2741,9 @@ def _load_and_write_laplacian_pyramid(
         X,
         interpolation_mode,
         store_base_level,
+        normalize,
+        normalize_mean,
+        normalize_std,
     ) = args
 
     try:
@@ -2603,7 +2752,9 @@ def _load_and_write_laplacian_pyramid(
             raise ImportError(msg)
 
         # Load and process image
-        img = _load_and_process_image(filepath, dtype)
+        img = _load_and_process_image(
+            filepath, dtype, normalize, normalize_mean, normalize_std
+        )
 
         # Open zarr group
         zarr_group = zarr.open_group(zarr_group_path, mode="r+")
@@ -2832,6 +2983,9 @@ def stack_files_to_ome_zarr_laplacian(
     downsample_axes: tuple[str, ...] | None = None,
     interpolation_mode: str = "bilinear",
     store_base_level: bool = True,
+    normalize: bool = False,
+    normalize_mean: float | None = None,
+    normalize_std: float | None = None,
     verbose: bool = True,
 ) -> dict[str, dict]:
     """
@@ -2886,6 +3040,17 @@ def stack_files_to_ome_zarr_laplacian(
     store_base_level : bool
         Whether to store the lowest resolution level (base level). Default: True
         If False, only difference maps are stored (requires all maps for reconstruction).
+    normalize : bool
+        Whether to normalize images. Default: False
+        If True, applies mean subtraction and division by standard deviation.
+        - If normalize_mean and normalize_std are None: per-image normalization
+        - If normalize_mean and normalize_std are provided: global normalization across all images
+    normalize_mean : float | None
+        Mean value for normalization. If None and normalize=True, uses per-image mean.
+        If provided, uses this value for all images (global normalization).
+    normalize_std : float | None
+        Standard deviation for normalization. If None and normalize=True, uses per-image std.
+        If provided, uses this value for all images (global normalization).
     verbose : bool
         Whether to print detailed progress information. Default: True
 
@@ -3059,6 +3224,35 @@ def stack_files_to_ome_zarr_laplacian(
         # For difference maps, we may need signed types if values can be negative
         # Use float32 for difference maps to handle negative values
         diff_dtype = np.float32
+
+        # Compute global mean/std if normalize=True and global normalization requested
+        # (normalize_mean and normalize_std are provided)
+        global_mean = normalize_mean
+        global_std = normalize_std
+        if normalize and (normalize_mean is not None or normalize_std is not None):
+            # If only one is provided, compute the other across all images
+            if normalize_mean is None or normalize_std is None:
+                if verbose:
+                    print("  Computing global statistics across all images...")
+                all_means = []
+                all_stds = []
+                for _, filepath in file_list:
+                    img = _load_image(filepath)
+                    # Normalize to (C, Y, X) if multi-channel
+                    if img.ndim == 3 and img.shape[2] <= 4:  # (Y, X, C)
+                        img = np.transpose(img, (2, 0, 1))  # (C, Y, X)
+                    all_means.append(float(np.mean(img)))
+                    all_stds.append(float(np.std(img)))
+                if normalize_mean is None:
+                    global_mean = float(np.mean(all_means))
+                if normalize_std is None:
+                    global_std = float(
+                        np.mean(all_stds)
+                    )  # Use mean of stds, or could use pooled std
+                if verbose:
+                    print(
+                        f"  Global mean: {global_mean:.6f}, Global std: {global_std:.6f}"
+                    )
 
         if verbose:
             print(f"  Image dimensions: {first_image.shape}")
@@ -3485,6 +3679,9 @@ def stack_files_to_ome_zarr_laplacian(
                             X,
                             interpolation_mode,
                             store_base_level,
+                            normalize,
+                            global_mean,
+                            global_std,
                         ),
                     )
 
@@ -3551,6 +3748,9 @@ def stack_files_to_ome_zarr_laplacian(
                         X,
                         interpolation_mode,
                         store_base_level,
+                        normalize,
+                        global_mean,
+                        global_std,
                     )
                     result = _load_and_write_laplacian_pyramid(task)
                     write_results.append(result)
@@ -3609,15 +3809,130 @@ def stack_files_to_ome_zarr_laplacian(
     return results
 
 
+def _reconstruct_slice_worker(args: tuple) -> tuple[int, np.ndarray]:
+    """
+    Worker function for parallel reconstruction of a single slice (returns in-memory).
+
+    Parameters
+    ----------
+    args : tuple
+        Tuple containing:
+        - z_idx: int - Z-index to reconstruct
+        - zarr_group_path: str - Path to zarr group
+        - has_channels: bool - Whether image has channels
+        - axis_order: str | None - Axis order for multi-channel
+        - interpolation_mode: str - Interpolation mode
+        - target_level: int | None - Target pyramid level
+
+    Returns
+    -------
+    tuple[int, np.ndarray]
+        (z_idx, reconstructed_slice) tuple
+    """
+    (
+        z_idx,
+        zarr_group_path,
+        has_channels,
+        axis_order,
+        interpolation_mode,
+        target_level,
+    ) = args
+
+    # Open zarr group in read mode (thread-safe for reading)
+    zarr_group = zarr.open_group(str(zarr_group_path), mode="r")
+
+    # Reconstruct this slice
+    reconstructed = _reconstruct_slice_from_laplacian(
+        zarr_group,
+        z_idx,
+        has_channels,
+        axis_order,
+        interpolation_mode,
+        target_level,
+    )
+
+    return (z_idx, reconstructed)
+
+
+def _reconstruct_and_write_slice_worker(args: tuple) -> tuple[int, bool]:
+    """
+    Worker function for parallel reconstruction and direct writing to zarr.
+
+    Parameters
+    ----------
+    args : tuple
+        Tuple containing:
+        - z_idx: int - Z-index to reconstruct
+        - input_zarr_group_path: str - Path to input zarr group (Laplacian pyramid)
+        - output_zarr_array_path: str - Path to output zarr array
+        - has_channels: bool - Whether image has channels
+        - axis_order: str | None - Axis order for multi-channel
+        - interpolation_mode: str - Interpolation mode
+        - target_level: int | None - Target pyramid level
+
+    Returns
+    -------
+    tuple[int, bool]
+        (z_idx, success) tuple
+    """
+    (
+        z_idx,
+        input_zarr_group_path,
+        output_zarr_array_path,
+        has_channels,
+        axis_order,
+        interpolation_mode,
+        target_level,
+    ) = args
+
+    try:
+        # Open input zarr group in read mode
+        input_zarr_group = zarr.open_group(str(input_zarr_group_path), mode="r")
+
+        # Reconstruct this slice
+        reconstructed = _reconstruct_slice_from_laplacian(
+            input_zarr_group,
+            z_idx,
+            has_channels,
+            axis_order,
+            interpolation_mode,
+            target_level,
+        )
+
+        # Open output zarr array in read-write mode (supports concurrent writes)
+        output_array = zarr.open_array(str(output_zarr_array_path), mode="r+")
+
+        # Write directly to zarr
+        if has_channels:
+            if axis_order == "ZCYX":
+                output_array[z_idx, :, :, :] = reconstructed
+            else:  # CZYX
+                output_array[:, z_idx, :, :] = reconstructed
+        else:
+            output_array[z_idx, :, :] = reconstructed
+
+        return (z_idx, True)
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        return (z_idx, False)
+
+
 def reconstruct_from_laplacian_pyramid(
     zarr_group_path: str | Path,
     z_idx: int | None = None,
     interpolation_mode: str = "bilinear",
-) -> np.ndarray:
+    target_level: int | None = None,
+    num_workers: int | None = None,
+    output_zarr_path: str | Path | None = None,
+    zarr_chunks: tuple[int, ...] | None = None,
+    verbose: bool = False,
+) -> np.ndarray | str:
     """
-    Reconstruct full resolution image from Laplacian pyramid.
+    Reconstruct image from Laplacian pyramid to a specific resolution level.
 
-    Reconstructs the original image by starting from the base level (lowest resolution)
+    Reconstructs the image by starting from the base level (lowest resolution)
     and progressively adding difference maps while upsampling.
 
     Parameters
@@ -3628,13 +3943,36 @@ def reconstruct_from_laplacian_pyramid(
         Z-index to reconstruct. If None, reconstructs all slices (returns full stack)
     interpolation_mode : str
         Interpolation mode for upsampling: "bilinear" or "bicubic"
+    target_level : int | None
+        Target pyramid level to reconstruct to. Level 0 = full resolution (highest).
+        If None, reconstructs to full resolution (level 0).
+        Examples:
+        - target_level=0: Full resolution (adds all diff maps)
+        - target_level=1: Level 1 resolution (adds diff_1, diff_2, ... but not diff_0)
+        - target_level=2: Level 2 resolution (adds diff_2, diff_3, ... but not diff_0, diff_1)
+    num_workers : int | None
+        Number of parallel workers for reconstruction. If None, uses all available CPU cores.
+        If 1, uses sequential processing. Only used when z_idx is None (reconstructing all slices).
+    output_zarr_path : str | Path | None
+        Path to output zarr array for writing reconstructed stack. If provided and z_idx is None,
+        writes directly to zarr file in parallel instead of returning in-memory array.
+        If None, returns numpy array in memory.
+    zarr_chunks : tuple[int, ...] | None
+        Chunk size for output zarr array. If None, uses default chunking.
+        Only used when output_zarr_path is provided.
+    verbose : bool
+        Whether to print progress messages. Default: False.
 
     Returns
     -------
-    np.ndarray
-        Reconstructed image(s). Shape depends on z_idx:
+    np.ndarray | str
+        - If output_zarr_path is None: Returns reconstructed image(s) as np.ndarray
+        - If output_zarr_path is provided and z_idx is None: Returns output_zarr_path as str
+        - If output_zarr_path is provided and z_idx is int: Returns reconstructed slice as np.ndarray
+        Shape depends on z_idx and target_level:
         - If z_idx is None: (Z, C, Y, X) or (Z, Y, X) - full stack
         - If z_idx is int: (C, Y, X) or (Y, X) - single slice
+        Resolution depends on target_level parameter.
     """
     if not HAS_TORCH:
         msg = "PyTorch is required for Laplacian pyramid reconstruction. Install with: pip install torch"
@@ -3700,35 +4038,246 @@ def reconstruct_from_laplacian_pyramid(
 
     if z_idx is None:
         # Reconstruct all slices
-        if has_channels:
-            if axis_order == "ZCYX":
-                reconstructed = np.zeros(
-                    (Z, C, Y_target, X_target), dtype=base_array.dtype
-                )
-            else:  # CZYX
-                reconstructed = np.zeros(
-                    (C, Z, Y_target, X_target), dtype=base_array.dtype
-                )
+        # Setup multiprocessing for parallel reconstruction
+        if num_workers is None:
+            num_cores = multiprocessing.cpu_count()
+            use_multiprocessing = num_cores > 1 and Z > 1
+            workers = num_cores
+        elif num_workers > 1:
+            use_multiprocessing = True
+            workers = num_workers
         else:
-            reconstructed = np.zeros((Z, Y_target, X_target), dtype=base_array.dtype)
+            use_multiprocessing = False
+            workers = 1
 
-        for z in range(Z):
-            slice_recon = _reconstruct_slice_from_laplacian(
-                zarr_group,
-                z,
-                has_channels,
-                axis_order if has_channels else None,
-                interpolation_mode,
-            )
+        # If output_zarr_path is provided, write directly to zarr in parallel
+        if output_zarr_path is not None:
+            # Determine output shape
             if has_channels:
                 if axis_order == "ZCYX":
-                    reconstructed[z] = slice_recon
+                    output_shape = (Z, C, Y_target, X_target)
                 else:  # CZYX
-                    reconstructed[:, z] = slice_recon
+                    output_shape = (C, Z, Y_target, X_target)
             else:
-                reconstructed[z] = slice_recon
+                output_shape = (Z, Y_target, X_target)
 
-        return reconstructed
+            # Determine chunks
+            if zarr_chunks is None:
+                # Default chunking: chunk along Z dimension
+                if has_channels:
+                    if axis_order == "ZCYX":
+                        chunks = (1, C, Y_target, X_target)
+                    else:  # CZYX
+                        chunks = (C, 1, Y_target, X_target)
+                else:
+                    chunks = (1, Y_target, X_target)
+            else:
+                chunks = zarr_chunks
+
+            # Use ProcessSynchronizer for concurrent writes when using multiprocessing
+            is_linux_python_old = sys.platform.startswith(
+                "linux"
+            ) and sys.version_info < (3, 11)
+            use_synchronizer = (
+                use_multiprocessing
+                and ProcessSynchronizer is not None
+                and not is_linux_python_old
+            )
+
+            if use_synchronizer:
+                sync_path = str(
+                    Path(output_zarr_path).parent / ".zarr_sync_reconstruct"
+                )
+                synchronizer = ProcessSynchronizer(sync_path)
+                if verbose:
+                    print(
+                        "  Creating output zarr array with ProcessSynchronizer for parallel writes...",
+                        flush=True,
+                    )
+                output_array = zarr.open_array(
+                    str(output_zarr_path),
+                    mode="w",
+                    shape=output_shape,
+                    dtype=base_array.dtype,
+                    chunks=chunks,
+                    synchronizer=synchronizer,
+                )
+            else:
+                if verbose and use_multiprocessing:
+                    if ProcessSynchronizer is None:
+                        print(
+                            "  Creating output zarr array (ProcessSynchronizer not available)...",
+                            flush=True,
+                        )
+                    elif is_linux_python_old:
+                        print(
+                            "  Creating output zarr array (ProcessSynchronizer disabled on Linux/Python < 3.11)...",
+                            flush=True,
+                        )
+                    else:
+                        print("  Creating output zarr array...", flush=True)
+                output_array = zarr.open_array(
+                    str(output_zarr_path),
+                    mode="w",
+                    shape=output_shape,
+                    dtype=base_array.dtype,
+                    chunks=chunks,
+                )
+
+            if verbose:
+                print(
+                    f"  Output shape: {output_shape}, dtype: {base_array.dtype}",
+                    flush=True,
+                )
+                print(f"  Chunks: {chunks}", flush=True)
+
+            if use_multiprocessing:
+                # Prepare tasks for parallel reconstruction and writing
+                tasks = []
+                for z in range(Z):
+                    tasks.append(
+                        (
+                            z,
+                            str(zarr_group_path),
+                            str(output_zarr_path),
+                            has_channels,
+                            axis_order if has_channels else None,
+                            interpolation_mode,
+                            target_level,
+                        )
+                    )
+
+                if verbose:
+                    print(
+                        f"  Reconstructing and writing {Z} slices using {workers} parallel workers...",
+                        flush=True,
+                    )
+
+                # Use spawn method on Linux with Python < 3.11
+                if sys.platform.startswith("linux") and sys.version_info < (3, 11):
+                    ctx = multiprocessing.get_context("spawn")
+                    pool = ctx.Pool(processes=workers)
+                else:
+                    pool = multiprocessing.Pool(processes=workers)
+
+                try:
+                    # Reconstruct and write slices in parallel
+                    write_results = pool.map(_reconstruct_and_write_slice_worker, tasks)
+
+                    # Check for failures
+                    failures = [r for r in write_results if not r[1]]
+                    if failures:
+                        if verbose:
+                            print(
+                                f"  Warning: {len(failures)} slices failed to reconstruct/write",
+                                flush=True,
+                            )
+                finally:
+                    pool.close()
+                    pool.join()
+            else:
+                # Sequential processing with direct write
+                if verbose:
+                    print(
+                        f"  Reconstructing and writing {Z} slices sequentially...",
+                        flush=True,
+                    )
+                for z in range(Z):
+                    slice_recon = _reconstruct_slice_from_laplacian(
+                        zarr_group,
+                        z,
+                        has_channels,
+                        axis_order if has_channels else None,
+                        interpolation_mode,
+                        target_level,
+                    )
+                    if has_channels:
+                        if axis_order == "ZCYX":
+                            output_array[z, :, :, :] = slice_recon
+                        else:  # CZYX
+                            output_array[:, z, :, :] = slice_recon
+                    else:
+                        output_array[z, :, :] = slice_recon
+                    if verbose and (z + 1) % max(1, Z // 20) == 0:
+                        print(f"    Processed {z + 1}/{Z} slices...", flush=True)
+
+            if verbose:
+                print(f"  ✓ Reconstruction complete: {output_zarr_path}", flush=True)
+            return str(output_zarr_path)
+        else:
+            # In-memory reconstruction (original behavior)
+            if has_channels:
+                if axis_order == "ZCYX":
+                    reconstructed = np.zeros(
+                        (Z, C, Y_target, X_target), dtype=base_array.dtype
+                    )
+                else:  # CZYX
+                    reconstructed = np.zeros(
+                        (C, Z, Y_target, X_target), dtype=base_array.dtype
+                    )
+            else:
+                reconstructed = np.zeros(
+                    (Z, Y_target, X_target), dtype=base_array.dtype
+                )
+
+            if use_multiprocessing:
+                # Prepare tasks for parallel reconstruction
+                tasks = []
+                for z in range(Z):
+                    tasks.append(
+                        (
+                            z,
+                            str(zarr_group_path),
+                            has_channels,
+                            axis_order if has_channels else None,
+                            interpolation_mode,
+                            target_level,
+                        )
+                    )
+
+                # Use spawn method on Linux with Python < 3.11
+                if sys.platform.startswith("linux") and sys.version_info < (3, 11):
+                    ctx = multiprocessing.get_context("spawn")
+                    pool = ctx.Pool(processes=workers)
+                else:
+                    pool = multiprocessing.Pool(processes=workers)
+
+                try:
+                    # Reconstruct slices in parallel
+                    results = pool.map(_reconstruct_slice_worker, tasks)
+
+                    # Assemble results in correct order
+                    for z, slice_recon in results:
+                        if has_channels:
+                            if axis_order == "ZCYX":
+                                reconstructed[z] = slice_recon
+                            else:  # CZYX
+                                reconstructed[:, z] = slice_recon
+                        else:
+                            reconstructed[z] = slice_recon
+                finally:
+                    pool.close()
+                    pool.join()
+            else:
+                # Sequential processing
+                for z in range(Z):
+                    slice_recon = _reconstruct_slice_from_laplacian(
+                        zarr_group,
+                        z,
+                        has_channels,
+                        axis_order if has_channels else None,
+                        interpolation_mode,
+                        target_level,
+                    )
+                    if has_channels:
+                        if axis_order == "ZCYX":
+                            reconstructed[z] = slice_recon
+                        else:  # CZYX
+                            reconstructed[:, z] = slice_recon
+                    else:
+                        reconstructed[z] = slice_recon
+
+            return reconstructed
     else:
         # Reconstruct single slice
         return _reconstruct_slice_from_laplacian(
@@ -3737,6 +4286,7 @@ def reconstruct_from_laplacian_pyramid(
             has_channels,
             axis_order if has_channels else None,
             interpolation_mode,
+            target_level,
         )
 
 
@@ -3746,8 +4296,18 @@ def _reconstruct_slice_from_laplacian(
     has_channels: bool,
     axis_order: str | None,
     interpolation_mode: str,
+    target_level: int | None = None,
 ) -> np.ndarray:
-    """Helper function to reconstruct a single slice from Laplacian pyramid."""
+    """
+    Helper function to reconstruct a single slice from Laplacian pyramid.
+
+    Parameters
+    ----------
+    target_level : int | None
+        Target pyramid level to reconstruct to. Level 0 = full resolution.
+        If None, reconstructs to full resolution (level 0).
+        Only difference maps with level_idx >= target_level will be added.
+    """
     # Find base level (stored at highest level number to match standard convention)
     numeric_levels = [int(k) for k in _get_zarr_group_keys(zarr_group) if k.isdigit()]
 
@@ -3786,6 +4346,16 @@ def _reconstruct_slice_from_laplacian(
     # Sort by level index in reverse order (highest index = lowest resolution first)
     # This ensures we process from base level up: diff_1 (32x32) then diff_0 (64x64)
     diff_levels.sort(key=lambda x: x[0], reverse=True)
+
+    # Filter difference maps based on target_level
+    # target_level=0 means full resolution (use all diff maps)
+    # target_level=N means only use diff maps with level_idx >= N
+    if target_level is not None:
+        diff_levels = [
+            (level_idx, diff_map)
+            for level_idx, diff_map in diff_levels
+            if level_idx >= target_level
+        ]
 
     # Progressively upsample and add difference maps (from lowest to highest resolution)
     for _level_idx, diff_map in diff_levels:

@@ -1010,6 +1010,227 @@ def extract_patch_pairs_metadata(
     return metadata
 
 
+def stratified_sample_by_histogram(
+    means: torch.Tensor,
+    sigmas: torch.Tensor,
+    n_bins: int = 20,
+    samples_per_bin: int = 10,
+    random_seed: int | None = None,
+) -> torch.Tensor:
+    """
+    Stratified sampling based on histogram bins of mean and sigma.
+
+    This function performs stratified sampling by dividing the (mean, sigma) space
+    into a 2D grid of bins and sampling uniformly from each bin. This ensures
+    good coverage across the distribution of patch statistics.
+
+    Parameters
+    ----------
+    means : torch.Tensor
+        Mean values of shape (N*P,) where N is number of images and P is patches per image
+    sigmas : torch.Tensor
+        Standard deviations of shape (N*P,)
+    n_bins : int, optional
+        Number of bins for each dimension (mean and sigma). Default is 20.
+    samples_per_bin : int, optional
+        Number of samples to take from each non-empty bin. Default is 10.
+    random_seed : int | None, optional
+        Random seed for reproducibility. If None, uses current random state.
+        Default is None.
+
+    Returns
+    -------
+    torch.Tensor
+        Selected indices of shape (num_selected,) where num_selected <= n_bins^2 * samples_per_bin
+
+    Examples
+    --------
+    >>> metadata = extract_patch_pairs_metadata(tensor, window, num_patches, delta_range)
+    >>> selected = stratified_sample_by_histogram(
+    ...     metadata["mean1"], metadata["sigma1"], n_bins=20, samples_per_bin=10
+    ... )
+    >>> patches1, patches2, deltas, rotations = extract_patches_from_metadata(
+    ...     tensor, metadata, selected
+    ... )
+    """
+    if means.shape != sigmas.shape:
+        msg = f"means and sigmas must have the same shape, got {means.shape} and {sigmas.shape}"
+        raise ValueError(msg)
+
+    if len(means.shape) != 1:
+        msg = f"means and sigmas must be 1D tensors, got shape {means.shape}"
+        raise ValueError(msg)
+
+    # Set random seed if provided
+    if random_seed is not None:
+        generator = torch.Generator()
+        generator.manual_seed(random_seed)
+    else:
+        generator = None
+
+    # Create 2D histogram bins (mean x sigma)
+    mean_min, mean_max = means.min().item(), means.max().item()
+    sigma_min, sigma_max = sigmas.min().item(), sigmas.max().item()
+
+    # Handle edge case where all values are the same
+    if mean_min == mean_max:
+        mean_min -= 0.5
+        mean_max += 0.5
+    if sigma_min == sigma_max:
+        sigma_min -= 0.5
+        sigma_max += 0.5
+
+    # Bin edges
+    mean_edges = torch.linspace(mean_min, mean_max, n_bins + 1)
+    sigma_edges = torch.linspace(sigma_min, sigma_max, n_bins + 1)
+
+    selected_indices = []
+
+    # Sample from each bin
+    for i in range(n_bins):
+        for j in range(n_bins):
+            # Find indices in this bin
+            # Use <= for the last bin to include the maximum value
+            if i == n_bins - 1:
+                in_mean_bin = (means >= mean_edges[i]) & (means <= mean_edges[i + 1])
+            else:
+                in_mean_bin = (means >= mean_edges[i]) & (means < mean_edges[i + 1])
+
+            if j == n_bins - 1:
+                in_sigma_bin = (sigmas >= sigma_edges[j]) & (
+                    sigmas <= sigma_edges[j + 1]
+                )
+            else:
+                in_sigma_bin = (sigmas >= sigma_edges[j]) & (
+                    sigmas < sigma_edges[j + 1]
+                )
+
+            in_bin = in_mean_bin & in_sigma_bin
+
+            bin_indices = torch.where(in_bin)[0]
+
+            # Sample from this bin
+            if len(bin_indices) > 0:
+                n_sample = min(samples_per_bin, len(bin_indices))
+                if generator is not None:
+                    perm = torch.randperm(len(bin_indices), generator=generator)
+                else:
+                    perm = torch.randperm(len(bin_indices))
+                sampled = bin_indices[perm[:n_sample]]
+                selected_indices.append(sampled)
+
+    if not selected_indices:
+        return torch.tensor([], dtype=torch.long, device=means.device)
+
+    return torch.cat(selected_indices)
+
+
+def stratified_sample_by_quantiles(
+    means: torch.Tensor,
+    sigmas: torch.Tensor,
+    n_bins: int = 20,
+    samples_per_bin: int = 10,
+    random_seed: int | None = None,
+) -> torch.Tensor:
+    """
+    Stratified sampling using quantiles for more uniform coverage.
+
+    This function performs stratified sampling by dividing the (mean, sigma) space
+    into bins based on quantiles rather than linear ranges. This ensures more
+    uniform coverage when the distribution is skewed.
+
+    Parameters
+    ----------
+    means : torch.Tensor
+        Mean values of shape (N*P,) where N is number of images and P is patches per image
+    sigmas : torch.Tensor
+        Standard deviations of shape (N*P,)
+    n_bins : int, optional
+        Number of quantile bins for each dimension (mean and sigma). Default is 20.
+    samples_per_bin : int, optional
+        Number of samples to take from each non-empty bin. Default is 10.
+    random_seed : int | None, optional
+        Random seed for reproducibility. If None, uses current random state.
+        Default is None.
+
+    Returns
+    -------
+    torch.Tensor
+        Selected indices of shape (num_selected,) where num_selected <= n_bins^2 * samples_per_bin
+
+    Examples
+    --------
+    >>> metadata = extract_patch_pairs_metadata(tensor, window, num_patches, delta_range)
+    >>> selected = stratified_sample_by_quantiles(
+    ...     metadata["mean1"], metadata["sigma1"], n_bins=20, samples_per_bin=10
+    ... )
+    >>> patches1, patches2, deltas, rotations = extract_patches_from_metadata(
+    ...     tensor, metadata, selected
+    ... )
+    """
+    if means.shape != sigmas.shape:
+        msg = f"means and sigmas must have the same shape, got {means.shape} and {sigmas.shape}"
+        raise ValueError(msg)
+
+    if len(means.shape) != 1:
+        msg = f"means and sigmas must be 1D tensors, got shape {means.shape}"
+        raise ValueError(msg)
+
+    # Set random seed if provided
+    if random_seed is not None:
+        generator = torch.Generator()
+        generator.manual_seed(random_seed)
+    else:
+        generator = None
+
+    # Use quantiles instead of linear bins for more uniform coverage
+    quantile_levels = torch.linspace(0, 1, n_bins + 1)
+    mean_quantiles = torch.quantile(means, quantile_levels)
+    sigma_quantiles = torch.quantile(sigmas, quantile_levels)
+
+    selected_indices = []
+
+    for i in range(n_bins):
+        for j in range(n_bins):
+            # Find indices in this quantile bin
+            # Use <= for the last bin to include the maximum value
+            if i == n_bins - 1:
+                in_mean_bin = (means >= mean_quantiles[i]) & (
+                    means <= mean_quantiles[i + 1]
+                )
+            else:
+                in_mean_bin = (means >= mean_quantiles[i]) & (
+                    means < mean_quantiles[i + 1]
+                )
+
+            if j == n_bins - 1:
+                in_sigma_bin = (sigmas >= sigma_quantiles[j]) & (
+                    sigmas <= sigma_quantiles[j + 1]
+                )
+            else:
+                in_sigma_bin = (sigmas >= sigma_quantiles[j]) & (
+                    sigmas < sigma_quantiles[j + 1]
+                )
+
+            in_bin = in_mean_bin & in_sigma_bin
+
+            bin_indices = torch.where(in_bin)[0]
+
+            if len(bin_indices) > 0:
+                n_sample = min(samples_per_bin, len(bin_indices))
+                if generator is not None:
+                    perm = torch.randperm(len(bin_indices), generator=generator)
+                else:
+                    perm = torch.randperm(len(bin_indices))
+                sampled = bin_indices[perm[:n_sample]]
+                selected_indices.append(sampled)
+
+    if not selected_indices:
+        return torch.tensor([], dtype=torch.long, device=means.device)
+
+    return torch.cat(selected_indices)
+
+
 def extract_patches_from_metadata(
     tensor: torch.Tensor,
     metadata: dict[str, torch.Tensor | tuple[int, int]],
