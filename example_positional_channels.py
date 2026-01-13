@@ -41,8 +41,12 @@ def main():
     # Check the positional channels
     y_channel = patches_with_pos[0, -2, :, :]  # Second to last channel
     x_channel = patches_with_pos[0, -1, :, :]  # Last channel
-    print(f"\nFirst patch Y channel range: [{y_channel.min():.3f}, {y_channel.max():.3f}]")
-    print(f"First patch X channel range: [{x_channel.min():.3f}, {x_channel.max():.3f}]")
+    print(
+        f"\nFirst patch Y channel range: [{y_channel.min():.3f}, {y_channel.max():.3f}]"
+    )
+    print(
+        f"First patch X channel range: [{x_channel.min():.3f}, {x_channel.max():.3f}]"
+    )
 
     print("\n" + "=" * 60)
     print("Example 3: Unstitch with positional channels (relative, normalized)")
@@ -57,8 +61,12 @@ def main():
 
     y_channel_rel = patches_rel[0, -2, :, :]
     x_channel_rel = patches_rel[0, -1, :, :]
-    print(f"\nFirst patch Y channel range (relative): [{y_channel_rel.min():.3f}, {y_channel_rel.max():.3f}]")
-    print(f"First patch X channel range (relative): [{x_channel_rel.min():.3f}, {x_channel_rel.max():.3f}]")
+    print(
+        f"\nFirst patch Y channel range (relative): [{y_channel_rel.min():.3f}, {y_channel_rel.max():.3f}]"
+    )
+    print(
+        f"First patch X channel range (relative): [{x_channel_rel.min():.3f}, {x_channel_rel.max():.3f}]"
+    )
 
     print("\n" + "=" * 60)
     print("Example 4: Unstitch with positional channels (absolute, not normalized)")
@@ -73,8 +81,12 @@ def main():
 
     y_channel_raw = patches_abs_raw[0, -2, :, :]
     x_channel_raw = patches_abs_raw[0, -1, :, :]
-    print(f"\nFirst patch Y channel range (raw): [{y_channel_raw.min():.0f}, {y_channel_raw.max():.0f}]")
-    print(f"First patch X channel range (raw): [{x_channel_raw.min():.0f}, {x_channel_raw.max():.0f}]")
+    print(
+        f"\nFirst patch Y channel range (raw): [{y_channel_raw.min():.0f}, {y_channel_raw.max():.0f}]"
+    )
+    print(
+        f"First patch X channel range (raw): [{x_channel_raw.min():.0f}, {x_channel_raw.max():.0f}]"
+    )
 
     print("\n" + "=" * 60)
     print("Example 5: Unstitch with both positional channels and return positions")
@@ -113,8 +125,12 @@ def main():
     print("=" * 60)
     print("Positional embedding channels can be added to patches using:")
     print("  - add_positional_channels=True")
-    print("  - position_mode='absolute' (image coordinates) or 'relative' (patch coordinates)")
-    print("  - normalize_positions=True/False (normalize to [0,1] or use raw coordinates)")
+    print(
+        "  - position_mode='absolute' (image coordinates) or 'relative' (patch coordinates)"
+    )
+    print(
+        "  - normalize_positions=True/False (normalize to [0,1] or use raw coordinates)"
+    )
     print("\nThis adds 2 channels (Y and X coordinates) to each patch,")
     print("increasing the channel dimension from C to C+2.")
 

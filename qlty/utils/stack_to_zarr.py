@@ -579,6 +579,7 @@ def _load_image_worker(args: tuple) -> tuple[int, np.ndarray]:
         return (z_idx, img)
     except Exception:
         import traceback
+
         traceback.print_exc()
         # Return None to indicate failure
         return (z_idx, None)
@@ -648,7 +649,9 @@ def _load_and_downsample_worker(args: tuple) -> tuple[int, list[np.ndarray]]:
                 (1, C, Y, X),
                 axis_order,
             )
-            img_reordered = slice_reordered[0]  # Remove Z dimension, now (C, Y, X) or reordered
+            img_reordered = slice_reordered[
+                0
+            ]  # Remove Z dimension, now (C, Y, X) or reordered
         else:
             img_reordered = img  # (Y, X)
 
@@ -760,6 +763,7 @@ def _load_and_downsample_worker(args: tuple) -> tuple[int, list[np.ndarray]]:
         return (z_idx, pyramid_images)
     except Exception:
         import traceback
+
         traceback.print_exc()
         # Return None to indicate failure
         return (z_idx, None)
@@ -1704,13 +1708,16 @@ def stack_files_to_zarr(
                                 if final_axis_order[0] == "Z":
                                     zarr_array[z_idx, ...] = slice_reordered[0]
                                 else:
-                                    zarr_array[:, z_idx, ...] = slice_reordered[:, 0, ...]
+                                    zarr_array[:, z_idx, ...] = slice_reordered[
+                                        :, 0, ...
+                                    ]
                         else:
                             # Single channel: write directly
                             zarr_array[z_idx, :, :] = img
                     except Exception:
                         failures.append(z_idx)
                         import traceback
+
                         traceback.print_exc()
 
                 if failures:
@@ -2486,10 +2493,20 @@ def stack_files_to_ome_zarr(
                 if has_channels:
                     if final_axis_order == "ZCYX":
                         # Full slice per chunk: (1, C, Y_level, X_level)
-                        level_chunks = (1, level_shape[1], level_shape[2], level_shape[3])
+                        level_chunks = (
+                            1,
+                            level_shape[1],
+                            level_shape[2],
+                            level_shape[3],
+                        )
                     elif final_axis_order == "CZYX":
                         # Full slice per chunk: (C, 1, Y_level, X_level)
-                        level_chunks = (level_shape[0], 1, level_shape[2], level_shape[3])
+                        level_chunks = (
+                            level_shape[0],
+                            1,
+                            level_shape[2],
+                            level_shape[3],
+                        )
                     else:
                         # Generic: full slice per chunk
                         level_chunks = (1,) + tuple(level_shape[1:])
@@ -2587,6 +2604,7 @@ def stack_files_to_ome_zarr(
 
                 # Parallel loading and downsampling: workers process images, main process writes sequentially
                 import sys
+
                 if sys.platform.startswith("linux") and sys.version_info < (3, 11):
                     ctx = multiprocessing.get_context("spawn")
                     pool = ctx.Pool(processes=workers)
@@ -2611,7 +2629,9 @@ def stack_files_to_ome_zarr(
                         if verbose:
                             print("", flush=True)  # Blank line after progress bar
                     else:
-                        load_results = list(pool.imap(_load_and_downsample_worker, tasks))
+                        load_results = list(
+                            pool.imap(_load_and_downsample_worker, tasks)
+                        )
 
                     # Sort by z_idx to ensure correct order (imap preserves order, but be safe)
                     load_results.sort(key=lambda x: x[0])
@@ -2657,6 +2677,7 @@ def stack_files_to_ome_zarr(
                         except Exception:
                             failures.append(z_idx)
                             import traceback
+
                             traceback.print_exc()
 
                     if failures:

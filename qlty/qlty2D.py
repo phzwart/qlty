@@ -508,7 +508,7 @@ class NCYXQuilt:
             # Create coordinate grids
             y_coords = torch.arange(U, device=device, dtype=dtype)
             x_coords = torch.arange(V, device=device, dtype=dtype)
-            y_grid, x_grid = torch.meshgrid(y_coords, x_coords, indexing='ij')
+            y_grid, x_grid = torch.meshgrid(y_coords, x_coords, indexing="ij")
 
             # Expand to batch dimension: (U, V) -> (M, 1, U, V)
             y_grid = y_grid.unsqueeze(0).unsqueeze(0).expand(M, 1, U, V)
