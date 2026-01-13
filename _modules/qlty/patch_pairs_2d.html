@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>qlty.patch_pairs_2d &mdash; qlty 1.4.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
@@ -102,7 +102,19 @@
     <span class="n">delta_range</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
     <span class="n">random_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">rotation_choices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+    <span class="n">return_positions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">include_n_position</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span>
+    <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
+    <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="p">]</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extract pairs of patches from 2D image tensors with controlled displacement.</span>
 
@@ -138,15 +150,24 @@
 <span class="sd">        to the second patch in each pair. If provided, a rotation from this set is</span>
 <span class="sd">        sampled uniformly per pair and tracked in the returned `rotations` tensor.</span>
 <span class="sd">        When None (default), no rotations are applied.</span>
+<span class="sd">    return_positions : bool, optional</span>
+<span class="sd">        If True, also return positional embeddings for both patches. Default is False.</span>
+<span class="sd">    include_n_position : bool, optional</span>
+<span class="sd">        If True and return_positions=True, include N (batch) index in positions.</span>
+<span class="sd">        If False, positions only contain [Y_pos, X_pos]. Default is False.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
-<span class="sd">        A tuple containing:</span>
+<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] or Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
+<span class="sd">        If return_positions=False:</span>
 <span class="sd">        - patches1: Tensor of shape (N*P, C, U, V) containing patches at (x_i, y_i)</span>
 <span class="sd">        - patches2: Tensor of shape (N*P, C, U, V) containing patches at (x_i + dx_i, y_i + dy_i)</span>
 <span class="sd">        - deltas: Tensor of shape (N*P, 2) containing (dx_i, dy_i) displacement vectors</span>
 <span class="sd">        - rotations: Tensor of shape (N*P,) containing quarter-turn rotations applied to patches2</span>
+
+<span class="sd">        If return_positions=True, additionally returns:</span>
+<span class="sd">        - positions1: Tensor of shape (N*P, 2) or (N*P, 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos] for patch1</span>
+<span class="sd">        - positions2: Tensor of shape (N*P, 2) or (N*P, 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos] for patch2</span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
@@ -167,6 +188,16 @@
 <span class="sd">    &gt;&gt;&gt; print(patches2.shape)   # (50, 3, 32, 32)</span>
 <span class="sd">    &gt;&gt;&gt; print(deltas.shape)     # (50, 2)</span>
 <span class="sd">    &gt;&gt;&gt; print(rotations.shape)  # (50,)</span>
+<span class="sd">    &gt;&gt;&gt; # With positional embeddings (Y, X only):</span>
+<span class="sd">    &gt;&gt;&gt; patches1, patches2, deltas, rotations, pos1, pos2 = extract_patch_pairs(</span>
+<span class="sd">    ...     tensor, window, num_patches, delta_range, return_positions=True</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; print(pos1.shape)  # (50, 2) - [Y_pos, X_pos] for patch1</span>
+<span class="sd">    &gt;&gt;&gt; # With N position included:</span>
+<span class="sd">    &gt;&gt;&gt; patches1, patches2, deltas, rotations, pos1, pos2 = extract_patch_pairs(</span>
+<span class="sd">    ...     tensor, window, num_patches, delta_range, return_positions=True, include_n_position=True</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; print(pos1.shape)  # (50, 3) - [N_idx, Y_pos, X_pos] for patch1</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Validate input tensor shape</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
@@ -237,6 +268,21 @@
         <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
         <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
     <span class="p">)</span>
+
+    <span class="c1"># Pre-allocate positional embeddings if requested</span>
+    <span class="c1"># Each patch gets its own positional array: [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]</span>
+    <span class="k">if</span> <span class="n">return_positions</span><span class="p">:</span>
+        <span class="n">pos_dim</span> <span class="o">=</span> <span class="mi">3</span> <span class="k">if</span> <span class="n">include_n_position</span> <span class="k">else</span> <span class="mi">2</span>
+        <span class="n">positions1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">pos_dim</span><span class="p">),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">positions2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">total_patches</span><span class="p">,</span> <span class="n">pos_dim</span><span class="p">),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">rotation_choices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">rotation_choices</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
@@ -362,8 +408,32 @@
             <span class="n">deltas_tensor</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dy</span><span class="p">)</span>
             <span class="n">rotations_tensor</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation</span>
 
+            <span class="c1"># Store positional embeddings if requested</span>
+            <span class="k">if</span> <span class="n">return_positions</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">include_n_position</span><span class="p">:</span>
+                    <span class="n">positions1</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>  <span class="c1"># N index</span>
+                    <span class="n">positions1</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_int</span>  <span class="c1"># Y position</span>
+                    <span class="n">positions1</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_int</span>  <span class="c1"># X position</span>
+                    <span class="n">positions2</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>  <span class="c1"># N index</span>
+                    <span class="n">positions2</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span>  <span class="c1"># Y position</span>
+                    <span class="n">positions2</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span>  <span class="c1"># X position</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">positions1</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_int</span>  <span class="c1"># Y position</span>
+                    <span class="n">positions1</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_int</span>  <span class="c1"># X position</span>
+                    <span class="n">positions2</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_int</span> <span class="o">+</span> <span class="n">dy</span>  <span class="c1"># Y position</span>
+                    <span class="n">positions2</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_int</span> <span class="o">+</span> <span class="n">dx</span>  <span class="c1"># X position</span>
+
             <span class="n">patch_idx</span> <span class="o">+=</span> <span class="mi">1</span>
 
+    <span class="k">if</span> <span class="n">return_positions</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">patches1</span><span class="p">,</span>
+            <span class="n">patches2</span><span class="p">,</span>
+            <span class="n">deltas_tensor</span><span class="p">,</span>
+            <span class="n">rotations_tensor</span><span class="p">,</span>
+            <span class="n">positions1</span><span class="p">,</span>
+            <span class="n">positions2</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="k">return</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas_tensor</span><span class="p">,</span> <span class="n">rotations_tensor</span></div>
 
 
@@ -1028,13 +1098,246 @@
 
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">stratified_sample_by_histogram</span><span class="p">(</span>
+    <span class="n">means</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">sigmas</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">n_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">samples_per_bin</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">random_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Stratified sampling based on histogram bins of mean and sigma.</span>
+
+<span class="sd">    This function performs stratified sampling by dividing the (mean, sigma) space</span>
+<span class="sd">    into a 2D grid of bins and sampling uniformly from each bin. This ensures</span>
+<span class="sd">    good coverage across the distribution of patch statistics.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    means : torch.Tensor</span>
+<span class="sd">        Mean values of shape (N*P,) where N is number of images and P is patches per image</span>
+<span class="sd">    sigmas : torch.Tensor</span>
+<span class="sd">        Standard deviations of shape (N*P,)</span>
+<span class="sd">    n_bins : int, optional</span>
+<span class="sd">        Number of bins for each dimension (mean and sigma). Default is 20.</span>
+<span class="sd">    samples_per_bin : int, optional</span>
+<span class="sd">        Number of samples to take from each non-empty bin. Default is 10.</span>
+<span class="sd">    random_seed : int | None, optional</span>
+<span class="sd">        Random seed for reproducibility. If None, uses current random state.</span>
+<span class="sd">        Default is None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    torch.Tensor</span>
+<span class="sd">        Selected indices of shape (num_selected,) where num_selected &lt;= n_bins^2 * samples_per_bin</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; metadata = extract_patch_pairs_metadata(tensor, window, num_patches, delta_range)</span>
+<span class="sd">    &gt;&gt;&gt; selected = stratified_sample_by_histogram(</span>
+<span class="sd">    ...     metadata[&quot;mean1&quot;], metadata[&quot;sigma1&quot;], n_bins=20, samples_per_bin=10</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; patches1, patches2, deltas, rotations = extract_patches_from_metadata(</span>
+<span class="sd">    ...     tensor, metadata, selected</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">means</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">sigmas</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;means and sigmas must have the same shape, got </span><span class="si">{</span><span class="n">means</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">sigmas</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">means</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;means and sigmas must be 1D tensors, got shape </span><span class="si">{</span><span class="n">means</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="c1"># Set random seed if provided</span>
+    <span class="k">if</span> <span class="n">random_seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span>
+        <span class="n">generator</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">random_seed</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">generator</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Create 2D histogram bins (mean x sigma)</span>
+    <span class="n">mean_min</span><span class="p">,</span> <span class="n">mean_max</span> <span class="o">=</span> <span class="n">means</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">means</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="n">sigma_min</span><span class="p">,</span> <span class="n">sigma_max</span> <span class="o">=</span> <span class="n">sigmas</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">sigmas</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+    <span class="c1"># Handle edge case where all values are the same</span>
+    <span class="k">if</span> <span class="n">mean_min</span> <span class="o">==</span> <span class="n">mean_max</span><span class="p">:</span>
+        <span class="n">mean_min</span> <span class="o">-=</span> <span class="mf">0.5</span>
+        <span class="n">mean_max</span> <span class="o">+=</span> <span class="mf">0.5</span>
+    <span class="k">if</span> <span class="n">sigma_min</span> <span class="o">==</span> <span class="n">sigma_max</span><span class="p">:</span>
+        <span class="n">sigma_min</span> <span class="o">-=</span> <span class="mf">0.5</span>
+        <span class="n">sigma_max</span> <span class="o">+=</span> <span class="mf">0.5</span>
+
+    <span class="c1"># Bin edges</span>
+    <span class="n">mean_edges</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">mean_min</span><span class="p">,</span> <span class="n">mean_max</span><span class="p">,</span> <span class="n">n_bins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">sigma_edges</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">sigma_min</span><span class="p">,</span> <span class="n">sigma_max</span><span class="p">,</span> <span class="n">n_bins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">selected_indices</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Sample from each bin</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_bins</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_bins</span><span class="p">):</span>
+            <span class="c1"># Find indices in this bin</span>
+            <span class="c1"># Use &lt;= for the last bin to include the maximum value</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">n_bins</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">in_mean_bin</span> <span class="o">=</span> <span class="p">(</span><span class="n">means</span> <span class="o">&gt;=</span> <span class="n">mean_edges</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">means</span> <span class="o">&lt;=</span> <span class="n">mean_edges</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">in_mean_bin</span> <span class="o">=</span> <span class="p">(</span><span class="n">means</span> <span class="o">&gt;=</span> <span class="n">mean_edges</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">means</span> <span class="o">&lt;</span> <span class="n">mean_edges</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="n">n_bins</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">in_sigma_bin</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigmas</span> <span class="o">&gt;=</span> <span class="n">sigma_edges</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span>
+                    <span class="n">sigmas</span> <span class="o">&lt;=</span> <span class="n">sigma_edges</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">in_sigma_bin</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigmas</span> <span class="o">&gt;=</span> <span class="n">sigma_edges</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span>
+                    <span class="n">sigmas</span> <span class="o">&lt;</span> <span class="n">sigma_edges</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+
+            <span class="n">in_bin</span> <span class="o">=</span> <span class="n">in_mean_bin</span> <span class="o">&amp;</span> <span class="n">in_sigma_bin</span>
+
+            <span class="n">bin_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">in_bin</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># Sample from this bin</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bin_indices</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">n_sample</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">samples_per_bin</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">bin_indices</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">generator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">perm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bin_indices</span><span class="p">),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">perm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bin_indices</span><span class="p">))</span>
+                <span class="n">sampled</span> <span class="o">=</span> <span class="n">bin_indices</span><span class="p">[</span><span class="n">perm</span><span class="p">[:</span><span class="n">n_sample</span><span class="p">]]</span>
+                <span class="n">selected_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sampled</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">selected_indices</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">means</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">stratified_sample_by_quantiles</span><span class="p">(</span>
+    <span class="n">means</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">sigmas</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">n_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">samples_per_bin</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">random_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Stratified sampling using quantiles for more uniform coverage.</span>
+
+<span class="sd">    This function performs stratified sampling by dividing the (mean, sigma) space</span>
+<span class="sd">    into bins based on quantiles rather than linear ranges. This ensures more</span>
+<span class="sd">    uniform coverage when the distribution is skewed.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    means : torch.Tensor</span>
+<span class="sd">        Mean values of shape (N*P,) where N is number of images and P is patches per image</span>
+<span class="sd">    sigmas : torch.Tensor</span>
+<span class="sd">        Standard deviations of shape (N*P,)</span>
+<span class="sd">    n_bins : int, optional</span>
+<span class="sd">        Number of quantile bins for each dimension (mean and sigma). Default is 20.</span>
+<span class="sd">    samples_per_bin : int, optional</span>
+<span class="sd">        Number of samples to take from each non-empty bin. Default is 10.</span>
+<span class="sd">    random_seed : int | None, optional</span>
+<span class="sd">        Random seed for reproducibility. If None, uses current random state.</span>
+<span class="sd">        Default is None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    torch.Tensor</span>
+<span class="sd">        Selected indices of shape (num_selected,) where num_selected &lt;= n_bins^2 * samples_per_bin</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; metadata = extract_patch_pairs_metadata(tensor, window, num_patches, delta_range)</span>
+<span class="sd">    &gt;&gt;&gt; selected = stratified_sample_by_quantiles(</span>
+<span class="sd">    ...     metadata[&quot;mean1&quot;], metadata[&quot;sigma1&quot;], n_bins=20, samples_per_bin=10</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; patches1, patches2, deltas, rotations = extract_patches_from_metadata(</span>
+<span class="sd">    ...     tensor, metadata, selected</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">means</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">sigmas</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;means and sigmas must have the same shape, got </span><span class="si">{</span><span class="n">means</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">sigmas</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">means</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;means and sigmas must be 1D tensors, got shape </span><span class="si">{</span><span class="n">means</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="c1"># Set random seed if provided</span>
+    <span class="k">if</span> <span class="n">random_seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span>
+        <span class="n">generator</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">random_seed</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">generator</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Use quantiles instead of linear bins for more uniform coverage</span>
+    <span class="n">quantile_levels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_bins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">mean_quantiles</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">means</span><span class="p">,</span> <span class="n">quantile_levels</span><span class="p">)</span>
+    <span class="n">sigma_quantiles</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">sigmas</span><span class="p">,</span> <span class="n">quantile_levels</span><span class="p">)</span>
+
+    <span class="n">selected_indices</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_bins</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_bins</span><span class="p">):</span>
+            <span class="c1"># Find indices in this quantile bin</span>
+            <span class="c1"># Use &lt;= for the last bin to include the maximum value</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">n_bins</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">in_mean_bin</span> <span class="o">=</span> <span class="p">(</span><span class="n">means</span> <span class="o">&gt;=</span> <span class="n">mean_quantiles</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span>
+                    <span class="n">means</span> <span class="o">&lt;=</span> <span class="n">mean_quantiles</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">in_mean_bin</span> <span class="o">=</span> <span class="p">(</span><span class="n">means</span> <span class="o">&gt;=</span> <span class="n">mean_quantiles</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span>
+                    <span class="n">means</span> <span class="o">&lt;</span> <span class="n">mean_quantiles</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="n">n_bins</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">in_sigma_bin</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigmas</span> <span class="o">&gt;=</span> <span class="n">sigma_quantiles</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span>
+                    <span class="n">sigmas</span> <span class="o">&lt;=</span> <span class="n">sigma_quantiles</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">in_sigma_bin</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigmas</span> <span class="o">&gt;=</span> <span class="n">sigma_quantiles</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span>
+                    <span class="n">sigmas</span> <span class="o">&lt;</span> <span class="n">sigma_quantiles</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+
+            <span class="n">in_bin</span> <span class="o">=</span> <span class="n">in_mean_bin</span> <span class="o">&amp;</span> <span class="n">in_sigma_bin</span>
+
+            <span class="n">bin_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">in_bin</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bin_indices</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">n_sample</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">samples_per_bin</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">bin_indices</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">generator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">perm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bin_indices</span><span class="p">),</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">perm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bin_indices</span><span class="p">))</span>
+                <span class="n">sampled</span> <span class="o">=</span> <span class="n">bin_indices</span><span class="p">[</span><span class="n">perm</span><span class="p">[:</span><span class="n">n_sample</span><span class="p">]]</span>
+                <span class="n">selected_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sampled</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">selected_indices</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">means</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="extract_patches_from_metadata">
 <a class="viewcode-back" href="../../api.html#qlty.patch_pairs_2d.extract_patches_from_metadata">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">extract_patches_from_metadata</span><span class="p">(</span>
     <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
     <span class="n">selected_indices</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+    <span class="n">return_positions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">include_n_position</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span>
+    <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
+    <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="p">]</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extract patch pairs from tensor using pre-computed metadata and selected indices.</span>
 
@@ -1049,15 +1352,24 @@
 <span class="sd">        Metadata dictionary returned by extract_patch_pairs_metadata()</span>
 <span class="sd">    selected_indices : Union[torch.Tensor, Sequence[int]]</span>
 <span class="sd">        Indices of patches to extract. Can be a torch.Tensor or list/array of integers.</span>
+<span class="sd">    return_positions : bool, optional</span>
+<span class="sd">        If True, also return positional embeddings for both patches. Default is False.</span>
+<span class="sd">    include_n_position : bool, optional</span>
+<span class="sd">        If True and return_positions=True, include N (batch) index in positions.</span>
+<span class="sd">        If False, positions only contain [Y_pos, X_pos]. Default is False.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
-<span class="sd">        A tuple containing:</span>
+<span class="sd">    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] or Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
+<span class="sd">        If return_positions=False:</span>
 <span class="sd">        - patches1: Tensor of shape (len(selected_indices), C, U, V)</span>
 <span class="sd">        - patches2: Tensor of shape (len(selected_indices), C, U, V)</span>
 <span class="sd">        - deltas: Tensor of shape (len(selected_indices), 2)</span>
 <span class="sd">        - rotations: Tensor of shape (len(selected_indices),)</span>
+
+<span class="sd">        If return_positions=True, additionally returns:</span>
+<span class="sd">        - positions1: Tensor of shape (len(selected_indices), 2) or (len(selected_indices), 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos] for patch1</span>
+<span class="sd">        - positions2: Tensor of shape (len(selected_indices), 2) or (len(selected_indices), 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos] for patch2</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -1103,6 +1415,20 @@
     <span class="n">deltas</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_selected</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
     <span class="n">rotations</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
+    <span class="c1"># Pre-allocate positional embeddings if requested</span>
+    <span class="k">if</span> <span class="n">return_positions</span><span class="p">:</span>
+        <span class="n">pos_dim</span> <span class="o">=</span> <span class="mi">3</span> <span class="k">if</span> <span class="n">include_n_position</span> <span class="k">else</span> <span class="mi">2</span>
+        <span class="n">positions1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">pos_dim</span><span class="p">),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">positions2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">pos_dim</span><span class="p">),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
+
     <span class="c1"># Extract selected patches</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">):</span>
         <span class="n">idx_int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
@@ -1139,6 +1465,23 @@
         <span class="n">deltas</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">dy</span>
         <span class="n">rotations</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation</span>
 
+        <span class="c1"># Store positional embeddings if requested</span>
+        <span class="k">if</span> <span class="n">return_positions</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">include_n_position</span><span class="p">:</span>
+                <span class="n">positions1</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">image_idx</span>
+                <span class="n">positions1</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch1_y</span>
+                <span class="n">positions1</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch1_x</span>
+                <span class="n">positions2</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">image_idx</span>
+                <span class="n">positions2</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2_y</span>
+                <span class="n">positions2</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2_x</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">positions1</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch1_y</span>
+                <span class="n">positions1</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch1_x</span>
+                <span class="n">positions2</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2_y</span>
+                <span class="n">positions2</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2_x</span>
+
+    <span class="k">if</span> <span class="n">return_positions</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span><span class="p">,</span> <span class="n">positions1</span><span class="p">,</span> <span class="n">positions2</span>
     <span class="k">return</span> <span class="n">patches1</span><span class="p">,</span> <span class="n">patches2</span><span class="p">,</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">rotations</span></div>
 
 
@@ -1151,6 +1494,8 @@
     <span class="n">selected_indices</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
     <span class="n">zarr_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">zarr</span><span class="o">.</span><span class="n">Group</span><span class="p">,</span>
     <span class="n">zarr_chunks</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">store_positions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">include_n_position</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">zarr</span><span class="o">.</span><span class="n">Group</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extract patch pairs to a Zarr group for on-disk storage.</span>
@@ -1170,6 +1515,11 @@
 <span class="sd">        Path to zarr file/group or existing zarr group. If string, creates new group.</span>
 <span class="sd">    zarr_chunks : Optional[Tuple[int, ...]], optional</span>
 <span class="sd">        Chunk size for patch arrays. Default: (1, C, U, V) for patches, (1, 2) for deltas</span>
+<span class="sd">    store_positions : bool, optional</span>
+<span class="sd">        If True, also store positional embeddings in the Zarr group. Default is False.</span>
+<span class="sd">    include_n_position : bool, optional</span>
+<span class="sd">        If True and store_positions=True, include N (batch) index in positions.</span>
+<span class="sd">        If False, positions only contain [Y_pos, X_pos]. Default is False.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1179,6 +1529,8 @@
 <span class="sd">        - patches2: Array of shape (num_selected, C, U, V)</span>
 <span class="sd">        - deltas: Array of shape (num_selected, 2)</span>
 <span class="sd">        - rotations: Array of shape (num_selected,)</span>
+<span class="sd">        - positions1: Array of shape (num_selected, 2) or (num_selected, 3) if store_positions=True</span>
+<span class="sd">        - positions2: Array of shape (num_selected, 2) or (num_selected, 3) if store_positions=True</span>
 <span class="sd">        - metadata attributes stored in group.attrs</span>
 
 <span class="sd">    Examples</span>
@@ -1221,14 +1573,19 @@
         <span class="n">zarr_group</span> <span class="o">=</span> <span class="n">zarr_path</span>
 
     <span class="c1"># Determine chunk size</span>
+    <span class="n">pos_dim</span> <span class="o">=</span> <span class="mi">3</span> <span class="k">if</span> <span class="n">include_n_position</span> <span class="k">else</span> <span class="mi">2</span>
     <span class="k">if</span> <span class="n">zarr_chunks</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">patch_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
         <span class="n">delta_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="n">rotation_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)</span>
+        <span class="n">position_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">pos_dim</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">patch_chunks</span> <span class="o">=</span> <span class="n">zarr_chunks</span>
         <span class="n">delta_chunks</span> <span class="o">=</span> <span class="n">zarr_chunks</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">zarr_chunks</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="n">rotation_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="n">zarr_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">zarr_chunks</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)</span>
+        <span class="n">position_chunks</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">zarr_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pos_dim</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">zarr_chunks</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">pos_dim</span><span class="p">)</span>
+        <span class="p">)</span>
 
     <span class="c1"># Convert torch dtype to numpy dtype for zarr</span>
     <span class="c1"># Create a dummy numpy array from tensor to get numpy dtype</span>
@@ -1260,6 +1617,21 @@
         <span class="n">chunks</span><span class="o">=</span><span class="n">rotation_chunks</span><span class="p">,</span>
         <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int64&quot;</span><span class="p">,</span>
     <span class="p">)</span>
+
+    <span class="c1"># Create position arrays if requested</span>
+    <span class="k">if</span> <span class="n">store_positions</span><span class="p">:</span>
+        <span class="n">positions1_array</span> <span class="o">=</span> <span class="n">zarr_group</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="s2">&quot;positions1&quot;</span><span class="p">,</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">pos_dim</span><span class="p">),</span>
+            <span class="n">chunks</span><span class="o">=</span><span class="n">position_chunks</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int64&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">positions2_array</span> <span class="o">=</span> <span class="n">zarr_group</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="s2">&quot;positions2&quot;</span><span class="p">,</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_selected</span><span class="p">,</span> <span class="n">pos_dim</span><span class="p">),</span>
+            <span class="n">chunks</span><span class="o">=</span><span class="n">position_chunks</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int64&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="c1"># Extract and write patches</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected_indices</span><span class="p">):</span>
@@ -1296,6 +1668,15 @@
         <span class="n">patches2_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch2</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
         <span class="n">deltas_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">]</span>
         <span class="n">rotations_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation</span>
+
+        <span class="c1"># Store positional embeddings if requested</span>
+        <span class="k">if</span> <span class="n">store_positions</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">include_n_position</span><span class="p">:</span>
+                <span class="n">positions1_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">image_idx</span><span class="p">,</span> <span class="n">patch1_y</span><span class="p">,</span> <span class="n">patch1_x</span><span class="p">]</span>
+                <span class="n">positions2_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">image_idx</span><span class="p">,</span> <span class="n">patch2_y</span><span class="p">,</span> <span class="n">patch2_x</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">positions1_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">patch1_y</span><span class="p">,</span> <span class="n">patch1_x</span><span class="p">]</span>
+                <span class="n">positions2_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">patch2_y</span><span class="p">,</span> <span class="n">patch2_x</span><span class="p">]</span>
 
     <span class="c1"># Store metadata as group attributes</span>
     <span class="n">zarr_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
@@ -1362,6 +1743,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">deltas</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;deltas&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rotations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;rotations&quot;</span><span class="p">]</span>
 
+        <span class="c1"># Check if positional embeddings exist</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">has_positions</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;positions1&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span> <span class="ow">and</span> <span class="s2">&quot;positions2&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_positions</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">positions1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;positions1&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">positions2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_group</span><span class="p">[</span><span class="s2">&quot;positions2&quot;</span><span class="p">]</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">transform</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -1371,7 +1760,17 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span>
+        <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
+        <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="p">]</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get a patch pair by index.</span>
 
@@ -1382,12 +1781,20 @@
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
-<span class="sd">            Tuple containing:</span>
+<span class="sd">        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] or Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]</span>
+<span class="sd">            If positional embeddings are not available:</span>
 <span class="sd">            - patch1: Tensor of shape (C, U, V)</span>
 <span class="sd">            - patch2: Tensor of shape (C, U, V)</span>
 <span class="sd">            - delta: Tensor of shape (2,)</span>
 <span class="sd">            - rotation: Tensor scalar (int64)</span>
+
+<span class="sd">            If positional embeddings are available:</span>
+<span class="sd">            - patch1: Tensor of shape (C, U, V)</span>
+<span class="sd">            - patch2: Tensor of shape (C, U, V)</span>
+<span class="sd">            - delta: Tensor of shape (2,)</span>
+<span class="sd">            - rotation: Tensor scalar (int64)</span>
+<span class="sd">            - position1: Tensor of shape (2,) or (3,) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]</span>
+<span class="sd">            - position2: Tensor of shape (2,) or (3,) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Load from zarr (returns numpy arrays)</span>
         <span class="n">patch1_np</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patches1</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
@@ -1403,12 +1810,27 @@
 
         <span class="c1"># Apply transform if provided</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span>
-                <span class="n">patch1</span><span class="p">,</span>
-                <span class="n">patch2</span><span class="p">,</span>
-                <span class="n">delta</span><span class="p">,</span>
-                <span class="n">rotation</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_positions</span><span class="p">:</span>
+                <span class="c1"># Transform should handle positions if they exist</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>
+                    <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span><span class="p">,</span> <span class="n">pos1</span><span class="p">,</span> <span class="n">pos2</span> <span class="o">=</span> <span class="n">result</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span> <span class="o">=</span> <span class="n">result</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span>
+                    <span class="n">patch1</span><span class="p">,</span>
+                    <span class="n">patch2</span><span class="p">,</span>
+                    <span class="n">delta</span><span class="p">,</span>
+                    <span class="n">rotation</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_positions</span><span class="p">:</span>
+            <span class="n">position1_np</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">positions1</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">position2_np</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">positions2</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">position1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">position1_np</span><span class="p">)</span>
+            <span class="n">position2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">position2_np</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span><span class="p">,</span> <span class="n">position1</span><span class="p">,</span> <span class="n">position2</span>
 
         <span class="k">return</span> <span class="n">patch1</span><span class="p">,</span> <span class="n">patch2</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">rotation</span></div>
 

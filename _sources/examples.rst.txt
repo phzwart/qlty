@@ -637,3 +637,113 @@ Example 13: Converting Image Stacks to OME-Zarr
 - **Standard format**: Compatible with bioimaging tools
 - **Chunked storage**: Fast random access
 - **Rich metadata**: OME metadata stored automatically
+
+Example 14: Laplacian Pyramid for Perfect Reconstruction
+--------------------------------------------------------
+
+**Use Case**: Create a Laplacian pyramid that stores difference maps (residuals) instead of downsampled images, enabling perfect reconstruction from the base level plus all difference maps.
+
+**Key Advantage**: Unlike Gaussian pyramids which store downsampled versions, Laplacian pyramids store only the differences needed to reconstruct the full resolution, potentially saving storage space while enabling lossless reconstruction.
+
+**Creating a Laplacian Pyramid**::
+
+    from qlty.utils.stack_to_zarr import (
+        stack_files_to_ome_zarr_laplacian,
+        reconstruct_from_laplacian_pyramid
+    )
+    from pathlib import Path
+    import numpy as np
+    import tifffile
+
+    # Create test images
+    temp_dir = Path("test_images")
+    temp_dir.mkdir(exist_ok=True)
+    for i in range(10):
+        img = np.random.randint(0, 255, size=(128, 128), dtype=np.uint8)
+        tifffile.imwrite(temp_dir / f"stack_{i:03d}.tif", img)
+
+    # Create Laplacian pyramid
+    result = stack_files_to_ome_zarr_laplacian(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=4,  # 4 resolution levels
+        interpolation_mode="bilinear",  # or "bicubic" for better quality
+        store_base_level=True,  # Store lowest resolution level
+        verbose=True
+    )
+
+    # result contains metadata:
+    # {
+    #     "stack": {
+    #         "zarr_path": "test_images/stack.ome.zarr",
+    #         "shape": (10, 128, 128),
+    #         "file_count": 10,
+    #         "pyramid_levels": 4
+    #     }
+    # }
+
+**Reconstructing Full Resolution**::
+
+    import zarr
+
+    # Open Laplacian pyramid
+    zarr_path = result["stack"]["zarr_path"]
+    group = zarr.open_group(zarr_path, mode="r")
+
+    # Reconstruct full resolution from Laplacian pyramid
+    reconstructed = reconstruct_from_laplacian_pyramid(
+        zarr_path,
+        z_idx=0,  # Reconstruct first slice (or None for all slices)
+        interpolation_mode="bilinear"
+    )
+
+    # reconstructed shape: (128, 128) for single slice
+    # or (10, 128, 128) if z_idx=None
+
+    # Verify perfect reconstruction (within numerical precision)
+    original = tifffile.imread(temp_dir / "stack_000.tif")
+    mse = np.mean((reconstructed - original) ** 2)
+    print(f"Reconstruction MSE: {mse:.6f}")  # Should be very small (< 1.0)
+
+**Understanding Laplacian Pyramid Structure**::
+
+    # Laplacian pyramid stores:
+    # - Base level (lowest resolution) at highest level number
+    # - Difference maps (diff_0, diff_1, ...) for each resolution level
+
+    group = zarr.open_group(zarr_path, mode="r")
+
+    # Base level (lowest resolution, stored at level 3 for 4-level pyramid)
+    base_level = group["3"]  # Shape: (10, 16, 16) - most downsampled
+
+    # Difference maps
+    diff_0 = group["diff_0"]  # Difference for highest resolution
+    diff_1 = group["diff_1"]  # Difference for level 1
+    diff_2 = group["diff_2"]  # Difference for level 2
+
+    # Reconstruction process:
+    # 1. Start with base level (lowest resolution)
+    # 2. Upsample and add diff_2
+    # 3. Upsample and add diff_1
+    # 4. Upsample and add diff_0
+    # Result: Full resolution image
+
+**When to Use Laplacian vs Gaussian Pyramids**:
+
+- **Gaussian Pyramid** (`stack_files_to_ome_zarr`):
+  - Use when you need direct access to downsampled versions
+  - Better for progressive loading and viewing
+  - Each level is independently usable
+
+- **Laplacian Pyramid** (`stack_files_to_ome_zarr_laplacian`):
+  - Use when you need perfect reconstruction
+  - Can be more storage-efficient (stores differences, not full images)
+  - Better for compression and progressive transmission
+  - Requires reconstruction function to access full resolution
+
+**Benefits**:
+- **Perfect reconstruction**: Reconstruct original image exactly (within numerical precision)
+- **Storage efficiency**: May use less storage than Gaussian pyramid
+- **Progressive transmission**: Can transmit base level first, then differences
+- **Compression-friendly**: Difference maps often compress better than full images

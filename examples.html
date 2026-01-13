@@ -8,7 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Examples &mdash; qlty 1.4.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
@@ -61,6 +61,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#example-11-pre-tokenization-for-patch-processing-2d">Example 11: Pre-Tokenization for Patch Processing (2D)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#example-12-metadata-extraction-and-zarr-storage">Example 12: Metadata Extraction and Zarr Storage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#example-13-converting-image-stacks-to-ome-zarr">Example 13: Converting Image Stacks to OME-Zarr</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-14-laplacian-pyramid-for-perfect-reconstruction">Example 14: Laplacian Pyramid for Perfect Reconstruction</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
@@ -726,6 +727,112 @@ when numba is unavailable</p></li>
 - <strong>Standard format</strong>: Compatible with bioimaging tools
 - <strong>Chunked storage</strong>: Fast random access
 - <strong>Rich metadata</strong>: OME metadata stored automatically</p>
+</section>
+<section id="example-14-laplacian-pyramid-for-perfect-reconstruction">
+<h2>Example 14: Laplacian Pyramid for Perfect Reconstruction<a class="headerlink" href="#example-14-laplacian-pyramid-for-perfect-reconstruction" title="Link to this heading"></a></h2>
+<p><strong>Use Case</strong>: Create a Laplacian pyramid that stores difference maps (residuals) instead of downsampled images, enabling perfect reconstruction from the base level plus all difference maps.</p>
+<p><strong>Key Advantage</strong>: Unlike Gaussian pyramids which store downsampled versions, Laplacian pyramids store only the differences needed to reconstruct the full resolution, potentially saving storage space while enabling lossless reconstruction.</p>
+<p><strong>Creating a Laplacian Pyramid</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">qlty.utils.stack_to_zarr</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">stack_files_to_ome_zarr_laplacian</span><span class="p">,</span>
+    <span class="n">reconstruct_from_laplacian_pyramid</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tifffile</span>
+
+<span class="c1"># Create test images</span>
+<span class="n">temp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;test_images&quot;</span><span class="p">)</span>
+<span class="n">temp_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+    <span class="n">tifffile</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="n">temp_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;stack_</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">.tif&quot;</span><span class="p">,</span> <span class="n">img</span><span class="p">)</span>
+
+<span class="c1"># Create Laplacian pyramid</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">stack_files_to_ome_zarr_laplacian</span><span class="p">(</span>
+    <span class="n">directory</span><span class="o">=</span><span class="n">temp_dir</span><span class="p">,</span>
+    <span class="n">extension</span><span class="o">=</span><span class="s2">&quot;.tif&quot;</span><span class="p">,</span>
+    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;(.+)_(\d+)\.tif$&quot;</span><span class="p">,</span>
+    <span class="n">pyramid_levels</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>  <span class="c1"># 4 resolution levels</span>
+    <span class="n">interpolation_mode</span><span class="o">=</span><span class="s2">&quot;bilinear&quot;</span><span class="p">,</span>  <span class="c1"># or &quot;bicubic&quot; for better quality</span>
+    <span class="n">store_base_level</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Store lowest resolution level</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="c1"># result contains metadata:</span>
+<span class="c1"># {</span>
+<span class="c1">#     &quot;stack&quot;: {</span>
+<span class="c1">#         &quot;zarr_path&quot;: &quot;test_images/stack.ome.zarr&quot;,</span>
+<span class="c1">#         &quot;shape&quot;: (10, 128, 128),</span>
+<span class="c1">#         &quot;file_count&quot;: 10,</span>
+<span class="c1">#         &quot;pyramid_levels&quot;: 4</span>
+<span class="c1">#     }</span>
+<span class="c1"># }</span>
+</pre></div>
+</div>
+<p><strong>Reconstructing Full Resolution</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+
+<span class="c1"># Open Laplacian pyramid</span>
+<span class="n">zarr_path</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;stack&quot;</span><span class="p">][</span><span class="s2">&quot;zarr_path&quot;</span><span class="p">]</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+
+<span class="c1"># Reconstruct full resolution from Laplacian pyramid</span>
+<span class="n">reconstructed</span> <span class="o">=</span> <span class="n">reconstruct_from_laplacian_pyramid</span><span class="p">(</span>
+    <span class="n">zarr_path</span><span class="p">,</span>
+    <span class="n">z_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>  <span class="c1"># Reconstruct first slice (or None for all slices)</span>
+    <span class="n">interpolation_mode</span><span class="o">=</span><span class="s2">&quot;bilinear&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># reconstructed shape: (128, 128) for single slice</span>
+<span class="c1"># or (10, 128, 128) if z_idx=None</span>
+
+<span class="c1"># Verify perfect reconstruction (within numerical precision)</span>
+<span class="n">original</span> <span class="o">=</span> <span class="n">tifffile</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;stack_000.tif&quot;</span><span class="p">)</span>
+<span class="n">mse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">reconstructed</span> <span class="o">-</span> <span class="n">original</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reconstruction MSE: </span><span class="si">{</span><span class="n">mse</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># Should be very small (&lt; 1.0)</span>
+</pre></div>
+</div>
+<p><strong>Understanding Laplacian Pyramid Structure</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Laplacian pyramid stores:</span>
+<span class="c1"># - Base level (lowest resolution) at highest level number</span>
+<span class="c1"># - Difference maps (diff_0, diff_1, ...) for each resolution level</span>
+
+<span class="n">group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+
+<span class="c1"># Base level (lowest resolution, stored at level 3 for 4-level pyramid)</span>
+<span class="n">base_level</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;3&quot;</span><span class="p">]</span>  <span class="c1"># Shape: (10, 16, 16) - most downsampled</span>
+
+<span class="c1"># Difference maps</span>
+<span class="n">diff_0</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;diff_0&quot;</span><span class="p">]</span>  <span class="c1"># Difference for highest resolution</span>
+<span class="n">diff_1</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;diff_1&quot;</span><span class="p">]</span>  <span class="c1"># Difference for level 1</span>
+<span class="n">diff_2</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;diff_2&quot;</span><span class="p">]</span>  <span class="c1"># Difference for level 2</span>
+
+<span class="c1"># Reconstruction process:</span>
+<span class="c1"># 1. Start with base level (lowest resolution)</span>
+<span class="c1"># 2. Upsample and add diff_2</span>
+<span class="c1"># 3. Upsample and add diff_1</span>
+<span class="c1"># 4. Upsample and add diff_0</span>
+<span class="c1"># Result: Full resolution image</span>
+</pre></div>
+</div>
+<p><strong>When to Use Laplacian vs Gaussian Pyramids</strong>:</p>
+<ul class="simple">
+<li><p><strong>Gaussian Pyramid</strong> (<cite>stack_files_to_ome_zarr</cite>):
+- Use when you need direct access to downsampled versions
+- Better for progressive loading and viewing
+- Each level is independently usable</p></li>
+<li><p><strong>Laplacian Pyramid</strong> (<cite>stack_files_to_ome_zarr_laplacian</cite>):
+- Use when you need perfect reconstruction
+- Can be more storage-efficient (stores differences, not full images)
+- Better for compression and progressive transmission
+- Requires reconstruction function to access full resolution</p></li>
+</ul>
+<p><strong>Benefits</strong>:
+- <strong>Perfect reconstruction</strong>: Reconstruct original image exactly (within numerical precision)
+- <strong>Storage efficiency</strong>: May use less storage than Gaussian pyramid
+- <strong>Progressive transmission</strong>: Can transmit base level first, then differences
+- <strong>Compression-friendly</strong>: Difference maps often compress better than full images</p>
 </section>
 </section>
 

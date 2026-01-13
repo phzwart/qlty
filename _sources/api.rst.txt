@@ -445,7 +445,7 @@ stack_files_to_ome_zarr
     from qlty.utils.stack_to_zarr import stack_files_to_ome_zarr
     from pathlib import Path
 
-    # Convert image stack to OME-Zarr format with multiscale pyramids
+    # Convert image stack to OME-Zarr format with multiscale pyramids (Gaussian)
     result = stack_files_to_ome_zarr(
         directory="/path/to/images",
         extension=".tif",
@@ -464,6 +464,75 @@ stack_files_to_ome_zarr
     # level_1 = group["1"]  # 2x downsampled
     # level_2 = group["2"]  # 4x downsampled
     # etc.
+
+stack_files_to_ome_zarr_laplacian
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.utils.stack_to_zarr.stack_files_to_ome_zarr_laplacian
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty.utils.stack_to_zarr import (
+        stack_files_to_ome_zarr_laplacian,
+        reconstruct_from_laplacian_pyramid
+    )
+    from pathlib import Path
+
+    # Create Laplacian pyramid (stores difference maps)
+    result = stack_files_to_ome_zarr_laplacian(
+        directory="/path/to/images",
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=4,
+        interpolation_mode="bilinear",  # or "bicubic"
+        store_base_level=True,
+        verbose=True
+    )
+
+    # Reconstruct full resolution from Laplacian pyramid
+    zarr_path = result["stack"]["zarr_path"]
+    reconstructed = reconstruct_from_laplacian_pyramid(
+        zarr_path,
+        z_idx=0,  # Reconstruct first slice
+        interpolation_mode="bilinear"
+    )
+
+    # Laplacian pyramid structure:
+    # - Base level stored at highest level number (e.g., "3" for 4 levels)
+    # - Difference maps: diff_0, diff_1, diff_2, etc.
+    # - Level 0 = highest resolution (standard convention)
+
+reconstruct_from_laplacian_pyramid
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: qlty.utils.stack_to_zarr.reconstruct_from_laplacian_pyramid
+
+**Example:**
+
+.. code-block:: python
+
+    from qlty.utils.stack_to_zarr import reconstruct_from_laplacian_pyramid
+    import zarr
+
+    # Reconstruct single slice
+    zarr_path = "my_laplacian_pyramid.ome.zarr"
+    reconstructed = reconstruct_from_laplacian_pyramid(
+        zarr_path,
+        z_idx=0,  # Reconstruct slice 0
+        interpolation_mode="bilinear"
+    )
+
+    # Reconstruct all slices
+    reconstructed_all = reconstruct_from_laplacian_pyramid(
+        zarr_path,
+        z_idx=None,  # Reconstruct all slices
+        interpolation_mode="bilinear"
+    )
+
+    # reconstructed shape: (Y, X) for single slice
+    # reconstructed_all shape: (Z, C, Y, X) or (Z, Y, X) for all slices
 
 Pre-Tokenization for Patch Processing (2D)
 --------------------------------------------

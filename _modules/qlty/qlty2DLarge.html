@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>qlty.qlty2DLarge &mdash; qlty 1.4.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
@@ -270,7 +270,13 @@
 
 <div class="viewcode-block" id="LargeNCYXQuilt.unstitch">
 <a class="viewcode-back" href="../../api.html#qlty.qlty2DLarge.LargeNCYXQuilt.unstitch">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">unstitch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unstitch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">return_positions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">include_n_position</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Extract a single patch from a tensor by index.</span>
 
@@ -286,11 +292,21 @@
 <span class="sd">            - Y, X: Must match self.Y and self.X</span>
 <span class="sd">        index : int</span>
 <span class="sd">            Linear index of the patch to extract. Must be in range [0, N_chunks).</span>
+<span class="sd">        return_positions : bool, optional</span>
+<span class="sd">            If True, also return positional embeddings. Default is False.</span>
+<span class="sd">        include_n_position : bool, optional</span>
+<span class="sd">            If True and return_positions=True, include N (batch) index in positions.</span>
+<span class="sd">            If False, positions only contain [Y_pos, X_pos]. Default is False.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        torch.Tensor</span>
-<span class="sd">            Single patch of shape (C, window[0], window[1])</span>
+<span class="sd">        torch.Tensor or Tuple[torch.Tensor, torch.Tensor]</span>
+<span class="sd">            If return_positions=False:</span>
+<span class="sd">            - Single patch of shape (C, window[0], window[1])</span>
+
+<span class="sd">            If return_positions=True:</span>
+<span class="sd">            - patch: Tensor of shape (C, window[0], window[1])</span>
+<span class="sd">            - position: Tensor of shape (2,) or (3,) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -299,6 +315,12 @@
 <span class="sd">        &gt;&gt;&gt; data = torch.randn(10, 3, 128, 128)</span>
 <span class="sd">        &gt;&gt;&gt; patch = quilt.unstitch(data, index=0)</span>
 <span class="sd">        &gt;&gt;&gt; print(patch.shape)  # (3, 32, 32)</span>
+<span class="sd">        &gt;&gt;&gt; # With positional embeddings (Y, X only):</span>
+<span class="sd">        &gt;&gt;&gt; patch, position = quilt.unstitch(data, index=0, return_positions=True)</span>
+<span class="sd">        &gt;&gt;&gt; print(position.shape)  # (2,) - [Y_pos, X_pos]</span>
+<span class="sd">        &gt;&gt;&gt; # With N position included:</span>
+<span class="sd">        &gt;&gt;&gt; patch, position = quilt.unstitch(data, index=0, return_positions=True, include_n_position=True)</span>
+<span class="sd">        &gt;&gt;&gt; print(position.shape)  # (3,) - [N_idx, Y_pos, X_pos]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">N</span><span class="p">,</span> <span class="n">_C</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span>
 
@@ -312,7 +334,19 @@
         <span class="n">stop_y</span> <span class="o">=</span> <span class="n">start_y</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">stop_x</span> <span class="o">=</span> <span class="n">start_x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
-        <span class="k">return</span> <span class="n">tensor</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="p">:,</span> <span class="n">start_y</span><span class="p">:</span><span class="n">stop_y</span><span class="p">,</span> <span class="n">start_x</span><span class="p">:</span><span class="n">stop_x</span><span class="p">]</span></div>
+        <span class="n">patch</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="p">:,</span> <span class="n">start_y</span><span class="p">:</span><span class="n">stop_y</span><span class="p">,</span> <span class="n">start_x</span><span class="p">:</span><span class="n">stop_x</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">return_positions</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">include_n_position</span><span class="p">:</span>
+                <span class="n">position</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">start_y</span><span class="p">,</span> <span class="n">start_x</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">position</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">start_y</span><span class="p">,</span> <span class="n">start_x</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">tensor</span><span class="o">.</span><span class="n">device</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">patch</span><span class="p">,</span> <span class="n">position</span>
+        <span class="k">return</span> <span class="n">patch</span></div>
 
 
 <div class="viewcode-block" id="LargeNCYXQuilt.stitch">
@@ -374,7 +408,12 @@
 
 <div class="viewcode-block" id="LargeNCYXQuilt.unstitch_next">
 <a class="viewcode-back" href="../../api.html#qlty.qlty2DLarge.LargeNCYXQuilt.unstitch_next">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">unstitch_next</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unstitch_next</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">return_positions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">include_n_position</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get the next patch in sequence (generator-like interface).</span>
 
@@ -385,13 +424,21 @@
 <span class="sd">        ----------</span>
 <span class="sd">        tensor : torch.Tensor</span>
 <span class="sd">            Input tensor of shape (N, C, Y, X) where N matches self.N</span>
+<span class="sd">        return_positions : bool, optional</span>
+<span class="sd">            If True, also return positional embeddings. Default is False.</span>
+<span class="sd">        include_n_position : bool, optional</span>
+<span class="sd">            If True and return_positions=True, include N (batch) index in positions.</span>
+<span class="sd">            If False, positions only contain [Y_pos, X_pos]. Default is False.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        Tuple[int, torch.Tensor]</span>
-<span class="sd">            A tuple of (index, patch) where:</span>
+<span class="sd">        Tuple[int, torch.Tensor] or Tuple[int, torch.Tensor, torch.Tensor]</span>
+<span class="sd">            If return_positions=False:</span>
 <span class="sd">            - index: Linear index of the patch (0 to N_chunks-1)</span>
 <span class="sd">            - patch: Patch tensor of shape (C, window[0], window[1])</span>
+
+<span class="sd">            If return_positions=True, additionally returns:</span>
+<span class="sd">            - position: Tensor of shape (2,) or (3,) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -410,8 +457,24 @@
 <span class="sd">        ...     idx, patch = quilt.unstitch_next(data)</span>
 <span class="sd">        ...     processed = model(patch.unsqueeze(0))</span>
 <span class="sd">        ...     quilt.stitch(processed, idx)</span>
+<span class="sd">        &gt;&gt;&gt; # With positional embeddings (Y, X only):</span>
+<span class="sd">        &gt;&gt;&gt; for i in range(quilt.N_chunks):</span>
+<span class="sd">        ...     idx, patch, pos = quilt.unstitch_next(data, return_positions=True)</span>
+<span class="sd">        ...     # Use position for positional embeddings</span>
+<span class="sd">        &gt;&gt;&gt; # With N position included:</span>
+<span class="sd">        &gt;&gt;&gt; for i in range(quilt.N_chunks):</span>
+<span class="sd">        ...     idx, patch, pos = quilt.unstitch_next(data, return_positions=True, include_n_position=True)</span>
+<span class="sd">        ...     # Use position for positional embeddings</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">this_ind</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">chunkerator</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">return_positions</span><span class="p">:</span>
+            <span class="n">tmp</span><span class="p">,</span> <span class="n">position</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span>
+                <span class="n">tensor</span><span class="p">,</span>
+                <span class="n">this_ind</span><span class="p">,</span>
+                <span class="n">return_positions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">include_n_position</span><span class="o">=</span><span class="n">include_n_position</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">this_ind</span><span class="p">,</span> <span class="n">tmp</span><span class="p">,</span> <span class="n">position</span>
         <span class="n">tmp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unstitch</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">this_ind</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">this_ind</span><span class="p">,</span> <span class="n">tmp</span></div>
 
