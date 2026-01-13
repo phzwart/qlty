@@ -1184,9 +1184,9 @@
                         <span class="n">downsampled</span> <span class="o">=</span> <span class="n">padded</span>
 
                 <span class="c1"># Final verification</span>
-                <span class="k">assert</span> <span class="p">(</span>
-                    <span class="n">downsampled</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">expected_Y</span><span class="p">,</span> <span class="n">expected_X</span><span class="p">)</span>
-                <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;Shape fix failed: </span><span class="si">{</span><span class="n">downsampled</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> != (</span><span class="si">{</span><span class="n">expected_Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">expected_X</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="k">assert</span> <span class="n">downsampled</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">expected_Y</span><span class="p">,</span> <span class="n">expected_X</span><span class="p">),</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Shape fix failed: </span><span class="si">{</span><span class="n">downsampled</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> != (</span><span class="si">{</span><span class="n">expected_Y</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">expected_X</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
 
                 <span class="c1"># Write with exact shape match</span>
                 <span class="n">level_array</span><span class="p">[</span><span class="n">z_idx</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">downsampled</span>
