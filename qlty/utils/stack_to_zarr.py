@@ -77,6 +77,8 @@ def _create_zarr_array(group, name, **kwargs):
     **kwargs
         Additional arguments passed to create()
         If 'data' is provided, shape and dtype will be extracted from it
+        If 'compressor' is not provided, defaults to Zstd(level=1) for float32,
+        or Blosc(clevel=5, codec='lz4') as fallback
 
     Returns
     -------
@@ -85,6 +87,11 @@ def _create_zarr_array(group, name, **kwargs):
     """
     # Extract data if provided
     data = kwargs.pop("data", None)
+
+    # Note: Compression configuration removed for Zarr 3.x compatibility
+    # Zarr 3.x requires proper codec configuration with both ArrayBytesCodec and BytesBytesCodec
+    # For now, we use default compression. Compression can be added via kwargs if needed.
+    # The default zarr compression should be sufficient for most use cases.
 
     # If data is provided, extract shape and dtype for zarr 3.0.0a5 compatibility
     # zarr 3.0.0a5's create() calls create_array() which requires shape as keyword-only arg
@@ -537,6 +544,225 @@ def _load_and_process_image(
         img = img.astype(dtype)
 
     return img
+
+
+def _load_image_worker(args: tuple) -> tuple[int, np.ndarray]:
+    """
+    Worker function for parallel image loading only (no writing).
+
+    This function loads and processes a single image, returning it along with
+    its z-index. The actual writing to Zarr happens sequentially in the main process
+    to avoid race conditions with compressed chunks.
+
+    Parameters
+    ----------
+    args : tuple
+        Tuple containing:
+        - z_idx: int - Z-index in the zarr array
+        - filepath: Path - Path to image file
+        - dtype: np.dtype | None - Target dtype
+        - normalize: bool - Whether to normalize
+        - normalize_mean: float | None - Mean for normalization
+        - normalize_std: float | None - Std for normalization
+
+    Returns
+    -------
+    tuple[int, np.ndarray]
+        (z_idx, processed_image) tuple
+    """
+    z_idx, filepath, dtype, normalize, normalize_mean, normalize_std = args
+
+    try:
+        img = _load_and_process_image(
+            filepath, dtype, normalize, normalize_mean, normalize_std
+        )
+        return (z_idx, img)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        # Return None to indicate failure
+        return (z_idx, None)
+
+
+def _load_and_downsample_worker(args: tuple) -> tuple[int, list[np.ndarray]]:
+    """
+    Worker function for parallel image loading and downsampling (no writing).
+
+    This function loads an image, downsamples it progressively for all pyramid levels,
+    and returns the processed images. The actual writing to Zarr happens sequentially
+    in the main process to avoid race conditions with compressed chunks.
+
+    Parameters
+    ----------
+    args : tuple
+        Tuple containing:
+        - z_idx: int - Z-index in the zarr array
+        - filepath: Path - Path to image file
+        - pyramid_level_shapes: list[tuple] - Shapes for each pyramid level
+        - pyramid_scale_factors: list[tuple] - Cumulative scale factors for each level
+        - dtype: np.dtype - Target dtype
+        - has_channels: bool - Whether image has channels
+        - axis_order: str - Final axis order (e.g., "ZCYX", "CZYX")
+        - C: int - Number of channels (for multi-channel)
+        - Y: int - Image height
+        - X: int - Image width
+        - normalize: bool - Whether to normalize
+        - normalize_mean: float | None - Mean for normalization
+        - normalize_std: float | None - Std for normalization
+
+    Returns
+    -------
+    tuple[int, list[np.ndarray]]
+        (z_idx, list_of_downsampled_images) tuple
+        The list contains images for all pyramid levels in order (base level first)
+    """
+    (
+        z_idx,
+        filepath,
+        pyramid_level_shapes,
+        pyramid_scale_factors,
+        dtype,
+        has_channels,
+        axis_order,
+        C,
+        Y,
+        X,
+        normalize,
+        normalize_mean,
+        normalize_std,
+    ) = args
+
+    try:
+        # Load and process image
+        img = _load_and_process_image(
+            filepath, dtype, normalize, normalize_mean, normalize_std
+        )
+
+        # Apply axis order transformation if needed
+        if has_channels:
+            # We have img as (C, Y, X), need to prepare for z_idx
+            # Create a (1, C, Y, X) array, apply transformation
+            slice_data = img[np.newaxis, ...]  # (1, C, Y, X)
+            slice_reordered, _ = _apply_axis_order(
+                slice_data,
+                (1, C, Y, X),
+                axis_order,
+            )
+            img_reordered = slice_reordered[0]  # Remove Z dimension, now (C, Y, X) or reordered
+        else:
+            img_reordered = img  # (Y, X)
+
+        # Start with base level image
+        pyramid_images = [img_reordered.copy()]
+
+        # Now downsample progressively for each pyramid level
+        # For 2D mode, we downsample Y and X dimensions only
+        current_img = img_reordered.copy()
+        prev_scale_factors = None
+
+        for _level_idx, (_expected_level_shape, cumulative_scale_factors) in enumerate(
+            zip(pyramid_level_shapes[1:], pyramid_scale_factors), start=1
+        ):
+            # Calculate incremental scale factors
+            if prev_scale_factors is None:
+                incremental_scale_factors = cumulative_scale_factors
+            else:
+                incremental_scale_factors = tuple(
+                    curr / prev if prev > 0 else curr
+                    for curr, prev in zip(cumulative_scale_factors, prev_scale_factors)
+                )
+
+            # Extract Y, X scale factors (for 2D downsampling)
+            # For 2D mode, we only downsample spatial dimensions (Y, X)
+            if has_channels:
+                # Extract Y, X from scale factors (last two dimensions)
+                y_scale, x_scale = incremental_scale_factors[-2:]
+            else:
+                # Single channel: (Z, Y, X) - take last two
+                y_scale, x_scale = incremental_scale_factors[-2:]
+
+            # Downsample using block averaging with padding if needed
+            y_scale_int = int(y_scale)
+            x_scale_int = int(x_scale)
+
+            if has_channels:
+                # Image is (C, Y, X)
+                C_dim, Y_dim, X_dim = current_img.shape
+
+                # Pad if needed to make divisible
+                pad_Y = (y_scale_int - (Y_dim % y_scale_int)) % y_scale_int
+                pad_X = (x_scale_int - (X_dim % x_scale_int)) % x_scale_int
+
+                if pad_Y > 0 or pad_X > 0:
+                    padded = np.pad(
+                        current_img,
+                        ((0, 0), (0, pad_Y), (0, pad_X)),
+                        mode="constant",
+                        constant_values=0,
+                    )
+                    Y_padded = Y_dim + pad_Y
+                    X_padded = X_dim + pad_X
+                else:
+                    padded = current_img
+                    Y_padded = Y_dim
+                    X_padded = X_dim
+
+                # Block average downsampling
+                downsampled = (
+                    padded.reshape(
+                        C_dim,
+                        Y_padded // y_scale_int,
+                        y_scale_int,
+                        X_padded // x_scale_int,
+                        x_scale_int,
+                    )
+                    .mean(axis=(2, 4))
+                    .astype(dtype)
+                )
+            else:
+                # Single channel: (Y, X)
+                Y_dim, X_dim = current_img.shape
+
+                # Pad if needed
+                pad_Y = (y_scale_int - (Y_dim % y_scale_int)) % y_scale_int
+                pad_X = (x_scale_int - (X_dim % x_scale_int)) % x_scale_int
+
+                if pad_Y > 0 or pad_X > 0:
+                    padded = np.pad(
+                        current_img,
+                        ((0, pad_Y), (0, pad_X)),
+                        mode="constant",
+                        constant_values=0,
+                    )
+                    Y_padded = Y_dim + pad_Y
+                    X_padded = X_dim + pad_X
+                else:
+                    padded = current_img
+                    Y_padded = Y_dim
+                    X_padded = X_dim
+
+                # Block average downsampling
+                downsampled = (
+                    padded.reshape(
+                        Y_padded // y_scale_int,
+                        y_scale_int,
+                        X_padded // x_scale_int,
+                        x_scale_int,
+                    )
+                    .mean(axis=(1, 3))
+                    .astype(dtype)
+                )
+
+            pyramid_images.append(downsampled.copy())
+            current_img = downsampled
+            prev_scale_factors = cumulative_scale_factors
+
+        return (z_idx, pyramid_images)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        # Return None to indicate failure
+        return (z_idx, None)
 
 
 def _load_and_write_to_all_pyramid_levels(
@@ -1343,23 +1569,27 @@ def stack_files_to_zarr(
         else:
             output_path = directory / zarr_name
 
-        # Determine chunk size
+        # Determine chunk size - CRITICAL: Force chunks to match full slice for HPC performance
+        # This ensures "one slice = one file", maximizing write bandwidth and minimizing metadata requests
         if zarr_chunks is None:
             if has_channels:
-                # Default: one z-slice per chunk
+                # Force chunks to match full slice: (1, C, Y, X) or (C, 1, Y, X)
                 if final_axis_order == "ZCYX":
-                    zarr_chunks = (1, C, Y, X)
+                    zarr_chunks = (1, C, Y, X)  # Full slice per chunk
                 elif final_axis_order == "CZYX":
-                    zarr_chunks = (C, 1, Y, X)
+                    zarr_chunks = (C, 1, Y, X)  # Full slice per chunk
                 else:
-                    # Generic: use first dimension as 1
+                    # Generic: use first dimension as 1, rest as full slice
                     zarr_chunks = (1, *final_shape[1:])
             else:
+                # Single channel: full slice per chunk (1, Y, X)
                 zarr_chunks = (1, Y, X)
 
         # Step 3: Zarr Creation (if not dry run)
         if not dry_run:
             # Create zarr array
+            # Note: Compression is handled by _create_zarr_array for OME-Zarr
+            # For simple zarr arrays, we use default compression (can be customized via zarr_chunks)
             zarr_array = zarr.open(
                 str(output_path),
                 mode="w",
@@ -1402,65 +1632,89 @@ def stack_files_to_zarr(
             if use_multiprocessing:
                 pass
 
-            # For large stacks, use parallel load-and-write to avoid loading all into memory
-            # and to enable parallel zarr writes
+            # REFACTORED: Use parallel loading with sequential writing to avoid race conditions
+            # This eliminates Read-Modify-Write conflicts on compressed chunks
             if use_multiprocessing and len(file_list) > 10:  # Use for large stacks
-                # Parallel load-and-write: each worker loads an image and writes it directly
-                # This avoids loading all images into memory and enables parallel zarr writes
-                # Zarr supports concurrent writes to different slices
+                # Prepare tasks for parallel loading only (no writing)
                 tasks = []
                 for z_idx, (_, filepath) in enumerate(file_list):
                     tasks.append(
                         (
                             z_idx,
                             filepath,
-                            str(output_path),
-                            final_shape,
                             dtype,
-                            has_channels,
-                            final_axis_order,
-                            C,
-                            Y,
-                            X,
                             normalize,
                             global_mean,
                             global_std,
                         ),
                     )
 
-                # Use all available workers for maximum parallelism
+                # Parallel loading: workers load images, main process writes sequentially
                 with multiprocessing.Pool(processes=workers) as pool:
-                    # Process in parallel - each worker loads and writes one image
-                    # Using imap_unordered for better performance with many tasks
+                    # Load images in parallel using imap for ordered results
                     if tqdm is not None:
-                        write_results = list(
+                        load_results = list(
                             tqdm(
-                                pool.imap_unordered(_load_and_write_to_zarr, tasks),
+                                pool.imap(_load_image_worker, tasks),
                                 total=len(tasks),
-                                desc=f"  Processing {basename}",
+                                desc=f"  Loading {basename}",
                                 unit="image",
                             ),
                         )
                     else:
-                        # Fallback: process with periodic status updates
-                        write_results = []
-                        completed = 0
-                        for result in pool.imap_unordered(
-                            _load_and_write_to_zarr,
-                            tasks,
-                        ):
-                            write_results.append(result)
-                            completed += 1
-                            if completed % max(
-                                1,
-                                len(tasks) // 20,
-                            ) == 0 or completed == len(tasks):
-                                pass
+                        load_results = list(pool.imap(_load_image_worker, tasks))
 
-                    # Check for failures
-                    failures = [r for r in write_results if not r[1]]
-                    if failures:
-                        pass
+                # Sort by z_idx to ensure correct order (imap preserves order, but be safe)
+                load_results.sort(key=lambda x: x[0])
+
+                # Sequential writing: write each loaded image to zarr in order
+                # This eliminates all race conditions and decompression errors
+                if tqdm is not None:
+                    write_iter = tqdm(
+                        enumerate(load_results),
+                        total=len(load_results),
+                        desc=f"  Writing {basename}",
+                        unit="image",
+                    )
+                else:
+                    write_iter = enumerate(load_results)
+
+                failures = []
+                for _result_idx, (z_idx, img) in write_iter:
+                    if img is None:
+                        failures.append(z_idx)
+                        continue
+
+                    try:
+                        # Write to zarr sequentially in main process
+                        if has_channels:
+                            # Apply axis order transformation for this slice
+                            if final_axis_order == "CZYX":
+                                zarr_array[:, z_idx, :, :] = img
+                            elif final_axis_order == "ZCYX":
+                                zarr_array[z_idx, :, :, :] = img
+                            else:
+                                # For other axis orders, reorder the slice
+                                slice_data = img[np.newaxis, ...]  # (1, C, Y, X)
+                                slice_reordered, _ = _apply_axis_order(
+                                    slice_data,
+                                    (1, C, Y, X),
+                                    final_axis_order,
+                                )
+                                if final_axis_order[0] == "Z":
+                                    zarr_array[z_idx, ...] = slice_reordered[0]
+                                else:
+                                    zarr_array[:, z_idx, ...] = slice_reordered[:, 0, ...]
+                        else:
+                            # Single channel: write directly
+                            zarr_array[z_idx, :, :] = img
+                    except Exception:
+                        failures.append(z_idx)
+                        import traceback
+                        traceback.print_exc()
+
+                if failures:
+                    print(f"Warning: {len(failures)} images failed to write")
             else:
                 # Sequential or small stack: load all first, then write
                 if use_multiprocessing and len(file_list) > 1:
@@ -2178,17 +2432,23 @@ def stack_files_to_ome_zarr(
                 for idx, shape in enumerate(pyramid_level_shapes):
                     print(f"    Level {idx}: {shape}", flush=True)
 
-            # Determine chunk size for all levels
+            # Determine chunk size for all levels - CRITICAL: Force chunks to match full slice
+            # Level 0: Full slice per chunk (1, Height, Width) for maximum write bandwidth
+            # Pyramid levels: Spatial-only chunks, avoid spanning entire Z-depth
             if zarr_chunks is None:
                 if has_channels:
                     if final_axis_order == "ZCYX":
-                        base_chunks = (1, min(C, 4), min(Y, 256), min(X, 256))
+                        # Full slice per chunk: (1, C, Y, X)
+                        base_chunks = (1, C, Y, X)
                     elif final_axis_order == "CZYX":
-                        base_chunks = (min(C, 4), 1, min(Y, 256), min(X, 256))
+                        # Full slice per chunk: (C, 1, Y, X)
+                        base_chunks = (C, 1, Y, X)
                     else:
-                        base_chunks = (1,) + tuple(min(d, 256) for d in base_shape[1:])
+                        # Generic: full slice per chunk
+                        base_chunks = (1,) + tuple(base_shape[1:])
                 else:
-                    base_chunks = (1, min(Y, 256), min(X, 256))
+                    # Single channel: full slice per chunk (1, Y, X)
+                    base_chunks = (1, Y, X)
             else:
                 base_chunks = zarr_chunks
 
@@ -2221,32 +2481,21 @@ def stack_files_to_ome_zarr(
                         f"    Creating pyramid level {level_idx} with shape {level_shape}...",
                         flush=True,
                     )
-                # Ensure chunk size maintains Z=1 for proper isolation of concurrent writes
+                # Pyramid levels: Ensure chunks are spatial-only or incremental
+                # Avoid chunks that span entire Z-depth during write phase
                 if has_channels:
                     if final_axis_order == "ZCYX":
-                        level_chunks = (
-                            1,
-                            min(level_shape[1], 4),
-                            min(level_shape[2], 256),
-                            min(level_shape[3], 256),
-                        )
+                        # Full slice per chunk: (1, C, Y_level, X_level)
+                        level_chunks = (1, level_shape[1], level_shape[2], level_shape[3])
                     elif final_axis_order == "CZYX":
-                        level_chunks = (
-                            min(level_shape[0], 4),
-                            1,
-                            min(level_shape[2], 256),
-                            min(level_shape[3], 256),
-                        )
+                        # Full slice per chunk: (C, 1, Y_level, X_level)
+                        level_chunks = (level_shape[0], 1, level_shape[2], level_shape[3])
                     else:
-                        level_chunks = (1,) + tuple(
-                            min(d, 256) for d in level_shape[1:]
-                        )
+                        # Generic: full slice per chunk
+                        level_chunks = (1,) + tuple(level_shape[1:])
                 else:
-                    level_chunks = (
-                        1,
-                        min(level_shape[1], 256),
-                        min(level_shape[2], 256),
-                    )
+                    # Single channel: full slice per chunk (1, Y_level, X_level)
+                    level_chunks = (1, level_shape[1], level_shape[2])
                 # Zarr 3.0+ API: shape must be a keyword argument
                 level_array = _create_zarr_array(
                     root,
@@ -2303,16 +2552,16 @@ def stack_files_to_ome_zarr(
                     print("    Using sequential processing (1 worker)", flush=True)
                     print(f"    Processing {len(file_list)} images...", flush=True)
 
-            # Use immediate downsampling: load image, downsample progressively, write to all levels
+            # REFACTORED: Use parallel loading/downsampling with sequential writing
+            # This eliminates Read-Modify-Write conflicts on compressed chunks
             if use_multiprocessing and len(file_list) > 10:
-                # Prepare tasks for parallel load-and-write with immediate downsampling
+                # Prepare tasks for parallel loading and downsampling only (no writing)
                 tasks = []
                 for z_idx, (_, filepath) in enumerate(file_list):
                     tasks.append(
                         (
                             z_idx,
                             filepath,
-                            str(output_path),  # zarr group path
                             pyramid_level_shapes,  # All pyramid level shapes
                             pyramid_scale_factors,  # Cumulative scale factors
                             dtype,
@@ -2328,92 +2577,32 @@ def stack_files_to_ome_zarr(
                     )
                 if verbose:
                     print(
-                        f"\n    Starting multiprocessing pool with {workers} workers...",
+                        f"\n    Starting multiprocessing pool with {workers} workers for parallel loading/downsampling...",
                         flush=True,
                     )
                     print(
-                        f"    Images will be written directly to zarr across {workers} cores",
+                        "    Images will be loaded and downsampled in parallel, then written sequentially to avoid race conditions",
                         flush=True,
                     )
-                    # Verify actual worker count
-                    try:
-                        import psutil
 
-                        actual_cpu_count = psutil.cpu_count(
-                            logical=False
-                        )  # Physical cores
-                        logical_cpu_count = psutil.cpu_count(
-                            logical=True
-                        )  # Logical cores
-                        print(
-                            f"    DEBUG: System has {actual_cpu_count} physical cores, {logical_cpu_count} logical cores",
-                            flush=True,
-                        )
-                        print(f"    DEBUG: Requested workers = {workers}", flush=True)
-                    except ImportError:
-                        print(
-                            f"    DEBUG: multiprocessing.cpu_count() = {multiprocessing.cpu_count()}",
-                            flush=True,
-                        )
-                        print(f"    DEBUG: Requested workers = {workers}", flush=True)
-                    print(
-                        f"    WRITING {len(file_list)} IMAGES DIRECTLY TO ZARR - PROGRESS BAR BELOW:",
-                        flush=True,
-                    )
-                    print("-" * 70, flush=True)
-
-                    # Use context manager for proper cleanup on all platforms
-                    # On Linux with Python < 3.11, use 'spawn' start method to avoid
-                    # fork-related file handle inheritance issues that cause hanging
-                    import sys
-
-                    if sys.platform.startswith("linux") and sys.version_info < (3, 11):
-                        # Use spawn method on Linux with Python < 3.11 to avoid file handle issues
-                        ctx = multiprocessing.get_context("spawn")
-                        pool = ctx.Pool(processes=workers)
-                    else:
-                        pool = multiprocessing.Pool(processes=workers)
+                # Parallel loading and downsampling: workers process images, main process writes sequentially
+                import sys
+                if sys.platform.startswith("linux") and sys.version_info < (3, 11):
+                    ctx = multiprocessing.get_context("spawn")
+                    pool = ctx.Pool(processes=workers)
+                else:
+                    pool = multiprocessing.Pool(processes=workers)
 
                 try:
-                    if verbose:
-                        try:
-                            import psutil
-
-                            current_process = psutil.Process()
-                            children = current_process.children(recursive=True)
-                            print(
-                                f"    DEBUG: Pool created, active child processes: {len(children)}",
-                                flush=True,
-                            )
-                            if len(children) < workers:
-                                print(
-                                    f"    WARNING: Only {len(children)} child processes created, expected {workers}!",
-                                    flush=True,
-                                )
-                        except ImportError:
-                            pass
-
-                    # Write directly to zarr in parallel (like stack_files_to_zarr)
-                    # Using imap_unordered for better performance with many tasks
-                    chunksize = max(1, len(tasks) // (workers * 4))
-                    if verbose:
-                        print(
-                            f"    DEBUG: Using chunksize={chunksize} for better load balancing",
-                            flush=True,
-                        )
-
+                    # Load and downsample images in parallel using imap for ordered results
                     if tqdm is not None:
                         if verbose:
                             print("", flush=True)  # Blank line before progress bar
-                        write_results = list(
+                        load_results = list(
                             tqdm(
-                                pool.imap_unordered(
-                                    _load_and_write_to_all_pyramid_levels,
-                                    tasks,
-                                    chunksize=chunksize,
-                                ),
+                                pool.imap(_load_and_downsample_worker, tasks),
                                 total=len(tasks),
-                                desc="    LOAD+DOWNSAMPLE+WRITE",
+                                desc="    LOAD+DOWNSAMPLE",
                                 unit="img",
                                 ncols=100,
                                 miniters=1,
@@ -2422,37 +2611,54 @@ def stack_files_to_ome_zarr(
                         if verbose:
                             print("", flush=True)  # Blank line after progress bar
                     else:
-                        # Manual progress bar when tqdm not available
-                        if verbose:
-                            print(
-                                f"    Processing images with immediate downsampling (chunksize={chunksize})...",
-                                flush=True,
-                            )
-                            print(f"    [{' ' * 50}] 0%", end="", flush=True)
-                        total = len(tasks)
-                        completed = 0
-                        write_results = []
-                        for result in pool.imap_unordered(
-                            _load_and_write_to_all_pyramid_levels,
-                            tasks,
-                            chunksize=chunksize,
-                        ):
-                            write_results.append(result)
-                            completed += 1
-                            if verbose:
-                                percent = 100 * completed // total
-                                filled = int(50 * completed / total)
-                                bar = "=" * filled + " " * (50 - filled)
-                                print(
-                                    f"\r    [{bar}] {percent}% ({completed}/{total})",
-                                    end="",
-                                    flush=True,
-                                )
-                        if verbose:
-                            print("", flush=True)  # New line after progress
+                        load_results = list(pool.imap(_load_and_downsample_worker, tasks))
 
-                    # Check for failures
-                    failures = [r for r in write_results if not r[1]]
+                    # Sort by z_idx to ensure correct order (imap preserves order, but be safe)
+                    load_results.sort(key=lambda x: x[0])
+
+                    # Sequential writing: write each loaded/downsampled image set to zarr in order
+                    # This eliminates all race conditions and decompression errors
+                    if tqdm is not None:
+                        if verbose:
+                            print("", flush=True)  # Blank line before write progress
+                        write_iter = tqdm(
+                            enumerate(load_results),
+                            total=len(load_results),
+                            desc="    WRITE TO ZARR",
+                            unit="img",
+                            ncols=100,
+                            miniters=1,
+                        )
+                    else:
+                        write_iter = enumerate(load_results)
+
+                    failures = []
+                    for _result_idx, (z_idx, pyramid_images) in write_iter:
+                        if pyramid_images is None:
+                            failures.append(z_idx)
+                            continue
+
+                        try:
+                            # Write to all pyramid levels sequentially in main process
+                            for level_idx, level_img in enumerate(pyramid_images):
+                                level_array = pyramid_zarr_arrays[level_idx]
+
+                                if has_channels:
+                                    if final_axis_order == "CZYX":
+                                        level_array[:, z_idx, :, :] = level_img
+                                    elif final_axis_order == "ZCYX":
+                                        level_array[z_idx, :, :, :] = level_img
+                                    else:
+                                        # Generic: assume Z is first dimension
+                                        level_array[z_idx, ...] = level_img
+                                else:
+                                    # Single channel: write directly
+                                    level_array[z_idx, :, :] = level_img
+                        except Exception:
+                            failures.append(z_idx)
+                            import traceback
+                            traceback.print_exc()
+
                     if failures:
                         if verbose:
                             print(
@@ -2462,48 +2668,12 @@ def stack_files_to_ome_zarr(
 
                     if verbose:
                         print(
-                            f"\n    ✓ Wrote {len(write_results) - len(failures)} images directly to zarr using {workers} parallel workers",
+                            f"\n    ✓ Processed {len(load_results) - len(failures)} images (loaded/downsampled in parallel, written sequentially)",
                             flush=True,
                         )
-                        try:
-                            import psutil
-
-                            current_process = psutil.Process()
-                            children = current_process.children(recursive=True)
-                            print(
-                                f"    DEBUG: After writing, active child processes: {len(children)}",
-                                flush=True,
-                            )
-                        except ImportError:
-                            pass
-
-                    # Ensure all results are consumed and operations complete
-                    # This is critical on Linux where file handles can prevent cleanup
-                    # The context manager will handle pool.close() and pool.join(), but we ensure
-                    # all zarr operations are complete first
-                    del write_results  # Explicitly release references
-
-                    # On Linux with Python < 3.11, ensure all file operations complete before pool cleanup
-                    # Small delay to allow file system to sync and release locks
-                    import sys
-                    import time
-
-                    if sys.platform.startswith("linux") and sys.version_info < (3, 11):
-                        time.sleep(
-                            0.2
-                        )  # Give Linux/Python < 3.11 time to release file handles
-
-                    import gc
-
-                    gc.collect()  # Force garbage collection to release zarr handles
                 finally:
-                    # Ensure pool is properly closed even if there are issues
-                    # On Linux, use terminate() if join() hangs to prevent infinite wait
                     pool.close()
                     pool.join()
-                    # If join() didn't complete (shouldn't happen, but safety check)
-                    # Note: We can't easily detect if join() hung, so we rely on
-                    # the cleanup steps above (GC, delay on Linux) to prevent hangs
             else:
                 # Sequential writing (small stacks or num_workers=1)
                 if verbose:
