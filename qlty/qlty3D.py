@@ -258,9 +258,9 @@ class NCZYXQuilt:
                         count += 1
                         # get the weight matrix, only compute once
                         if m == 0:
-                            norma[
-                                start_z:stop_z, start_y:stop_y, start_x:stop_x
-                            ] += self.weight
+                            norma[start_z:stop_z, start_y:stop_y, start_x:stop_x] += (
+                                self.weight
+                            )
 
             this_image += 1
         result = result / norma
