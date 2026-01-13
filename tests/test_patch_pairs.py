@@ -27,6 +27,8 @@ try:
         extract_patch_pairs_metadata,
         extract_patches_from_metadata,
         extract_patches_to_zarr,
+        stratified_sample_by_histogram,
+        stratified_sample_by_quantiles,
     )
 
     HAS_ADVANCED_FEATURES = True
@@ -36,6 +38,8 @@ except ImportError:
     extract_patch_pairs_metadata = None
     extract_patches_from_metadata = None
     extract_patches_to_zarr = None
+    stratified_sample_by_histogram = None
+    stratified_sample_by_quantiles = None
 
 
 def test_extract_patch_pairs_basic():
@@ -791,6 +795,292 @@ def test_extract_patch_pairs_metadata_coordinates():
 # ============================================================================
 # Tests for extract_patches_from_metadata()
 # ============================================================================
+
+
+# ============================================================================
+# Tests for stratified sampling functions
+# ============================================================================
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_histogram_basic():
+    """Test basic histogram-based stratified sampling."""
+    # Create synthetic means and sigmas
+    means = torch.randn(100)
+    sigmas = torch.abs(torch.randn(100))  # Sigmas must be non-negative
+
+    selected = stratified_sample_by_histogram(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=42
+    )
+
+    # Check that selected indices are valid
+    assert isinstance(selected, torch.Tensor)
+    assert len(selected.shape) == 1
+    assert len(selected) <= 10 * 10 * 5  # Max possible samples
+    assert len(selected) > 0  # Should have some samples
+    assert torch.all(selected >= 0)
+    assert torch.all(selected < len(means))
+    assert len(torch.unique(selected)) == len(selected)  # No duplicates
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_histogram_reproducibility():
+    """Test that histogram sampling is reproducible with same seed."""
+    means = torch.randn(200)
+    sigmas = torch.abs(torch.randn(200))
+
+    selected_a = stratified_sample_by_histogram(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=123
+    )
+    selected_b = stratified_sample_by_histogram(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=123
+    )
+
+    assert torch.equal(selected_a, selected_b)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_histogram_different_seeds():
+    """Test that different seeds produce different results."""
+    means = torch.randn(200)
+    sigmas = torch.abs(torch.randn(200))
+
+    selected_a = stratified_sample_by_histogram(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=123
+    )
+    selected_b = stratified_sample_by_histogram(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=456
+    )
+
+    # Results should be different (very unlikely to be identical)
+    assert not torch.equal(selected_a, selected_b)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_histogram_edge_cases():
+    """Test histogram sampling with edge cases."""
+    # Test with constant values
+    means = torch.ones(50) * 5.0
+    sigmas = torch.ones(50) * 2.0
+
+    selected = stratified_sample_by_histogram(
+        means, sigmas, n_bins=5, samples_per_bin=3, random_seed=42
+    )
+
+    # Should still work (handles edge case where all values are same)
+    assert len(selected) > 0
+    assert torch.all(selected >= 0)
+    assert torch.all(selected < len(means))
+
+    # Test with very few samples
+    means = torch.randn(10)
+    sigmas = torch.abs(torch.randn(10))
+    selected = stratified_sample_by_histogram(
+        means, sigmas, n_bins=5, samples_per_bin=10, random_seed=42
+    )
+    # Should not exceed available samples
+    assert len(selected) <= len(means)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_histogram_shape_validation():
+    """Test that histogram sampling validates input shapes."""
+    means = torch.randn(100)
+    sigmas = torch.randn(50)  # Wrong shape
+
+    with pytest.raises(ValueError, match="same shape"):
+        stratified_sample_by_histogram(means, sigmas)
+
+    means_2d = torch.randn(10, 10)
+    sigmas_2d = torch.randn(10, 10)
+
+    with pytest.raises(ValueError, match="1D tensors"):
+        stratified_sample_by_histogram(means_2d, sigmas_2d)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_histogram_with_metadata():
+    """Test histogram sampling with real metadata."""
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 10
+    delta_range = (6.0, 10.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor, window, num_patches, delta_range, random_seed=42
+    )
+
+    # Use mean1 and sigma1 for sampling
+    selected = stratified_sample_by_histogram(
+        metadata["mean1"],
+        metadata["sigma1"],
+        n_bins=5,
+        samples_per_bin=3,
+        random_seed=42,
+    )
+
+    # Verify selected indices can be used with extract_patches_from_metadata
+    patches1, patches2, deltas, rotations = extract_patches_from_metadata(
+        tensor, metadata, selected
+    )
+
+    assert patches1.shape[0] == len(selected)
+    assert patches2.shape[0] == len(selected)
+    assert deltas.shape[0] == len(selected)
+    assert rotations.shape[0] == len(selected)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_quantiles_basic():
+    """Test basic quantile-based stratified sampling."""
+    # Create synthetic means and sigmas
+    means = torch.randn(100)
+    sigmas = torch.abs(torch.randn(100))  # Sigmas must be non-negative
+
+    selected = stratified_sample_by_quantiles(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=42
+    )
+
+    # Check that selected indices are valid
+    assert isinstance(selected, torch.Tensor)
+    assert len(selected.shape) == 1
+    assert len(selected) <= 10 * 10 * 5  # Max possible samples
+    assert len(selected) > 0  # Should have some samples
+    assert torch.all(selected >= 0)
+    assert torch.all(selected < len(means))
+    assert len(torch.unique(selected)) == len(selected)  # No duplicates
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_quantiles_reproducibility():
+    """Test that quantile sampling is reproducible with same seed."""
+    means = torch.randn(200)
+    sigmas = torch.abs(torch.randn(200))
+
+    selected_a = stratified_sample_by_quantiles(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=123
+    )
+    selected_b = stratified_sample_by_quantiles(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=123
+    )
+
+    assert torch.equal(selected_a, selected_b)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_quantiles_different_seeds():
+    """Test that different seeds produce different results."""
+    means = torch.randn(200)
+    sigmas = torch.abs(torch.randn(200))
+
+    selected_a = stratified_sample_by_quantiles(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=123
+    )
+    selected_b = stratified_sample_by_quantiles(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=456
+    )
+
+    # Results should be different (very unlikely to be identical)
+    assert not torch.equal(selected_a, selected_b)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_quantiles_edge_cases():
+    """Test quantile sampling with edge cases."""
+    # Test with constant values
+    means = torch.ones(50) * 5.0
+    sigmas = torch.ones(50) * 2.0
+
+    selected = stratified_sample_by_quantiles(
+        means, sigmas, n_bins=5, samples_per_bin=3, random_seed=42
+    )
+
+    # Should still work (quantiles handle edge case)
+    assert len(selected) > 0
+    assert torch.all(selected >= 0)
+    assert torch.all(selected < len(means))
+
+    # Test with very few samples
+    means = torch.randn(10)
+    sigmas = torch.abs(torch.randn(10))
+    selected = stratified_sample_by_quantiles(
+        means, sigmas, n_bins=5, samples_per_bin=10, random_seed=42
+    )
+    # Should not exceed available samples
+    assert len(selected) <= len(means)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_quantiles_shape_validation():
+    """Test that quantile sampling validates input shapes."""
+    means = torch.randn(100)
+    sigmas = torch.randn(50)  # Wrong shape
+
+    with pytest.raises(ValueError, match="same shape"):
+        stratified_sample_by_quantiles(means, sigmas)
+
+    means_2d = torch.randn(10, 10)
+    sigmas_2d = torch.randn(10, 10)
+
+    with pytest.raises(ValueError, match="1D tensors"):
+        stratified_sample_by_quantiles(means_2d, sigmas_2d)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_by_quantiles_with_metadata():
+    """Test quantile sampling with real metadata."""
+    tensor = torch.randn(2, 3, 64, 64)
+    window = (16, 16)
+    num_patches = 10
+    delta_range = (6.0, 10.0)
+
+    metadata = extract_patch_pairs_metadata(
+        tensor, window, num_patches, delta_range, random_seed=42
+    )
+
+    # Use mean1 and sigma1 for sampling
+    selected = stratified_sample_by_quantiles(
+        metadata["mean1"],
+        metadata["sigma1"],
+        n_bins=5,
+        samples_per_bin=3,
+        random_seed=42,
+    )
+
+    # Verify selected indices can be used with extract_patches_from_metadata
+    patches1, patches2, deltas, rotations = extract_patches_from_metadata(
+        tensor, metadata, selected
+    )
+
+    assert patches1.shape[0] == len(selected)
+    assert patches2.shape[0] == len(selected)
+    assert deltas.shape[0] == len(selected)
+    assert rotations.shape[0] == len(selected)
+
+
+@pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")
+def test_stratified_sample_histogram_vs_quantiles():
+    """Test that histogram and quantile methods produce different but valid results."""
+    means = torch.randn(200)
+    sigmas = torch.abs(torch.randn(200))
+
+    selected_hist = stratified_sample_by_histogram(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=42
+    )
+    selected_quant = stratified_sample_by_quantiles(
+        means, sigmas, n_bins=10, samples_per_bin=5, random_seed=42
+    )
+
+    # Both should produce valid results
+    assert len(selected_hist) > 0
+    assert len(selected_quant) > 0
+    assert torch.all(selected_hist >= 0)
+    assert torch.all(selected_quant >= 0)
+    assert torch.all(selected_hist < len(means))
+    assert torch.all(selected_quant < len(means))
+
+    # They may produce different results (different binning strategies)
+    # But both should be valid
 
 
 @pytest.mark.skipif(not HAS_ADVANCED_FEATURES, reason="Advanced features not available")

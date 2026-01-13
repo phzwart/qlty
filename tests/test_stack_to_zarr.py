@@ -42,6 +42,29 @@ except ImportError:
     HAS_OME_ZARR = False
     stack_files_to_ome_zarr = None
 
+# Optional imports for Laplacian pyramid
+try:
+    import torch
+
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+    torch = None
+
+try:
+    from qlty.utils.stack_to_zarr import (
+        _downsample_with_torch,
+        _upsample_with_torch,
+        reconstruct_from_laplacian_pyramid,
+    )
+
+    HAS_LAPLACIAN = True
+except ImportError:
+    HAS_LAPLACIAN = False
+    _downsample_with_torch = None
+    _upsample_with_torch = None
+    reconstruct_from_laplacian_pyramid = None
+
 
 @pytest.fixture
 def temp_dir(tmp_path):
@@ -1285,7 +1308,7 @@ def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 @pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
 def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
-    """Test OME-Zarr with 3D downsampling mode (downsample Z, Y, X)."""
+    """Test that 3D downsampling mode raises ValueError (not implemented)."""
     if tifffile is None:
         pytest.skip("tifffile not available")
 
@@ -1295,25 +1318,15 @@ def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
         data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
         tifffile.imwrite(str(filepath), data)
 
-    result = stack_files_to_ome_zarr(
-        directory=temp_dir,
-        extension=".tif",
-        pattern=r"(.+)_(\d+)\.tif$",
-        pyramid_levels=2,
-        downsample_mode="3d",
-    )
-
-    metadata = result["vol"]
-    zarr_path = Path(metadata["zarr_path"])
-    root = zarr.open_group(str(zarr_path), mode="r")
-
-    # In 3D mode, Z should be downsampled
-    base_shape = root["0"].shape
-    level1_shape = root["1"].shape
-
-    # Z dimension should be downsampled (if original is divisible by 2)
-    # Allow for rounding differences
-    assert level1_shape[0] <= base_shape[0] // 2 + 1
+    # 3D mode should raise ValueError
+    with pytest.raises(ValueError, match="Invalid downsample_mode.*Must be '2d'"):
+        stack_files_to_ome_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+            pyramid_levels=2,
+            downsample_mode="3d",
+        )
 
 
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
@@ -1500,7 +1513,7 @@ def test_stack_files_to_ome_zarr_downsample_mode_2d(temp_dir):
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 @pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
 def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
-    """Test OME-Zarr with 3D downsampling mode (downsample Z, Y, X)."""
+    """Test that 3D downsampling mode raises ValueError (not implemented)."""
     if tifffile is None:
         pytest.skip("tifffile not available")
 
@@ -1510,25 +1523,15 @@ def test_stack_files_to_ome_zarr_downsample_mode_3d(temp_dir):
         data = np.random.randint(0, 65535, size=(64, 64), dtype=np.uint16)
         tifffile.imwrite(str(filepath), data)
 
-    result = stack_files_to_ome_zarr(
-        directory=temp_dir,
-        extension=".tif",
-        pattern=r"(.+)_(\d+)\.tif$",
-        pyramid_levels=2,
-        downsample_mode="3d",
-    )
-
-    metadata = result["vol"]
-    zarr_path = Path(metadata["zarr_path"])
-    root = zarr.open_group(str(zarr_path), mode="r")
-
-    # In 3D mode, Z should be downsampled
-    base_shape = root["0"].shape
-    level1_shape = root["1"].shape
-
-    # Z dimension should be downsampled (if original is divisible by 2)
-    # Allow for rounding differences
-    assert level1_shape[0] <= base_shape[0] // 2 + 1
+    # 3D mode should raise ValueError
+    with pytest.raises(ValueError, match="Invalid downsample_mode.*Must be '2d'"):
+        stack_files_to_ome_zarr(
+            directory=temp_dir,
+            extension=".tif",
+            pattern=r"(.+)_(\d+)\.tif$",
+            pyramid_levels=2,
+            downsample_mode="3d",
+        )
 
 
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
@@ -2663,6 +2666,30 @@ def test_create_zarr_array_without_data(temp_dir):
     assert arr.dtype == np.uint8
 
 
+def test_create_zarr_array_with_data(temp_dir):
+    """Test _create_zarr_array with data parameter (covers line 84)."""
+    try:
+        from qlty.utils.stack_to_zarr import _create_zarr_array
+    except ImportError:
+        pytest.skip("_create_zarr_array not available")
+
+    # Create zarr group
+    zarr_path = temp_dir / "test.zarr"
+    group = zarr.open_group(str(zarr_path), mode="w")
+
+    # Create test data
+    test_data = np.random.randint(0, 255, size=(10, 10), dtype=np.uint8)
+
+    # Create array with data
+    arr = _create_zarr_array(group, "test_array", data=test_data, chunks=(5, 5))
+
+    assert "test_array" in group
+    assert arr.shape == (10, 10)
+    assert arr.dtype == np.uint8
+    # Verify data was written (line 84)
+    assert np.array_equal(arr[:], test_data)
+
+
 @pytest.mark.skipif(zarr is None, reason="zarr not available")
 @pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
 def test_stack_files_to_ome_zarr_multiprocessing_many_files_no_tqdm(
@@ -2821,3 +2848,391 @@ def test_normalize_axis_order_single_channel():
     # Single channel should return "ZYX"
     result = _normalize_axis_order("ZYX", has_channels=False)
     assert result == "ZYX"
+
+
+def test_load_image_pil_fallback(temp_dir, monkeypatch):
+    """Test _load_image fallback to PIL when tifffile is not available (lines 113-114)."""
+    from qlty.utils.stack_to_zarr import _load_image
+
+    # Skip if PIL is not available (we can't test the fallback without it)
+    if Image is None:
+        pytest.skip("PIL not available, cannot test PIL fallback")
+
+    # Create a test image file
+    filepath = temp_dir / "test_pil.tif"
+    data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+    _tifffile_imwrite(filepath, data)
+
+    # Mock tifffile to be None at module level, forcing PIL fallback
+    monkeypatch.setattr("qlty.utils.stack_to_zarr.tifffile", None)
+
+    # Should use PIL fallback
+    img = _load_image(filepath)
+    assert img.shape == (32, 32)
+    assert img.dtype == np.uint8
+
+
+def test_stack_files_to_zarr_skip_non_files(temp_dir):
+    """Test that non-file entries are skipped (line 1340)."""
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+    # Create a subdirectory (should be skipped)
+    subdir = temp_dir / "subdir"
+    subdir.mkdir()
+
+    # Create actual image files
+    for i in range(3):
+        filepath = temp_dir / f"test_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process the 3 image files, not the subdirectory
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3
+
+
+def test_stack_files_to_zarr_skip_wrong_extension(temp_dir):
+    """Test that files with wrong extension are skipped (line 1344)."""
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+    # Create files with different extensions
+    for i in range(3):
+        # Create .tif files (should be processed)
+        tif_file = temp_dir / f"test_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+        _tifffile_imwrite(tif_file, data)
+
+        # Create .png files (should be skipped)
+        png_file = temp_dir / f"test_{i:02d}.png"
+        png_file.write_text("fake png")
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process .tif files
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3
+
+
+def test_stack_files_to_zarr_skip_non_matching_pattern(temp_dir):
+    """Test that files not matching pattern are skipped (line 1349)."""
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+    # Create files matching pattern
+    for i in range(3):
+        filepath = temp_dir / f"test_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    # Create file not matching pattern
+    non_matching = temp_dir / "other_file.tif"
+    data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+    _tifffile_imwrite(non_matching, data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process matching files
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+@pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
+def test_stack_files_to_ome_zarr_padding_required(temp_dir):
+    """Test OME-Zarr downsampling with dimensions requiring padding (lines 360-367, 394-401)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create images with dimensions NOT divisible by scale factor (requires padding)
+    # Use 33x33 images - when downsampled by 2, we get 16.5 -> 17, requiring padding
+    for i in range(5):
+        filepath = temp_dir / f"padtest_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(33, 33), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_mode="2d",
+    )
+
+    assert len(result) == 1
+    metadata = result["padtest"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Check that pyramid was created successfully despite padding requirement
+    assert "0" in root
+    assert "1" in root
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+@pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
+def test_stack_files_to_ome_zarr_padding_multi_channel(temp_dir):
+    """Test OME-Zarr downsampling with multi-channel images requiring padding (lines 360-367)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create multi-channel images with dimensions NOT divisible by scale factor
+    for i in range(3):
+        filepath = temp_dir / f"mcpad_{i:02d}.tif"
+        # Create 3-channel image with 33x33 spatial dimensions
+        data = np.random.randint(0, 255, size=(3, 33, 33), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_mode="2d",
+        axis_order="CZYX",
+    )
+
+    assert len(result) == 1
+    metadata = result["mcpad"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Check that pyramid was created successfully
+    assert "0" in root
+    assert "1" in root
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process matching files
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+@pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
+def test_stack_files_to_ome_zarr_padding_required(temp_dir):
+    """Test OME-Zarr downsampling with dimensions requiring padding (lines 360-367, 394-401)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create images with dimensions NOT divisible by scale factor (requires padding)
+    # Use 33x33 images - when downsampled by 2, we get 16.5 -> 17, requiring padding
+    for i in range(5):
+        filepath = temp_dir / f"padtest_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(33, 33), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_mode="2d",
+    )
+
+    assert len(result) == 1
+    metadata = result["padtest"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Check that pyramid was created successfully despite padding requirement
+    assert "0" in root
+    assert "1" in root
+
+
+@pytest.mark.skipif(zarr is None, reason="zarr not available")
+@pytest.mark.skipif(not HAS_OME_ZARR, reason="OME-Zarr features not available")
+def test_stack_files_to_ome_zarr_padding_multi_channel(temp_dir):
+    """Test OME-Zarr downsampling with multi-channel images requiring padding (lines 360-367)."""
+    if tifffile is None:
+        pytest.skip("tifffile not available")
+
+    # Create multi-channel images with dimensions NOT divisible by scale factor
+    for i in range(3):
+        filepath = temp_dir / f"mcpad_{i:02d}.tif"
+        # Create 3-channel image with 33x33 spatial dimensions
+        data = np.random.randint(0, 255, size=(3, 33, 33), dtype=np.uint8)
+        tifffile.imwrite(str(filepath), data)
+
+    result = stack_files_to_ome_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+        pyramid_levels=2,
+        downsample_mode="2d",
+        axis_order="CZYX",
+    )
+
+    assert len(result) == 1
+    metadata = result["mcpad"]
+    zarr_path = Path(metadata["zarr_path"])
+    root = zarr.open_group(str(zarr_path), mode="r")
+
+    # Check that pyramid was created successfully
+    assert "0" in root
+    assert "1" in root
+
+
+def test_stack_files_to_zarr_skip_non_files(temp_dir):
+    """Test that non-file entries are skipped (line 1340)."""
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+    # Create a subdirectory (should be skipped)
+    subdir = temp_dir / "subdir"
+    subdir.mkdir()
+
+    # Create actual image files
+    for i in range(3):
+        filepath = temp_dir / f"test_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process the 3 image files, not the subdirectory
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3
+
+
+def test_stack_files_to_zarr_skip_wrong_extension(temp_dir):
+    """Test that files with wrong extension are skipped (line 1344)."""
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+    # Create files with different extensions
+    for i in range(3):
+        # Create .tif files (should be processed)
+        tif_file = temp_dir / f"test_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+        _tifffile_imwrite(tif_file, data)
+
+        # Create .png files (should be skipped)
+        png_file = temp_dir / f"test_{i:02d}.png"
+        png_file.write_text("fake png")
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process .tif files
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3
+
+
+def test_stack_files_to_zarr_skip_non_matching_pattern(temp_dir):
+    """Test that files not matching pattern are skipped (line 1349)."""
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+    # Create files matching pattern
+    for i in range(3):
+        filepath = temp_dir / f"test_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process .tif files
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3
+
+
+def test_stack_files_to_zarr_skip_non_files(temp_dir):
+    """Test that non-file entries are skipped (line 1340)."""
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+    # Create a subdirectory (should be skipped)
+    subdir = temp_dir / "subdir"
+    subdir.mkdir()
+
+    # Create actual image files
+    for i in range(3):
+        filepath = temp_dir / f"test_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process the 3 image files, not the subdirectory
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3
+
+
+def test_stack_files_to_zarr_skip_wrong_extension(temp_dir):
+    """Test that files with wrong extension are skipped (line 1344)."""
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+    # Create files with different extensions
+    for i in range(3):
+        # Create .tif files (should be processed)
+        tif_file = temp_dir / f"test_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+        _tifffile_imwrite(tif_file, data)
+
+        # Create .png files (should be skipped)
+        png_file = temp_dir / f"test_{i:02d}.png"
+        png_file.write_text("fake png")
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process .tif files
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3
+
+
+def test_stack_files_to_zarr_skip_non_matching_pattern(temp_dir):
+    """Test that files not matching pattern are skipped (line 1349)."""
+    from qlty.utils.stack_to_zarr import stack_files_to_zarr
+
+    # Create files matching pattern
+    for i in range(3):
+        filepath = temp_dir / f"test_{i:02d}.tif"
+        data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+        _tifffile_imwrite(filepath, data)
+
+    # Create file not matching pattern
+    non_matching = temp_dir / "other_file.tif"
+    data = np.random.randint(0, 255, size=(32, 32), dtype=np.uint8)
+    _tifffile_imwrite(non_matching, data)
+
+    result = stack_files_to_zarr(
+        directory=temp_dir,
+        extension=".tif",
+        pattern=r"(.+)_(\d+)\.tif$",
+    )
+
+    # Should only process .tif files
+    assert len(result) == 1
+    assert result["test"]["file_count"] == 3

@@ -21,7 +21,19 @@ def extract_patch_pairs(
     delta_range: tuple[float, float],
     random_seed: int | None = None,
     rotation_choices: Sequence[int] | None = None,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    return_positions: bool = False,
+    include_n_position: bool = False,
+) -> (
+    tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    | tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]
+):
     """
     Extract pairs of patches from 2D image tensors with controlled displacement.
 
@@ -57,15 +69,24 @@ def extract_patch_pairs(
         to the second patch in each pair. If provided, a rotation from this set is
         sampled uniformly per pair and tracked in the returned `rotations` tensor.
         When None (default), no rotations are applied.
+    return_positions : bool, optional
+        If True, also return positional embeddings for both patches. Default is False.
+    include_n_position : bool, optional
+        If True and return_positions=True, include N (batch) index in positions.
+        If False, positions only contain [Y_pos, X_pos]. Default is False.
 
     Returns
     -------
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-        A tuple containing:
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] or Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+        If return_positions=False:
         - patches1: Tensor of shape (N*P, C, U, V) containing patches at (x_i, y_i)
         - patches2: Tensor of shape (N*P, C, U, V) containing patches at (x_i + dx_i, y_i + dy_i)
         - deltas: Tensor of shape (N*P, 2) containing (dx_i, dy_i) displacement vectors
         - rotations: Tensor of shape (N*P,) containing quarter-turn rotations applied to patches2
+
+        If return_positions=True, additionally returns:
+        - positions1: Tensor of shape (N*P, 2) or (N*P, 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos] for patch1
+        - positions2: Tensor of shape (N*P, 2) or (N*P, 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos] for patch2
 
     Raises
     ------
@@ -86,6 +107,16 @@ def extract_patch_pairs(
     >>> print(patches2.shape)   # (50, 3, 32, 32)
     >>> print(deltas.shape)     # (50, 2)
     >>> print(rotations.shape)  # (50,)
+    >>> # With positional embeddings (Y, X only):
+    >>> patches1, patches2, deltas, rotations, pos1, pos2 = extract_patch_pairs(
+    ...     tensor, window, num_patches, delta_range, return_positions=True
+    ... )
+    >>> print(pos1.shape)  # (50, 2) - [Y_pos, X_pos] for patch1
+    >>> # With N position included:
+    >>> patches1, patches2, deltas, rotations, pos1, pos2 = extract_patch_pairs(
+    ...     tensor, window, num_patches, delta_range, return_positions=True, include_n_position=True
+    ... )
+    >>> print(pos1.shape)  # (50, 3) - [N_idx, Y_pos, X_pos] for patch1
     """
     # Validate input tensor shape
     if len(tensor.shape) != 4:
@@ -156,6 +187,21 @@ def extract_patch_pairs(
         dtype=torch.int64,
         device=tensor.device,
     )
+
+    # Pre-allocate positional embeddings if requested
+    # Each patch gets its own positional array: [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]
+    if return_positions:
+        pos_dim = 3 if include_n_position else 2
+        positions1 = torch.empty(
+            (total_patches, pos_dim),
+            dtype=torch.int64,
+            device=tensor.device,
+        )
+        positions2 = torch.empty(
+            (total_patches, pos_dim),
+            dtype=torch.int64,
+            device=tensor.device,
+        )
 
     if rotation_choices is None:
         rotation_choices = (0,)
@@ -281,8 +327,32 @@ def extract_patch_pairs(
             deltas_tensor[patch_idx, 1] = float(dy)
             rotations_tensor[patch_idx] = rotation
 
+            # Store positional embeddings if requested
+            if return_positions:
+                if include_n_position:
+                    positions1[patch_idx, 0] = n  # N index
+                    positions1[patch_idx, 1] = y_int  # Y position
+                    positions1[patch_idx, 2] = x_int  # X position
+                    positions2[patch_idx, 0] = n  # N index
+                    positions2[patch_idx, 1] = y_int + dy  # Y position
+                    positions2[patch_idx, 2] = x_int + dx  # X position
+                else:
+                    positions1[patch_idx, 0] = y_int  # Y position
+                    positions1[patch_idx, 1] = x_int  # X position
+                    positions2[patch_idx, 0] = y_int + dy  # Y position
+                    positions2[patch_idx, 1] = x_int + dx  # X position
+
             patch_idx += 1
 
+    if return_positions:
+        return (
+            patches1,
+            patches2,
+            deltas_tensor,
+            rotations_tensor,
+            positions1,
+            positions2,
+        )
     return patches1, patches2, deltas_tensor, rotations_tensor
 
 
@@ -940,11 +1010,244 @@ def extract_patch_pairs_metadata(
     return metadata
 
 
+def stratified_sample_by_histogram(
+    means: torch.Tensor,
+    sigmas: torch.Tensor,
+    n_bins: int = 20,
+    samples_per_bin: int = 10,
+    random_seed: int | None = None,
+) -> torch.Tensor:
+    """
+    Stratified sampling based on histogram bins of mean and sigma.
+
+    This function performs stratified sampling by dividing the (mean, sigma) space
+    into a 2D grid of bins and sampling uniformly from each bin. This ensures
+    good coverage across the distribution of patch statistics.
+
+    Parameters
+    ----------
+    means : torch.Tensor
+        Mean values of shape (N*P,) where N is number of images and P is patches per image
+    sigmas : torch.Tensor
+        Standard deviations of shape (N*P,)
+    n_bins : int, optional
+        Number of bins for each dimension (mean and sigma). Default is 20.
+    samples_per_bin : int, optional
+        Number of samples to take from each non-empty bin. Default is 10.
+    random_seed : int | None, optional
+        Random seed for reproducibility. If None, uses current random state.
+        Default is None.
+
+    Returns
+    -------
+    torch.Tensor
+        Selected indices of shape (num_selected,) where num_selected <= n_bins^2 * samples_per_bin
+
+    Examples
+    --------
+    >>> metadata = extract_patch_pairs_metadata(tensor, window, num_patches, delta_range)
+    >>> selected = stratified_sample_by_histogram(
+    ...     metadata["mean1"], metadata["sigma1"], n_bins=20, samples_per_bin=10
+    ... )
+    >>> patches1, patches2, deltas, rotations = extract_patches_from_metadata(
+    ...     tensor, metadata, selected
+    ... )
+    """
+    if means.shape != sigmas.shape:
+        msg = f"means and sigmas must have the same shape, got {means.shape} and {sigmas.shape}"
+        raise ValueError(msg)
+
+    if len(means.shape) != 1:
+        msg = f"means and sigmas must be 1D tensors, got shape {means.shape}"
+        raise ValueError(msg)
+
+    # Set random seed if provided
+    if random_seed is not None:
+        generator = torch.Generator()
+        generator.manual_seed(random_seed)
+    else:
+        generator = None
+
+    # Create 2D histogram bins (mean x sigma)
+    mean_min, mean_max = means.min().item(), means.max().item()
+    sigma_min, sigma_max = sigmas.min().item(), sigmas.max().item()
+
+    # Handle edge case where all values are the same
+    if mean_min == mean_max:
+        mean_min -= 0.5
+        mean_max += 0.5
+    if sigma_min == sigma_max:
+        sigma_min -= 0.5
+        sigma_max += 0.5
+
+    # Bin edges
+    mean_edges = torch.linspace(mean_min, mean_max, n_bins + 1)
+    sigma_edges = torch.linspace(sigma_min, sigma_max, n_bins + 1)
+
+    selected_indices = []
+
+    # Sample from each bin
+    for i in range(n_bins):
+        for j in range(n_bins):
+            # Find indices in this bin
+            # Use <= for the last bin to include the maximum value
+            if i == n_bins - 1:
+                in_mean_bin = (means >= mean_edges[i]) & (means <= mean_edges[i + 1])
+            else:
+                in_mean_bin = (means >= mean_edges[i]) & (means < mean_edges[i + 1])
+
+            if j == n_bins - 1:
+                in_sigma_bin = (sigmas >= sigma_edges[j]) & (
+                    sigmas <= sigma_edges[j + 1]
+                )
+            else:
+                in_sigma_bin = (sigmas >= sigma_edges[j]) & (
+                    sigmas < sigma_edges[j + 1]
+                )
+
+            in_bin = in_mean_bin & in_sigma_bin
+
+            bin_indices = torch.where(in_bin)[0]
+
+            # Sample from this bin
+            if len(bin_indices) > 0:
+                n_sample = min(samples_per_bin, len(bin_indices))
+                if generator is not None:
+                    perm = torch.randperm(len(bin_indices), generator=generator)
+                else:
+                    perm = torch.randperm(len(bin_indices))
+                sampled = bin_indices[perm[:n_sample]]
+                selected_indices.append(sampled)
+
+    if not selected_indices:
+        return torch.tensor([], dtype=torch.long, device=means.device)
+
+    return torch.cat(selected_indices)
+
+
+def stratified_sample_by_quantiles(
+    means: torch.Tensor,
+    sigmas: torch.Tensor,
+    n_bins: int = 20,
+    samples_per_bin: int = 10,
+    random_seed: int | None = None,
+) -> torch.Tensor:
+    """
+    Stratified sampling using quantiles for more uniform coverage.
+
+    This function performs stratified sampling by dividing the (mean, sigma) space
+    into bins based on quantiles rather than linear ranges. This ensures more
+    uniform coverage when the distribution is skewed.
+
+    Parameters
+    ----------
+    means : torch.Tensor
+        Mean values of shape (N*P,) where N is number of images and P is patches per image
+    sigmas : torch.Tensor
+        Standard deviations of shape (N*P,)
+    n_bins : int, optional
+        Number of quantile bins for each dimension (mean and sigma). Default is 20.
+    samples_per_bin : int, optional
+        Number of samples to take from each non-empty bin. Default is 10.
+    random_seed : int | None, optional
+        Random seed for reproducibility. If None, uses current random state.
+        Default is None.
+
+    Returns
+    -------
+    torch.Tensor
+        Selected indices of shape (num_selected,) where num_selected <= n_bins^2 * samples_per_bin
+
+    Examples
+    --------
+    >>> metadata = extract_patch_pairs_metadata(tensor, window, num_patches, delta_range)
+    >>> selected = stratified_sample_by_quantiles(
+    ...     metadata["mean1"], metadata["sigma1"], n_bins=20, samples_per_bin=10
+    ... )
+    >>> patches1, patches2, deltas, rotations = extract_patches_from_metadata(
+    ...     tensor, metadata, selected
+    ... )
+    """
+    if means.shape != sigmas.shape:
+        msg = f"means and sigmas must have the same shape, got {means.shape} and {sigmas.shape}"
+        raise ValueError(msg)
+
+    if len(means.shape) != 1:
+        msg = f"means and sigmas must be 1D tensors, got shape {means.shape}"
+        raise ValueError(msg)
+
+    # Set random seed if provided
+    if random_seed is not None:
+        generator = torch.Generator()
+        generator.manual_seed(random_seed)
+    else:
+        generator = None
+
+    # Use quantiles instead of linear bins for more uniform coverage
+    quantile_levels = torch.linspace(0, 1, n_bins + 1)
+    mean_quantiles = torch.quantile(means, quantile_levels)
+    sigma_quantiles = torch.quantile(sigmas, quantile_levels)
+
+    selected_indices = []
+
+    for i in range(n_bins):
+        for j in range(n_bins):
+            # Find indices in this quantile bin
+            # Use <= for the last bin to include the maximum value
+            if i == n_bins - 1:
+                in_mean_bin = (means >= mean_quantiles[i]) & (
+                    means <= mean_quantiles[i + 1]
+                )
+            else:
+                in_mean_bin = (means >= mean_quantiles[i]) & (
+                    means < mean_quantiles[i + 1]
+                )
+
+            if j == n_bins - 1:
+                in_sigma_bin = (sigmas >= sigma_quantiles[j]) & (
+                    sigmas <= sigma_quantiles[j + 1]
+                )
+            else:
+                in_sigma_bin = (sigmas >= sigma_quantiles[j]) & (
+                    sigmas < sigma_quantiles[j + 1]
+                )
+
+            in_bin = in_mean_bin & in_sigma_bin
+
+            bin_indices = torch.where(in_bin)[0]
+
+            if len(bin_indices) > 0:
+                n_sample = min(samples_per_bin, len(bin_indices))
+                if generator is not None:
+                    perm = torch.randperm(len(bin_indices), generator=generator)
+                else:
+                    perm = torch.randperm(len(bin_indices))
+                sampled = bin_indices[perm[:n_sample]]
+                selected_indices.append(sampled)
+
+    if not selected_indices:
+        return torch.tensor([], dtype=torch.long, device=means.device)
+
+    return torch.cat(selected_indices)
+
+
 def extract_patches_from_metadata(
     tensor: torch.Tensor,
     metadata: dict[str, torch.Tensor | tuple[int, int]],
     selected_indices: torch.Tensor | Sequence[int],
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    return_positions: bool = False,
+    include_n_position: bool = False,
+) -> (
+    tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    | tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]
+):
     """
     Extract patch pairs from tensor using pre-computed metadata and selected indices.
 
@@ -959,15 +1262,24 @@ def extract_patches_from_metadata(
         Metadata dictionary returned by extract_patch_pairs_metadata()
     selected_indices : Union[torch.Tensor, Sequence[int]]
         Indices of patches to extract. Can be a torch.Tensor or list/array of integers.
+    return_positions : bool, optional
+        If True, also return positional embeddings for both patches. Default is False.
+    include_n_position : bool, optional
+        If True and return_positions=True, include N (batch) index in positions.
+        If False, positions only contain [Y_pos, X_pos]. Default is False.
 
     Returns
     -------
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-        A tuple containing:
+    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] or Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+        If return_positions=False:
         - patches1: Tensor of shape (len(selected_indices), C, U, V)
         - patches2: Tensor of shape (len(selected_indices), C, U, V)
         - deltas: Tensor of shape (len(selected_indices), 2)
         - rotations: Tensor of shape (len(selected_indices),)
+
+        If return_positions=True, additionally returns:
+        - positions1: Tensor of shape (len(selected_indices), 2) or (len(selected_indices), 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos] for patch1
+        - positions2: Tensor of shape (len(selected_indices), 2) or (len(selected_indices), 3) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos] for patch2
 
     Examples
     --------
@@ -1013,6 +1325,20 @@ def extract_patches_from_metadata(
     deltas = torch.empty((num_selected, 2), dtype=torch.float32, device=tensor.device)
     rotations = torch.empty(num_selected, dtype=torch.int64, device=tensor.device)
 
+    # Pre-allocate positional embeddings if requested
+    if return_positions:
+        pos_dim = 3 if include_n_position else 2
+        positions1 = torch.empty(
+            (num_selected, pos_dim),
+            dtype=torch.int64,
+            device=tensor.device,
+        )
+        positions2 = torch.empty(
+            (num_selected, pos_dim),
+            dtype=torch.int64,
+            device=tensor.device,
+        )
+
     # Extract selected patches
     for i, idx in enumerate(selected_indices):
         idx_int = int(idx.item())
@@ -1049,6 +1375,23 @@ def extract_patches_from_metadata(
         deltas[i, 1] = dy
         rotations[i] = rotation
 
+        # Store positional embeddings if requested
+        if return_positions:
+            if include_n_position:
+                positions1[i, 0] = image_idx
+                positions1[i, 1] = patch1_y
+                positions1[i, 2] = patch1_x
+                positions2[i, 0] = image_idx
+                positions2[i, 1] = patch2_y
+                positions2[i, 2] = patch2_x
+            else:
+                positions1[i, 0] = patch1_y
+                positions1[i, 1] = patch1_x
+                positions2[i, 0] = patch2_y
+                positions2[i, 1] = patch2_x
+
+    if return_positions:
+        return patches1, patches2, deltas, rotations, positions1, positions2
     return patches1, patches2, deltas, rotations
 
 
@@ -1058,6 +1401,8 @@ def extract_patches_to_zarr(
     selected_indices: torch.Tensor | Sequence[int],
     zarr_path: str | zarr.Group,
     zarr_chunks: tuple[int, ...] | None = None,
+    store_positions: bool = False,
+    include_n_position: bool = False,
 ) -> zarr.Group:
     """
     Extract patch pairs to a Zarr group for on-disk storage.
@@ -1077,6 +1422,11 @@ def extract_patches_to_zarr(
         Path to zarr file/group or existing zarr group. If string, creates new group.
     zarr_chunks : Optional[Tuple[int, ...]], optional
         Chunk size for patch arrays. Default: (1, C, U, V) for patches, (1, 2) for deltas
+    store_positions : bool, optional
+        If True, also store positional embeddings in the Zarr group. Default is False.
+    include_n_position : bool, optional
+        If True and store_positions=True, include N (batch) index in positions.
+        If False, positions only contain [Y_pos, X_pos]. Default is False.
 
     Returns
     -------
@@ -1086,6 +1436,8 @@ def extract_patches_to_zarr(
         - patches2: Array of shape (num_selected, C, U, V)
         - deltas: Array of shape (num_selected, 2)
         - rotations: Array of shape (num_selected,)
+        - positions1: Array of shape (num_selected, 2) or (num_selected, 3) if store_positions=True
+        - positions2: Array of shape (num_selected, 2) or (num_selected, 3) if store_positions=True
         - metadata attributes stored in group.attrs
 
     Examples
@@ -1128,14 +1480,19 @@ def extract_patches_to_zarr(
         zarr_group = zarr_path
 
     # Determine chunk size
+    pos_dim = 3 if include_n_position else 2
     if zarr_chunks is None:
         patch_chunks = (1, C, U, V)
         delta_chunks = (1, 2)
         rotation_chunks = (1,)
+        position_chunks = (1, pos_dim)
     else:
         patch_chunks = zarr_chunks
         delta_chunks = zarr_chunks[:2] if len(zarr_chunks) >= 2 else (1, 2)
         rotation_chunks = (zarr_chunks[0],) if len(zarr_chunks) >= 1 else (1,)
+        position_chunks = (
+            (zarr_chunks[0], pos_dim) if len(zarr_chunks) >= 1 else (1, pos_dim)
+        )
 
     # Convert torch dtype to numpy dtype for zarr
     # Create a dummy numpy array from tensor to get numpy dtype
@@ -1167,6 +1524,21 @@ def extract_patches_to_zarr(
         chunks=rotation_chunks,
         dtype="int64",
     )
+
+    # Create position arrays if requested
+    if store_positions:
+        positions1_array = zarr_group.create(
+            "positions1",
+            shape=(num_selected, pos_dim),
+            chunks=position_chunks,
+            dtype="int64",
+        )
+        positions2_array = zarr_group.create(
+            "positions2",
+            shape=(num_selected, pos_dim),
+            chunks=position_chunks,
+            dtype="int64",
+        )
 
     # Extract and write patches
     for i, idx in enumerate(selected_indices):
@@ -1203,6 +1575,15 @@ def extract_patches_to_zarr(
         patches2_array[i] = patch2.cpu().numpy()
         deltas_array[i] = [dx, dy]
         rotations_array[i] = rotation
+
+        # Store positional embeddings if requested
+        if store_positions:
+            if include_n_position:
+                positions1_array[i] = [image_idx, patch1_y, patch1_x]
+                positions2_array[i] = [image_idx, patch2_y, patch2_x]
+            else:
+                positions1_array[i] = [patch1_y, patch1_x]
+                positions2_array[i] = [patch2_y, patch2_x]
 
     # Store metadata as group attributes
     zarr_group.attrs.update(
@@ -1266,6 +1647,14 @@ class ZarrPatchPairDataset:
         self.deltas = self.zarr_group["deltas"]
         self.rotations = self.zarr_group["rotations"]
 
+        # Check if positional embeddings exist
+        self.has_positions = (
+            "positions1" in self.zarr_group and "positions2" in self.zarr_group
+        )
+        if self.has_positions:
+            self.positions1 = self.zarr_group["positions1"]
+            self.positions2 = self.zarr_group["positions2"]
+
         self.transform = transform
 
     def __len__(self) -> int:
@@ -1275,7 +1664,17 @@ class ZarrPatchPairDataset:
     def __getitem__(
         self,
         idx: int,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> (
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+        | tuple[
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+        ]
+    ):
         """
         Get a patch pair by index.
 
@@ -1286,12 +1685,20 @@ class ZarrPatchPairDataset:
 
         Returns
         -------
-        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-            Tuple containing:
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] or Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+            If positional embeddings are not available:
             - patch1: Tensor of shape (C, U, V)
             - patch2: Tensor of shape (C, U, V)
             - delta: Tensor of shape (2,)
             - rotation: Tensor scalar (int64)
+
+            If positional embeddings are available:
+            - patch1: Tensor of shape (C, U, V)
+            - patch2: Tensor of shape (C, U, V)
+            - delta: Tensor of shape (2,)
+            - rotation: Tensor scalar (int64)
+            - position1: Tensor of shape (2,) or (3,) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]
+            - position2: Tensor of shape (2,) or (3,) containing [Y_pos, X_pos] or [N_idx, Y_pos, X_pos]
         """
         # Load from zarr (returns numpy arrays)
         patch1_np = self.patches1[idx]
@@ -1307,11 +1714,26 @@ class ZarrPatchPairDataset:
 
         # Apply transform if provided
         if self.transform is not None:
-            patch1, patch2, delta, rotation = self.transform(
-                patch1,
-                patch2,
-                delta,
-                rotation,
-            )
+            if self.has_positions:
+                # Transform should handle positions if they exist
+                result = self.transform(patch1, patch2, delta, rotation)
+                if len(result) == 6:
+                    patch1, patch2, delta, rotation, pos1, pos2 = result
+                else:
+                    patch1, patch2, delta, rotation = result
+            else:
+                patch1, patch2, delta, rotation = self.transform(
+                    patch1,
+                    patch2,
+                    delta,
+                    rotation,
+                )
+
+        if self.has_positions:
+            position1_np = self.positions1[idx]
+            position2_np = self.positions2[idx]
+            position1 = torch.from_numpy(position1_np)
+            position2 = torch.from_numpy(position2_np)
+            return patch1, patch2, delta, rotation, position1, position2
 
         return patch1, patch2, delta, rotation

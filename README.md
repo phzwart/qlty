@@ -15,7 +15,8 @@
 - **2.5D Quilt**: Convert 3D volumetric data (N, C, Z, Y, X) to multi-channel 2D by slicing Z dimension into channels
 - **Backend System**: Unified interface for multiple data sources (torch.Tensor, Zarr, HDF5, memory-mapped arrays)
 - **Image Stack Utilities**: Convert image file stacks (TIFF, PNG) to efficient Zarr format with pattern matching
-- **OME-Zarr Support**: Convert image stacks to OME-Zarr format with multiscale pyramids
+- **OME-Zarr Support**: Convert image stacks to OME-Zarr format with multiscale pyramids (Gaussian and Laplacian)
+- **Laplacian Pyramids**: Store difference maps for perfect reconstruction from base level plus residuals
 - **Patch Pair Metadata**: Extract patch pair metadata without loading patches into memory
 - **Zarr Patch Storage**: Save and load patch pairs efficiently using Zarr format
 - **False Color Visualization**: UMAP-based false-color visualization of 2D images using patch-based dimensionality reduction
@@ -124,7 +125,7 @@ result = stack_files_to_zarr(
     pattern=r"(.+)_(\d+)\.tif$"  # Matches: stack_001.tif, stack_002.tif, etc.
 )
 
-# OME-Zarr with multiscale pyramids
+# OME-Zarr with multiscale pyramids (Gaussian)
 ome_result = stack_files_to_ome_zarr(
     directory="/path/to/images",
     extension=".tif",
@@ -132,6 +133,22 @@ ome_result = stack_files_to_ome_zarr(
     pyramid_levels=4,  # Create 4 resolution levels
     downsample_mode="2d"
 )
+
+# OME-Zarr with Laplacian pyramid (difference maps for perfect reconstruction)
+from qlty.utils.stack_to_zarr import stack_files_to_ome_zarr_laplacian, reconstruct_from_laplacian_pyramid
+
+laplacian_result = stack_files_to_ome_zarr_laplacian(
+    directory="/path/to/images",
+    extension=".tif",
+    pattern=r"(.+)_(\d+)\.tif$",
+    pyramid_levels=4,
+    interpolation_mode="bilinear",  # or "bicubic"
+    store_base_level=True
+)
+
+# Reconstruct full resolution from Laplacian pyramid
+zarr_path = laplacian_result["stack_name"]["zarr_path"]
+reconstructed = reconstruct_from_laplacian_pyramid(zarr_path, z_idx=0)
 # Returns metadata dict with zarr paths and stack information
 ```
 
